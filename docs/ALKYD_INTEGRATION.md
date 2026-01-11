@@ -49,6 +49,8 @@ The current implementation includes:
 3. **Demo System**: Shows a 256x256 procedural texture
 4. **Configuration**: Adjustable texture size, noise scale, and octaves
 
+**Note**: The alkyd plugin is currently commented out in the main.rs file. The basic procedural texture generation system is implemented using Bevy's native image creation APIs, providing a foundation that can be enhanced with alkyd's advanced features in the future.
+
 ## Usage
 
 To use procedural textures on an entity:
