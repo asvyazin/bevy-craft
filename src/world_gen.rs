@@ -168,19 +168,29 @@ fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, he
     // Generate bedrock layer at the bottom
     chunk.data.set_block(local_x, 0, local_z, BlockType::Bedrock);
     
-    // Fill with stone up to a certain level
-    for y in 1..effective_height.min(10) {
+    // Fill with stone up to 80% of the terrain height for more natural variation
+    let stone_height = (effective_height as f32 * 0.8) as i32;
+    for y in 1..stone_height.min(effective_height) {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
     }
     
-    // Fill with dirt for the middle layer
-    for y in effective_height.min(10)..effective_height {
+    // Fill with dirt for the remaining 20% up to the surface
+    for y in stone_height.min(effective_height)..effective_height {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Dirt);
     }
     
     // Add grass on top if there's terrain
     if effective_height > 0 {
         chunk.data.set_block(local_x, effective_height as usize, local_z, BlockType::Grass);
+    }
+    
+    // Add some sand near water level (around y=5-10) for beach-like areas
+    if effective_height > 8 && effective_height < 15 {
+        for y in 5..=8 {
+            if y < effective_height {
+                chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+            }
+        }
     }
 }
 
