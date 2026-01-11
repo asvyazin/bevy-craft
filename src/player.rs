@@ -133,6 +133,17 @@ pub fn player_movement_system(
         // Apply gravity
         if !player.is_grounded {
             player.velocity.y -= player.gravity * time.delta_seconds();
+        } else {
+            // When grounded, ensure we don't have any downward velocity
+            // that could cause penetration into the ground
+            if player.velocity.y < 0.0 {
+                player.velocity.y = 0.0;
+            }
+        }
+
+        // Clamp vertical velocity to prevent micro-oscillations when grounded
+        if player.is_grounded && player.velocity.y.abs() < 0.1 {
+            player.velocity.y = 0.0;
         }
 
         // Apply velocity to position (collision system will handle actual positioning)
