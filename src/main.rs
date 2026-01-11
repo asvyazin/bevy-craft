@@ -38,7 +38,7 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_chunk_mesh_materials)
-        .add_systems(Update, update_block_rendering)
+        // .add_systems(Update, update_block_rendering) // Disabled individual block rendering - using chunk meshes instead
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
         // .add_systems(Update, spawn_blocks_from_chunks) // Disabled legacy block spawning system
@@ -77,7 +77,7 @@ fn setup(
     });
 
     // Create a simple world with different block types
-    generate_simple_world(&mut commands);
+    // generate_simple_world(&mut commands); // Disabled - using chunk-based world generation instead
 
     // Generate some chunks for demonstration
     generate_demo_chunks(&mut commands, &mut chunk_manager);
@@ -223,8 +223,8 @@ fn generate_chunk_meshes(
         if chunk.is_generated && chunk.needs_mesh_update {
             println!("🏗️  Generating mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
             
-            // Generate the mesh for this chunk using greedy meshing algorithm
-            let mesh = chunk_mesh::generate_chunk_mesh_greedy(
+            // Generate the mesh for this chunk using neighbor-aware algorithm
+            let mesh = chunk_mesh::generate_chunk_mesh_with_neighbors(
                 &chunk.data,
                 &chunk.position,
                 &chunk_manager,
@@ -271,16 +271,18 @@ fn render_chunk_meshes(
     chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk), Without<Handle<Mesh>>>, 
 ) {
     for (entity, chunk_mesh, chunk) in &chunk_meshes {
-        // For now, just render the first material we find
-        // This will be improved later with proper material assignment
-        if let Some((_, material_handle)) = chunk_mesh.material_handles.iter().next() {
-            commands.entity(entity).insert(PbrBundle {
-                mesh: chunk_mesh.mesh_handle.clone(),
-                material: material_handle.clone(),
-                transform: Transform::from_translation(chunk.position.min_block_position().as_vec3()),
-                ..default()
-            });
-        }
+        // Use a default material (grass) if no specific materials are available
+        // This ensures all chunks are rendered even if material assignment is incomplete
+        let material_handle = chunk_mesh.material_handles.values().next()
+            .cloned()
+            .unwrap_or_else(|| Handle::default());
+            
+        commands.entity(entity).insert(PbrBundle {
+            mesh: chunk_mesh.mesh_handle.clone(),
+            material: material_handle,
+            transform: Transform::from_translation(chunk.position.min_block_position().as_vec3()),
+            ..default()
+        });
     }
 }
 

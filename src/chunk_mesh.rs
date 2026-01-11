@@ -586,6 +586,8 @@ pub fn generate_chunk_mesh_greedy(
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh.insert_indices(Indices::U32(indices));
+    } else {
+        println!("⚠️  Greedy mesh generation produced empty mesh - no visible faces found");
     }
 
     mesh
@@ -718,9 +720,9 @@ fn get_block_in_direction(
 ) -> Option<crate::block::BlockType> {
     match direction {
         Direction::X => {
-            // X direction: slice = Y, y = Z, x = X
-            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_SIZE && z < crate::chunk::CHUNK_HEIGHT {
-                chunk_data.get_block(x, z, y)
+            // X direction: slice = Z, y = Y, x = X
+            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_HEIGHT && z < crate::chunk::CHUNK_SIZE {
+                chunk_data.get_block(x, y, z)
             } else {
                 // Handle chunk boundaries
                 get_neighbor_block_for_greedy(chunk_data, chunk_pos, chunk_manager, chunks, x, y, z, direction)
@@ -729,7 +731,7 @@ fn get_block_in_direction(
         Direction::Y => {
             // Y direction: slice = X, y = Y, x = Z
             if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_HEIGHT && z < crate::chunk::CHUNK_SIZE {
-                chunk_data.get_block(z, y, x)
+                chunk_data.get_block(x, y, z)
             } else {
                 // Handle chunk boundaries
                 get_neighbor_block_for_greedy(chunk_data, chunk_pos, chunk_manager, chunks, x, y, z, direction)
@@ -737,7 +739,7 @@ fn get_block_in_direction(
         },
         Direction::Z => {
             // Z direction: slice = X, y = Y, x = Z
-            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_SIZE && z < crate::chunk::CHUNK_HEIGHT {
+            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_HEIGHT && z < crate::chunk::CHUNK_SIZE {
                 chunk_data.get_block(x, y, z)
             } else {
                 // Handle chunk boundaries
@@ -832,16 +834,21 @@ fn add_greedy_quad(
     
     // Calculate the normal based on direction
     let normal = match direction {
-        Direction::X => [1.0, 0.0, 0.0], // Right face
-        Direction::Y => [0.0, 1.0, 0.0], // Top face
-        Direction::Z => [0.0, 0.0, 1.0], // Front face
+        Direction::X => [1.0, 0.0, 0.0], // Right face (positive X)
+        Direction::Y => [0.0, 1.0, 0.0], // Top face (positive Y)
+        Direction::Z => [0.0, 0.0, 1.0], // Front face (positive Z)
     };
 
     // Calculate the quad vertices based on direction
+    // Fixed coordinate system: x = X axis, y = Y axis, slice = Z axis for Direction::X
+    // For Direction::Y: slice = X, x = Y, y = Z
+    // For Direction::Z: x = X, y = Y, slice = Z
     let (v0, v1, v2, v3) = match direction {
         Direction::X => {
-            // Right face quad
-            let x_pos = slice as f32 + 1.0;
+            // Right face quad (positive X direction)
+            // slice = Z, y = Y, x = X (starting position)
+            // width = height in Y direction, height = width in Z direction
+            let x_pos = slice as f32 + 1.0; // Right face is at slice + 1
             (
                 [x_pos, y as f32, x as f32],
                 [x_pos, y as f32, x as f32 + height as f32],
@@ -850,24 +857,27 @@ fn add_greedy_quad(
             )
         },
         Direction::Y => {
-            // Top face quad
-            let y_pos = slice as f32 + 1.0;
-            let z_val = x; // Use the x parameter as z coordinate for Y direction
+            // Top face quad (positive Y direction)
+            // slice = X, x = Y, y = Z
+            // width = height in Y direction, height = width in Z direction
+            let y_pos = slice as f32 + 1.0; // Top face is at slice + 1
             (
-                [x as f32, y_pos, z_val as f32],
-                [x as f32 + width as f32, y_pos, z_val as f32],
-                [x as f32 + width as f32, y_pos, z_val as f32 + height as f32],
-                [x as f32, y_pos, z_val as f32 + height as f32],
+                [x as f32, y_pos, y as f32],
+                [x as f32 + height as f32, y_pos, y as f32],
+                [x as f32 + height as f32, y_pos, y as f32 + width as f32],
+                [x as f32, y_pos, y as f32 + width as f32],
             )
         },
         Direction::Z => {
-            // Front face quad
-            let z_pos = slice as f32 + 1.0;
+            // Front face quad (positive Z direction)
+            // x = X, y = Y, slice = Z
+            // width = height in Y direction, height = width in Z direction
+            let z_pos = slice as f32 + 1.0; // Front face is at slice + 1
             (
                 [x as f32, y as f32, z_pos],
-                [x as f32 + width as f32, y as f32, z_pos],
-                [x as f32 + width as f32, y as f32 + height as f32, z_pos],
-                [x as f32, y as f32 + height as f32, z_pos],
+                [x as f32 + height as f32, y as f32, z_pos],
+                [x as f32 + height as f32, y as f32 + width as f32, z_pos],
+                [x as f32, y as f32 + width as f32, z_pos],
             )
         },
     };
