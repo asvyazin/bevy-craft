@@ -12,7 +12,10 @@ mod noise_demo;
 mod world_gen;
 mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
-use player::{Player, PlayerMovementSettings};
+use player::PlayerMovementSettings;
+
+mod camera;
+use camera::{camera_follow_system, spawn_game_camera};
 
 fn main() {
     App::new()
@@ -22,6 +25,7 @@ fn main() {
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .add_systems(Startup, setup)
+        .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Update, update_block_rendering)
         .add_systems(Update, generate_chunks_system) // Add world generation system
@@ -29,6 +33,7 @@ fn main() {
         .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
         .add_systems(Startup, player::spawn_player) // Add player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
+        .add_systems(Update, camera_follow_system) // Add camera follow system
         .run();
 }
 
@@ -39,11 +44,7 @@ fn setup(
     // Initialize chunk manager
     *chunk_manager = ChunkManager::new(2); // Render distance of 2 chunks
 
-    // Add a camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    // Camera is now spawned by the spawn_game_camera system
 
     // Add light
     commands.spawn(PointLightBundle {
