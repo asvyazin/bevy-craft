@@ -9,6 +9,7 @@ const GROUND_DETECTION_EPSILON: f32 = 0.01;
 const GROUND_HYSTERESIS_THRESHOLD: f32 = 1.0; // Increased threshold for better stability
 const GROUND_HYSTERESIS_INCREMENT: f32 = 0.2; // Larger increment for faster response
 const GROUNDED_STABILITY_BUFFER: f32 = 0.01; // Small buffer to prevent micro-adjustments when grounded
+const GROUNDED_SAFE_ZONE: f32 = 0.1; // Safe zone where player can be slightly inside ground without correction
 
 /// Component to track collision information for entities
 #[derive(Component, Debug)]
@@ -49,12 +50,20 @@ pub fn collision_detection_system(
             // If player is grounded, be more conservative about vertical collision resolution
             if let Some(ref player) = player.as_ref() {
                 if player.is_grounded {
-                    // Only allow upward collision resolution when grounded (prevent micro-adjustments downward)
-                    // Also add a small stability buffer to prevent micro-adjustments
-                    if resolved_position.y >= entity_position.y + GROUNDED_STABILITY_BUFFER {
+                    // For grounded players, implement a safe zone to prevent jittering
+                    // Only resolve collisions that are outside the safe zone
+                    let penetration_depth = resolved_position.y - entity_position.y;
+                    
+                    if penetration_depth > GROUNDED_SAFE_ZONE {
+                        // Significant upward penetration - resolve it
+                        println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                        transform.translation = resolved_position;
+                    } else if penetration_depth < -GROUNDED_SAFE_ZONE {
+                        // Significant downward penetration - resolve it
                         println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
                         transform.translation = resolved_position;
                     }
+                    // If penetration is within the safe zone, ignore it to prevent jittering
                 } else {
                     println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
                     transform.translation = resolved_position;
@@ -72,12 +81,20 @@ pub fn collision_detection_system(
             // If player is grounded, be more conservative about vertical collision resolution
             if let Some(ref player) = player.as_ref() {
                 if player.is_grounded {
-                    // Only allow upward collision resolution when grounded (prevent micro-adjustments downward)
-                    // Also add a small stability buffer to prevent micro-adjustments
-                    if resolved_position.y >= entity_position.y + GROUNDED_STABILITY_BUFFER {
+                    // For grounded players, implement a safe zone to prevent jittering
+                    // Only resolve collisions that are outside the safe zone
+                    let penetration_depth = resolved_position.y - entity_position.y;
+                    
+                    if penetration_depth > GROUNDED_SAFE_ZONE {
+                        // Significant upward penetration - resolve it
+                        println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                        transform.translation = resolved_position;
+                    } else if penetration_depth < -GROUNDED_SAFE_ZONE {
+                        // Significant downward penetration - resolve it
                         println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
                         transform.translation = resolved_position;
                     }
+                    // If penetration is within the safe zone, ignore it to prevent jittering
                 } else {
                     println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
                     transform.translation = resolved_position;
