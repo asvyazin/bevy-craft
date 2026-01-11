@@ -6,11 +6,21 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 mod texture_gen_test;
 
 /// Resource to hold texture generation settings
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct TextureGenSettings {
     pub texture_size: UVec2,
     pub noise_scale: f32,
     pub noise_octaves: usize,
+}
+
+impl Default for TextureGenSettings {
+    fn default() -> Self {
+        Self {
+            texture_size: UVec2::new(256, 256),
+            noise_scale: 0.05,
+            noise_octaves: 4,
+        }
+    }
 }
 
 impl TextureGenSettings {
@@ -35,24 +45,21 @@ pub fn generate_procedural_textures(
     query: Query<Entity, Added<ProceduralTexture>>,
 ) {
     for entity in &query {
-        // Create a new image for the procedural texture
-        let mut image = Image::new_fill(
+        // Generate procedural texture data
+        let texture_data = generate_procedural_texture_data(&settings);
+
+        // Create a new image for the procedural texture with the correct data
+        let image = Image::new(
             Extent3d {
                 width: settings.texture_size.x,
                 height: settings.texture_size.y,
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            &[0, 0, 0, 255],
+            texture_data,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::default(),
         );
-
-        // Generate procedural texture data
-        let texture_data = generate_procedural_texture_data(&settings);
-        
-        // Fill the image with generated data
-        image.data = texture_data;
 
         // Add the image to assets
         let image_handle = images.add(image);
@@ -66,9 +73,8 @@ pub fn generate_procedural_textures(
 
 /// Generate procedural texture data using noise
 fn generate_procedural_texture_data(settings: &TextureGenSettings) -> Vec<u8> {
-    let mut texture_data = Vec::with_capacity(
-        (settings.texture_size.x * settings.texture_size.y * 4) as usize
-    );
+    let expected_size = (settings.texture_size.x * settings.texture_size.y * 4) as usize;
+    let mut texture_data = Vec::with_capacity(expected_size);
 
     for y in 0..settings.texture_size.y {
         for x in 0..settings.texture_size.x {
@@ -87,6 +93,8 @@ fn generate_procedural_texture_data(settings: &TextureGenSettings) -> Vec<u8> {
         }
     }
 
+    // Ensure the texture data has the exact expected size
+    assert_eq!(texture_data.len(), expected_size, "Texture data size mismatch");
     texture_data
 }
 
