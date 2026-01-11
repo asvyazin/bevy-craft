@@ -114,3 +114,432 @@ pub fn generate_simple_chunk_mesh(_chunk_data: &crate::chunk::ChunkData) -> Mesh
     
     mesh
 }
+
+/// Generate mesh for a chunk with neighbor awareness
+/// This function checks neighboring chunks to avoid rendering faces that are adjacent to solid blocks
+pub fn generate_chunk_mesh_with_neighbors(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+) -> Mesh {
+    let mut mesh = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default()
+    );
+    
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+    
+    // Iterate through all blocks in the chunk
+    for local_x in 0..crate::chunk::CHUNK_SIZE {
+        for local_z in 0..crate::chunk::CHUNK_SIZE {
+            for y in 0..crate::chunk::CHUNK_HEIGHT {
+                if let Some(block_type) = chunk_data.get_block(local_x, y, local_z) {
+                    if block_type != crate::block::BlockType::Air {
+                        // Check each face to see if it should be rendered
+                        let should_render = check_face_visibility(
+                            chunk_data,
+                            chunk_pos,
+                            chunk_manager,
+                            chunks,
+                            local_x,
+                            y,
+                            local_z,
+                        );
+                        
+                        // If any face should be rendered, add the block mesh
+                        if should_render.any() {
+                            add_block_mesh(
+                                &mut positions,
+                                &mut normals,
+                                &mut uvs,
+                                &mut indices,
+                                local_x,
+                                y,
+                                local_z,
+                                &should_render,
+                                block_type,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Insert mesh data
+    if !positions.is_empty() {
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_indices(Indices::U32(indices));
+    }
+    
+    mesh
+}
+
+/// Check which faces of a block should be visible
+/// Returns a struct indicating which faces should be rendered
+#[derive(Default)]
+struct FaceVisibility {
+    front: bool,
+    back: bool,
+    left: bool,
+    right: bool,
+    top: bool,
+    bottom: bool,
+}
+
+impl FaceVisibility {
+    fn any(&self) -> bool {
+        self.front || self.back || self.left || self.right || self.top || self.bottom
+    }
+}
+
+fn check_face_visibility(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+    local_x: usize,
+    y: usize,
+    local_z: usize,
+) -> FaceVisibility {
+    let mut visibility = FaceVisibility::default();
+    
+    // Check front face (positive Z direction)
+    if local_z == crate::chunk::CHUNK_SIZE - 1 {
+        // At chunk boundary, check neighbor chunk
+        let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x, chunk_pos.z + 1);
+        if let Some(neighbor_block) = chunk_manager.get_neighbor_block(
+            chunks,
+            chunk_pos,
+            &neighbor_pos,
+            local_x,
+            y,
+            0, // Front face of neighbor is at local_z = 0
+        ) {
+            visibility.front = neighbor_block == crate::block::BlockType::Air;
+        } else {
+            // No neighbor chunk, render the face
+            visibility.front = true;
+        }
+    } else {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x, y, local_z + 1) {
+            visibility.front = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.front = true;
+        }
+    }
+    
+    // Check back face (negative Z direction)
+    if local_z == 0 {
+        // At chunk boundary, check neighbor chunk
+        let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x, chunk_pos.z - 1);
+        if let Some(neighbor_block) = chunk_manager.get_neighbor_block(
+            chunks,
+            chunk_pos,
+            &neighbor_pos,
+            local_x,
+            y,
+            crate::chunk::CHUNK_SIZE - 1, // Back face of neighbor is at local_z = CHUNK_SIZE - 1
+        ) {
+            visibility.back = neighbor_block == crate::block::BlockType::Air;
+        } else {
+            // No neighbor chunk, render the face
+            visibility.back = true;
+        }
+    } else {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x, y, local_z - 1) {
+            visibility.back = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.back = true;
+        }
+    }
+    
+    // Check right face (positive X direction)
+    if local_x == crate::chunk::CHUNK_SIZE - 1 {
+        // At chunk boundary, check neighbor chunk
+        let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x + 1, chunk_pos.z);
+        if let Some(neighbor_block) = chunk_manager.get_neighbor_block(
+            chunks,
+            chunk_pos,
+            &neighbor_pos,
+            0, // Right face of neighbor is at local_x = 0
+            y,
+            local_z,
+        ) {
+            visibility.right = neighbor_block == crate::block::BlockType::Air;
+        } else {
+            // No neighbor chunk, render the face
+            visibility.right = true;
+        }
+    } else {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x + 1, y, local_z) {
+            visibility.right = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.right = true;
+        }
+    }
+    
+    // Check left face (negative X direction)
+    if local_x == 0 {
+        // At chunk boundary, check neighbor chunk
+        let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x - 1, chunk_pos.z);
+        if let Some(neighbor_block) = chunk_manager.get_neighbor_block(
+            chunks,
+            chunk_pos,
+            &neighbor_pos,
+            crate::chunk::CHUNK_SIZE - 1, // Left face of neighbor is at local_x = CHUNK_SIZE - 1
+            y,
+            local_z,
+        ) {
+            visibility.left = neighbor_block == crate::block::BlockType::Air;
+        } else {
+            // No neighbor chunk, render the face
+            visibility.left = true;
+        }
+    } else {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x - 1, y, local_z) {
+            visibility.left = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.left = true;
+        }
+    }
+    
+    // Check top face (positive Y direction)
+    if y < crate::chunk::CHUNK_HEIGHT - 1 {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x, y + 1, local_z) {
+            visibility.top = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.top = true;
+        }
+    } else {
+        // At top of chunk, always render (no chunks above)
+        visibility.top = true;
+    }
+    
+    // Check bottom face (negative Y direction)
+    if y > 0 {
+        // Within chunk, check adjacent block
+        if let Some(adjacent_block) = chunk_data.get_block(local_x, y - 1, local_z) {
+            visibility.bottom = adjacent_block == crate::block::BlockType::Air;
+        } else {
+            visibility.bottom = true;
+        }
+    } else {
+        // At bottom of chunk, always render (no chunks below)
+        visibility.bottom = true;
+    }
+    
+    visibility
+}
+
+/// Add a block mesh with only the visible faces
+fn add_block_mesh(
+    positions: &mut Vec<[f32; 3]>,
+    normals: &mut Vec<[f32; 3]>,
+    uvs: &mut Vec<[f32; 2]>,
+    indices: &mut Vec<u32>,
+    local_x: usize,
+    y: usize,
+    local_z: usize,
+    visibility: &FaceVisibility,
+    block_type: crate::block::BlockType,
+) {
+    let base_index = positions.len() as u32;
+    
+    // Front face (positive Z)
+    if visibility.front {
+        let z = local_z as f32 + 1.0;
+        positions.extend_from_slice(&[
+            [local_x as f32, y as f32, z],
+            [local_x as f32 + 1.0, y as f32, z],
+            [local_x as f32 + 1.0, y as f32 + 1.0, z],
+            [local_x as f32, y as f32 + 1.0, z],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+        ]);
+        
+        // UV coordinates based on block type
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index, base_index + 1, base_index + 2, base_index, base_index + 2, base_index + 3]);
+    }
+    
+    // Back face (negative Z)
+    if visibility.back {
+        let z = local_z as f32;
+        positions.extend_from_slice(&[
+            [local_x as f32 + 1.0, y as f32, z],
+            [local_x as f32, y as f32, z],
+            [local_x as f32, y as f32 + 1.0, z],
+            [local_x as f32 + 1.0, y as f32 + 1.0, z],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 0.0, -1.0],
+        ]);
+        
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index + 4, base_index + 5, base_index + 6, base_index + 4, base_index + 6, base_index + 7]);
+    }
+    
+    // Right face (positive X)
+    if visibility.right {
+        let x = local_x as f32 + 1.0;
+        positions.extend_from_slice(&[
+            [x, y as f32, local_z as f32 + 1.0],
+            [x, y as f32, local_z as f32],
+            [x, y as f32 + 1.0, local_z as f32],
+            [x, y as f32 + 1.0, local_z as f32 + 1.0],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]);
+        
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index + 8, base_index + 9, base_index + 10, base_index + 8, base_index + 10, base_index + 11]);
+    }
+    
+    // Left face (negative X)
+    if visibility.left {
+        let x = local_x as f32;
+        positions.extend_from_slice(&[
+            [x, y as f32, local_z as f32],
+            [x, y as f32, local_z as f32 + 1.0],
+            [x, y as f32 + 1.0, local_z as f32 + 1.0],
+            [x, y as f32 + 1.0, local_z as f32],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [-1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+        ]);
+        
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index + 12, base_index + 13, base_index + 14, base_index + 12, base_index + 14, base_index + 15]);
+    }
+    
+    // Top face (positive Y)
+    if visibility.top {
+        let y_top = y as f32 + 1.0;
+        positions.extend_from_slice(&[
+            [local_x as f32, y_top, local_z as f32 + 1.0],
+            [local_x as f32 + 1.0, y_top, local_z as f32 + 1.0],
+            [local_x as f32 + 1.0, y_top, local_z as f32],
+            [local_x as f32, y_top, local_z as f32],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]);
+        
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index + 16, base_index + 17, base_index + 18, base_index + 16, base_index + 18, base_index + 19]);
+    }
+    
+    // Bottom face (negative Y)
+    if visibility.bottom {
+        let y_bottom = y as f32;
+        positions.extend_from_slice(&[
+            [local_x as f32, y_bottom, local_z as f32],
+            [local_x as f32 + 1.0, y_bottom, local_z as f32],
+            [local_x as f32 + 1.0, y_bottom, local_z as f32 + 1.0],
+            [local_x as f32, y_bottom, local_z as f32 + 1.0],
+        ]);
+        
+        normals.extend_from_slice(&[
+            [0.0, -1.0, 0.0],
+            [0.0, -1.0, 0.0],
+            [0.0, -1.0, 0.0],
+            [0.0, -1.0, 0.0],
+        ]);
+        
+        let uv = get_block_uv(block_type);
+        uvs.extend_from_slice(&[
+            [uv.0, uv.1],
+            [uv.2, uv.1],
+            [uv.2, uv.3],
+            [uv.0, uv.3],
+        ]);
+        
+        indices.extend_from_slice(&[base_index + 20, base_index + 21, base_index + 22, base_index + 20, base_index + 22, base_index + 23]);
+    }
+}
+
+/// Get UV coordinates for a block type (simple implementation for now)
+fn get_block_uv(block_type: crate::block::BlockType) -> (f32, f32, f32, f32) {
+    // For now, use simple UV mapping based on block type
+    // This will be replaced with a proper texture atlas later
+    match block_type {
+        crate::block::BlockType::Grass => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Dirt => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Stone => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Wood => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Leaves => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Sand => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Water => (0.0, 0.0, 1.0, 1.0),
+        crate::block::BlockType::Bedrock => (0.0, 0.0, 1.0, 1.0),
+        _ => (0.0, 0.0, 1.0, 1.0),
+    }
+}

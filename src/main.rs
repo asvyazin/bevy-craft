@@ -21,7 +21,7 @@ mod camera;
 use camera::{camera_mouse_control_system, camera_rotation_system, cursor_control_system, spawn_game_camera};
 
 mod block_interaction;
-use block_interaction::{block_interaction_system, block_targeting_feedback_system};
+use block_interaction::block_targeting_feedback_system;
 
 fn main() {
     App::new()
@@ -41,6 +41,7 @@ fn main() {
         .add_systems(Update, spawn_blocks_from_chunks) // Add chunk rendering system (legacy)
         .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
+        .add_systems(Update, test_neighbor_detection) // Add neighbor detection test
         .add_systems(Startup, player::spawn_player) // Add player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(Update, cursor_control_system) // Add cursor control system
@@ -213,13 +214,20 @@ fn generate_chunk_meshes(
     mut meshes: ResMut<Assets<Mesh>>,
     mesh_materials: Res<ChunkMeshMaterials>,
     chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
+    all_chunks: Query<&Chunk>,
+    chunk_manager: Res<ChunkManager>,
 ) {
     for (chunk_entity, chunk) in &chunks {
         if chunk.is_generated && chunk.needs_mesh_update {
             println!("🏗️  Generating mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
             
-            // Generate the mesh for this chunk
-            let mesh = chunk_mesh::generate_simple_chunk_mesh(&chunk.data);
+            // Generate the mesh for this chunk using neighbor-aware generation
+            let mesh = chunk_mesh::generate_chunk_mesh_with_neighbors(
+                &chunk.data,
+                &chunk.position,
+                &chunk_manager,
+                &all_chunks,
+            );
             let mesh_handle = meshes.add(mesh);
             
             // Create the chunk mesh component
@@ -264,6 +272,44 @@ fn render_chunk_meshes(
                 transform: Transform::from_translation(chunk.position.min_block_position().as_vec3()),
                 ..default()
             });
+        }
+    }
+}
+
+/// Test system to verify neighbor detection is working
+fn test_neighbor_detection(
+    chunk_manager: Res<ChunkManager>,
+    chunks: Query<&Chunk>,
+) {
+    // Test neighbor detection for the center chunk (0, 0)
+    let center_pos = crate::chunk::ChunkPosition::new(0, 0);
+    
+    if chunk_manager.loaded_chunks.contains_key(&center_pos) {
+        println!("🔍 Testing neighbor detection for chunk (0, 0):");
+        
+        // Test each direction
+        let directions = [
+            ("North", crate::chunk::ChunkPosition::new(0, -1)),
+            ("South", crate::chunk::ChunkPosition::new(0, 1)),
+            ("East", crate::chunk::ChunkPosition::new(1, 0)),
+            ("West", crate::chunk::ChunkPosition::new(-1, 0)),
+        ];
+        
+        for (dir_name, neighbor_pos) in directions {
+            if chunk_manager.loaded_chunks.contains_key(&neighbor_pos) {
+                println!("  ✓ {} neighbor found at ({}, {})", dir_name, neighbor_pos.x, neighbor_pos.z);
+            } else {
+                println!("  ✗ {} neighbor missing", dir_name);
+            }
+        }
+        
+        // Test neighbor block access
+        if let Some(neighbor_entity) = chunk_manager.loaded_chunks.get(&crate::chunk::ChunkPosition::new(1, 0)) {
+            if let Ok(neighbor_chunk) = chunks.get(*neighbor_entity) {
+                if let Some(block) = neighbor_chunk.data.get_block(0, 0, 0) {
+                    println!("  ✓ Can access neighbor block: {:?}", block);
+                }
+            }
         }
     }
 }

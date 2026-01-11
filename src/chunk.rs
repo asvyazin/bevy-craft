@@ -39,6 +39,30 @@ impl ChunkPosition {
             self.z * CHUNK_SIZE as i32,
         )
     }
+
+    /// Get neighboring chunk positions (4 directions: N, S, E, W)
+    pub fn neighbors(&self) -> [ChunkPosition; 4] {
+        [
+            ChunkPosition::new(self.x, self.z - 1), // North
+            ChunkPosition::new(self.x, self.z + 1), // South
+            ChunkPosition::new(self.x + 1, self.z), // East
+            ChunkPosition::new(self.x - 1, self.z), // West
+        ]
+    }
+
+    /// Get all neighboring chunk positions including diagonals (8 directions)
+    pub fn all_neighbors(&self) -> [ChunkPosition; 8] {
+        [
+            ChunkPosition::new(self.x, self.z - 1), // North
+            ChunkPosition::new(self.x, self.z + 1), // South
+            ChunkPosition::new(self.x + 1, self.z), // East
+            ChunkPosition::new(self.x - 1, self.z), // West
+            ChunkPosition::new(self.x + 1, self.z - 1), // North-East
+            ChunkPosition::new(self.x + 1, self.z + 1), // South-East
+            ChunkPosition::new(self.x - 1, self.z - 1), // North-West
+            ChunkPosition::new(self.x - 1, self.z + 1), // South-West
+        ]
+    }
 }
 
 /// Chunk data structure containing block information
@@ -161,5 +185,70 @@ impl ChunkManager {
         let dx = (chunk_pos.x - player_chunk_pos.x).abs();
         let dz = (chunk_pos.z - player_chunk_pos.z).abs();
         dx <= self.render_distance && dz <= self.render_distance
+    }
+
+    /// Get a neighboring chunk entity if it exists
+    pub fn get_neighbor_chunk(&self, _chunk_pos: &ChunkPosition, neighbor_pos: &ChunkPosition) -> Option<Entity> {
+        self.loaded_chunks.get(neighbor_pos).copied()
+    }
+
+    /// Get all neighboring chunks for a given chunk position
+    pub fn get_neighboring_chunks(&self, chunk_pos: &ChunkPosition) -> Vec<(ChunkPosition, Entity)> {
+        chunk_pos.neighbors()
+            .iter()
+            .filter_map(|neighbor_pos| {
+                self.loaded_chunks.get(neighbor_pos)
+                    .map(|&entity| (neighbor_pos.clone(), entity))
+            })
+            .collect()
+    }
+
+    /// Get all neighboring chunks including diagonals
+    pub fn get_all_neighboring_chunks(&self, chunk_pos: &ChunkPosition) -> Vec<(ChunkPosition, Entity)> {
+        chunk_pos.all_neighbors()
+            .iter()
+            .filter_map(|neighbor_pos| {
+                self.loaded_chunks.get(neighbor_pos)
+                    .map(|&entity| (neighbor_pos.clone(), entity))
+            })
+            .collect()
+    }
+
+    /// Check if a chunk has a specific neighbor loaded
+    pub fn has_neighbor(&self, chunk_pos: &ChunkPosition, direction: &str) -> bool {
+        let neighbor_pos = match direction {
+            "north" => ChunkPosition::new(chunk_pos.x, chunk_pos.z - 1),
+            "south" => ChunkPosition::new(chunk_pos.x, chunk_pos.z + 1),
+            "east" => ChunkPosition::new(chunk_pos.x + 1, chunk_pos.z),
+            "west" => ChunkPosition::new(chunk_pos.x - 1, chunk_pos.z),
+            _ => return false,
+        };
+        self.loaded_chunks.contains_key(&neighbor_pos)
+    }
+
+    /// Get the block type from a neighboring chunk at a specific position
+    pub fn get_neighbor_block(&self, chunks: &Query<&Chunk>, chunk_pos: &ChunkPosition, neighbor_pos: &ChunkPosition, local_x: usize, y: usize, local_z: usize) -> Option<BlockType> {
+        // Check if the neighbor chunk exists
+        if let Some(&neighbor_entity) = self.loaded_chunks.get(neighbor_pos) {
+            // Get the neighbor chunk
+            if let Ok(neighbor_chunk) = chunks.get(neighbor_entity) {
+                // Calculate the local position in the neighbor chunk
+                let neighbor_local_x = match neighbor_pos.x.cmp(&chunk_pos.x) {
+                    std::cmp::Ordering::Greater => 0, // East neighbor
+                    std::cmp::Ordering::Less => CHUNK_SIZE - 1, // West neighbor
+                    std::cmp::Ordering::Equal => local_x, // Same X, must be North/South
+                };
+
+                let neighbor_local_z = match neighbor_pos.z.cmp(&chunk_pos.z) {
+                    std::cmp::Ordering::Greater => 0, // South neighbor
+                    std::cmp::Ordering::Less => CHUNK_SIZE - 1, // North neighbor
+                    std::cmp::Ordering::Equal => local_z, // Same Z, must be East/West
+                };
+
+                // Get the block from the neighbor chunk
+                return neighbor_chunk.data.get_block(neighbor_local_x, y, neighbor_local_z);
+            }
+        }
+        None
     }
 }
