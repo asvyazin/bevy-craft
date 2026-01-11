@@ -3,6 +3,13 @@ use bevy::prelude::*;
 use crate::block::Block;
 use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 
+/// Constants for collision detection
+const COLLISION_EPSILON: f32 = 0.001;
+const GROUND_DETECTION_EPSILON: f32 = 0.01;
+const GROUND_HYSTERESIS_THRESHOLD: f32 = 1.0; // Increased threshold for better stability
+const GROUND_HYSTERESIS_INCREMENT: f32 = 0.2; // Larger increment for faster response
+const GROUNDED_STABILITY_BUFFER: f32 = 0.01; // Small buffer to prevent micro-adjustments when grounded
+
 /// Component to track collision information for entities
 #[derive(Component, Debug)]
 pub struct Collider {
@@ -31,7 +38,7 @@ pub fn collision_detection_system(
     chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
 ) {
-    for (mut transform, collider, player) in &mut query {
+    for (mut transform, collider, mut player) in &mut query {
         let entity_position = transform.translation;
         let entity_aabb = get_entity_aabb(entity_position, collider);
         
@@ -39,20 +46,50 @@ pub fn collision_detection_system(
         let collision_result = check_block_collisions(entity_aabb, &blocks);
         
         if let Some(resolved_position) = collision_result {
-            println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
-            transform.translation = resolved_position;
+            // If player is grounded, be more conservative about vertical collision resolution
+            if let Some(ref player) = player.as_ref() {
+                if player.is_grounded {
+                    // Only allow upward collision resolution when grounded (prevent micro-adjustments downward)
+                    // Also add a small stability buffer to prevent micro-adjustments
+                    if resolved_position.y >= entity_position.y + GROUNDED_STABILITY_BUFFER {
+                        println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                        transform.translation = resolved_position;
+                    }
+                } else {
+                    println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                    transform.translation = resolved_position;
+                }
+            } else {
+                println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                transform.translation = resolved_position;
+            }
         }
         
         // Check collision with chunks (for chunk-based worlds)
         let chunk_collision_result = check_chunk_collisions(entity_aabb, &chunks, &chunk_manager);
         
         if let Some(resolved_position) = chunk_collision_result {
-            println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
-            transform.translation = resolved_position;
+            // If player is grounded, be more conservative about vertical collision resolution
+            if let Some(ref player) = player.as_ref() {
+                if player.is_grounded {
+                    // Only allow upward collision resolution when grounded (prevent micro-adjustments downward)
+                    // Also add a small stability buffer to prevent micro-adjustments
+                    if resolved_position.y >= entity_position.y + GROUNDED_STABILITY_BUFFER {
+                        println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                        transform.translation = resolved_position;
+                    }
+                } else {
+                    println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                    transform.translation = resolved_position;
+                }
+            } else {
+                println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, resolved_position);
+                transform.translation = resolved_position;
+            }
         }
         
         // Ground detection for player
-        if let Some(mut player) = player {
+        if let Some(ref mut player) = player.as_mut() {
             let ground_check_position = entity_position - Vec3::new(0.0, 0.1, 0.0); // Check slightly below player
             let ground_check_aabb = (
                 Vec3::new(ground_check_position.x - 0.2, ground_check_position.y - 0.1, ground_check_position.z - 0.2),
@@ -62,12 +99,27 @@ pub fn collision_detection_system(
             // Check if there's ground below the player
             let ground_detected = check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
             
-            if ground_detected && !player.is_grounded {
-                println!("👣 Player is now grounded");
-                player.is_grounded = true;
-            } else if !ground_detected && player.is_grounded {
-                println!("👣 Player is no longer grounded");
-                player.is_grounded = false;
+            // Additional stability check: if player is very close to ground, consider them grounded
+            // This prevents micro-movements from causing ground state toggling
+            let distance_to_ground = if ground_detected { 0.0 } else { 1.0 }; // Simple approximation
+            
+            // Apply hysteresis to prevent rapid toggling of grounded state
+            if ground_detected || distance_to_ground < 0.2 {
+                // If we detect ground or are very close to it, reduce hysteresis more aggressively
+                player.ground_detection_hysteresis = (player.ground_detection_hysteresis - GROUND_HYSTERESIS_INCREMENT).max(0.0);
+                
+                if !player.is_grounded && player.ground_detection_hysteresis == 0.0 {
+                    println!("👣 Player is now grounded");
+                    player.is_grounded = true;
+                }
+            } else {
+                // If no ground detected and we're not close to ground, increase hysteresis
+                player.ground_detection_hysteresis = (player.ground_detection_hysteresis + GROUND_HYSTERESIS_INCREMENT).min(GROUND_HYSTERESIS_THRESHOLD);
+                
+                if player.is_grounded && player.ground_detection_hysteresis >= GROUND_HYSTERESIS_THRESHOLD {
+                    println!("👣 Player is no longer grounded");
+                    player.is_grounded = false;
+                }
             }
         }
         
@@ -193,20 +245,26 @@ fn check_ground_collision(
     chunks: &Query<&Chunk>,
     chunk_manager: &ChunkManager,
 ) -> bool {
+    let (ground_min, ground_max) = ground_aabb;
+    
     // Check individual blocks first
     for block in blocks.iter() {
         if block.block_type.is_solid() {
             let block_min = block.position.as_vec3();
             let block_max = block.position.as_vec3() + Vec3::ONE;
             
-            if check_aabb_collision(ground_aabb.0, ground_aabb.1, block_min, block_max) {
-                return true;
+            if check_aabb_collision(ground_min, ground_max, block_min, block_max) {
+                // Check if the collision is significant enough (not just a micro-collision)
+                let penetration_y = block_max.y - ground_min.y;
+                if penetration_y > GROUND_DETECTION_EPSILON {
+                    return true;
+                }
             }
         }
     }
     
     // Check chunks
-    let ground_center = (ground_aabb.0 + ground_aabb.1) / 2.0;
+    let ground_center = (ground_min + ground_max) / 2.0;
     let chunk_pos = ChunkPosition::from_block_position(ground_center.as_ivec3());
     
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
@@ -259,7 +317,11 @@ fn check_chunk_ground_collision(ground_aabb: (Vec3, Vec3), chunk: &Chunk) -> boo
                         let block_max = block_world_pos.as_vec3() + Vec3::ONE;
                         
                         if check_aabb_collision(ground_min, ground_max, block_min, block_max) {
-                            return true;
+                            // Check if the collision is significant enough
+                            let penetration_y = block_max.y - ground_min.y;
+                            if penetration_y > GROUND_DETECTION_EPSILON {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -347,8 +409,18 @@ fn resolve_aabb_collision(a_min: Vec3, a_max: Vec3, b_min: Vec3, b_max: Vec3) ->
     let abs_penetrate_y = penetrate_y.abs();
     let abs_penetrate_z = penetrate_z.abs();
     
+    // Ignore micro-collisions that are smaller than our epsilon threshold
+    if abs_penetrate_x < COLLISION_EPSILON && abs_penetrate_y < COLLISION_EPSILON && abs_penetrate_z < COLLISION_EPSILON {
+        return None; // No significant collision to resolve
+    }
+    
     // Resolve collision by moving along the axis with smallest penetration
-    if abs_penetrate_x < abs_penetrate_y && abs_penetrate_x < abs_penetrate_z {
+    // Prioritize vertical collisions when they are significant to prevent jittering
+    if abs_penetrate_y > COLLISION_EPSILON && penetrate_y < 0.0 {
+        // Always prioritize resolving downward collisions (standing on ground)
+        // This prevents the player from falling through the ground
+        Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
+    } else if abs_penetrate_x < abs_penetrate_y && abs_penetrate_x < abs_penetrate_z {
         Some(Vec3::new(entity_center.x + penetrate_x, entity_center.y, entity_center.z))
     } else if abs_penetrate_y < abs_penetrate_x && abs_penetrate_y < abs_penetrate_z {
         Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
@@ -357,7 +429,6 @@ fn resolve_aabb_collision(a_min: Vec3, a_max: Vec3, b_min: Vec3, b_max: Vec3) ->
     } else {
         // If all penetrations are equal or no clear smallest, prioritize vertical resolution
         // This helps prevent the player from getting stuck in corners
-        // Always resolve vertical collisions first to prevent falling through ground
         if penetrate_y < 0.0 { // If we're penetrating from below (standing on ground)
             Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
         } else if penetrate_y > 0.0 { // If we're penetrating from above (hitting ceiling)
