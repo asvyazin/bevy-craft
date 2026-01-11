@@ -172,10 +172,13 @@ pub fn generate_chunk_mesh_with_neighbors(
     
     // Insert mesh data
     if !positions.is_empty() {
+        println!("📊 Mesh generated: {} vertices, {} indices, {} triangles", positions.len(), indices.len(), indices.len() / 3);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh.insert_indices(Indices::U32(indices));
+    } else {
+        println!("⚠️  Empty mesh generated - no visible faces found!");
     }
     
     mesh
@@ -191,6 +194,19 @@ struct FaceVisibility {
     right: bool,
     top: bool,
     bottom: bool,
+}
+
+impl std::fmt::Debug for FaceVisibility {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FaceVisibility")
+            .field("front", &self.front)
+            .field("back", &self.back)
+            .field("left", &self.left)
+            .field("right", &self.right)
+            .field("top", &self.top)
+            .field("bottom", &self.bottom)
+            .finish()
+    }
 }
 
 impl FaceVisibility {
@@ -210,6 +226,8 @@ fn check_face_visibility(
 ) -> FaceVisibility {
     let mut visibility = FaceVisibility::default();
     
+
+    
     // Check front face (positive Z direction)
     if local_z == crate::chunk::CHUNK_SIZE - 1 {
         // At chunk boundary, check neighbor chunk
@@ -222,7 +240,7 @@ fn check_face_visibility(
             y,
             0, // Front face of neighbor is at local_z = 0
         ) {
-            visibility.front = neighbor_block == crate::block::BlockType::Air;
+            visibility.front = neighbor_block == crate::block::BlockType::Air || neighbor_block.is_transparent();
         } else {
             // No neighbor chunk, render the face
             visibility.front = true;
@@ -230,7 +248,7 @@ fn check_face_visibility(
     } else {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x, y, local_z + 1) {
-            visibility.front = adjacent_block == crate::block::BlockType::Air;
+            visibility.front = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.front = true;
         }
@@ -248,7 +266,7 @@ fn check_face_visibility(
             y,
             crate::chunk::CHUNK_SIZE - 1, // Back face of neighbor is at local_z = CHUNK_SIZE - 1
         ) {
-            visibility.back = neighbor_block == crate::block::BlockType::Air;
+            visibility.back = neighbor_block == crate::block::BlockType::Air || neighbor_block.is_transparent();
         } else {
             // No neighbor chunk, render the face
             visibility.back = true;
@@ -256,7 +274,7 @@ fn check_face_visibility(
     } else {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x, y, local_z - 1) {
-            visibility.back = adjacent_block == crate::block::BlockType::Air;
+            visibility.back = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.back = true;
         }
@@ -274,7 +292,7 @@ fn check_face_visibility(
             y,
             local_z,
         ) {
-            visibility.right = neighbor_block == crate::block::BlockType::Air;
+            visibility.right = neighbor_block == crate::block::BlockType::Air || neighbor_block.is_transparent();
         } else {
             // No neighbor chunk, render the face
             visibility.right = true;
@@ -282,7 +300,7 @@ fn check_face_visibility(
     } else {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x + 1, y, local_z) {
-            visibility.right = adjacent_block == crate::block::BlockType::Air;
+            visibility.right = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.right = true;
         }
@@ -300,7 +318,7 @@ fn check_face_visibility(
             y,
             local_z,
         ) {
-            visibility.left = neighbor_block == crate::block::BlockType::Air;
+            visibility.left = neighbor_block == crate::block::BlockType::Air || neighbor_block.is_transparent();
         } else {
             // No neighbor chunk, render the face
             visibility.left = true;
@@ -308,7 +326,7 @@ fn check_face_visibility(
     } else {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x - 1, y, local_z) {
-            visibility.left = adjacent_block == crate::block::BlockType::Air;
+            visibility.left = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.left = true;
         }
@@ -318,7 +336,7 @@ fn check_face_visibility(
     if y < crate::chunk::CHUNK_HEIGHT - 1 {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x, y + 1, local_z) {
-            visibility.top = adjacent_block == crate::block::BlockType::Air;
+            visibility.top = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.top = true;
         }
@@ -331,7 +349,7 @@ fn check_face_visibility(
     if y > 0 {
         // Within chunk, check adjacent block
         if let Some(adjacent_block) = chunk_data.get_block(local_x, y - 1, local_z) {
-            visibility.bottom = adjacent_block == crate::block::BlockType::Air;
+            visibility.bottom = adjacent_block == crate::block::BlockType::Air || adjacent_block.is_transparent();
         } else {
             visibility.bottom = true;
         }
@@ -638,7 +656,7 @@ fn greedy_mesh_direction(
                 };
 
                 if let Some(block_type) = block_type {
-                    if block_type != crate::block::BlockType::Air {
+                    if block_type != crate::block::BlockType::Air && !block_type.is_transparent() {
                         // Find the width of this contiguous block
                         let mut block_width = 1;
                         while x + block_width < depth {
