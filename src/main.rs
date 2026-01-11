@@ -18,7 +18,7 @@ mod camera;
 use camera::{camera_mouse_control_system, camera_rotation_system, cursor_control_system, spawn_game_camera};
 
 mod block_interaction;
-use block_interaction::{block_breaking_system, block_targeting_feedback_system};
+use block_interaction::{block_interaction_system, block_targeting_feedback_system};
 
 fn main() {
     App::new()
@@ -40,7 +40,7 @@ fn main() {
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
         .add_systems(Update, block_targeting_feedback_system) // Add block targeting feedback
-        .add_systems(Update, block_breaking_system) // Add block breaking system
+        .add_systems(Update, block_interaction::block_interaction_system) // Add block interaction system (breaking and placement)
         .run();
 }
 

@@ -7,49 +7,83 @@ use bevy::input::mouse::MouseButton;
 use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 use crate::block::BlockType;
 
-/// System to handle block breaking with left mouse button
-pub fn block_breaking_system(
+/// System to handle block breaking with left mouse button and placement with right mouse button
+pub fn block_interaction_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
     player_query: Query<&Transform, With<crate::player::Player>>,
-    mut chunks: Query<&mut Chunk>,
+    chunks: Query<&Chunk>,
+    mut chunks_mut: Query<&mut Chunk>,
     chunk_manager: Res<ChunkManager>,
 ) {
-    // Only process when left mouse button is pressed
-    if !mouse_button_input.just_pressed(MouseButton::Left) {
-        return;
+    // Handle block breaking with left mouse button
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        // Get camera and player transforms
+        let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
+            result
+        } else {
+            return;
+        };
+        
+        let _player_transform = if let Ok(result) = player_query.get_single() {
+            result
+        } else {
+            return;
+        };
+        
+        // Calculate ray origin (camera position) and direction
+        let ray_origin = camera_transform.translation;
+        let ray_direction: Vec3 = camera_transform.forward().into();
+        
+        // Perform raycast to find the block the player is looking at
+        if let Some((target_block_pos, _)) = raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks_mut, &chunk_manager, 5.0) {
+            // Find which chunk contains this block
+            let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
+            
+            // Find the chunk entity and modify it
+            if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+                if let Ok(mut chunk) = chunks_mut.get_mut(*chunk_entity) {
+                    // Remove the block (set to Air)
+                    chunk.set_block_world(target_block_pos, BlockType::Air);
+                }
+            }
+        }
     }
     
-    // Get camera and player transforms
-    let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
-        result
-    } else {
-        return;
-    };
-    
-    let _player_transform = if let Ok(result) = player_query.get_single() {
-        result
-    } else {
-        return;
-    };
-    
-    // Calculate ray origin (camera position) and direction
-    let ray_origin = camera_transform.translation;
-    let ray_direction: Vec3 = camera_transform.forward().into();
-    
-    // Perform raycast to find the block the player is looking at
-    if let Some((target_block_pos, _)) = raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0) {
-        println!("🎯 Targeting block at: {:?}", target_block_pos);
+    // Handle block placement with right mouse button
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        // Get camera and player transforms
+        let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
+            result
+        } else {
+            return;
+        };
         
-        // Find which chunk contains this block
-        let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
+        let _player_transform = if let Ok(result) = player_query.get_single() {
+            result
+        } else {
+            return;
+        };
         
-        // Find the chunk entity and modify it
-        if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-            if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
-                // Remove the block (set to Air)
-                chunk.set_block_world(target_block_pos, BlockType::Air);
-                println!("✅ Block broken at: {:?}", target_block_pos);
+        // Calculate ray origin (camera position) and direction
+        let ray_origin = camera_transform.translation;
+        let ray_direction: Vec3 = camera_transform.forward().into();
+        
+        // Perform raycast to find the block the player is looking at
+        if let Some((target_block_pos, _)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0) {
+            // Calculate the adjacent block position where we want to place the new block
+            let placement_pos = find_adjacent_block_position(target_block_pos, ray_origin, ray_direction);
+            
+            // Find which chunk contains the placement position
+            let chunk_pos = ChunkPosition::from_block_position(placement_pos);
+            
+            // Find the chunk entity and modify it
+            if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+                if let Ok(mut chunk) = chunks_mut.get_mut(*chunk_entity) {
+                    // Place a new block (for now, we'll use Stone as the default block type)
+                    // TODO: Add inventory system to select different block types
+                    chunk.set_block_world(placement_pos, BlockType::Stone);
+                }
             }
         }
     }
@@ -147,6 +181,47 @@ fn raycast_for_block_mutable(
     None // No block found within max distance
 }
 
+/// Find the adjacent block position for placement
+/// Given a target block position and ray information, determine where to place a new block
+fn find_adjacent_block_position(target_block_pos: IVec3, ray_origin: Vec3, ray_direction: Vec3) -> IVec3 {
+    // Convert target block position to Vec3 for calculations
+    let target_block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
+    
+    // Determine which face of the target block is being looked at
+    // by finding the component with the largest absolute value
+    let abs_direction = ray_direction.abs();
+    
+    // Find which axis has the largest component (this is the face we're looking at)
+    if abs_direction.x >= abs_direction.y && abs_direction.x >= abs_direction.z {
+        // Looking at X face (either positive or negative)
+        if ray_direction.x > 0.0 {
+            // Looking at negative X face, place on positive X side
+            target_block_pos + IVec3::new(1, 0, 0)
+        } else {
+            // Looking at positive X face, place on negative X side
+            target_block_pos + IVec3::new(-1, 0, 0)
+        }
+    } else if abs_direction.y >= abs_direction.x && abs_direction.y >= abs_direction.z {
+        // Looking at Y face
+        if ray_direction.y > 0.0 {
+            // Looking at negative Y face, place on positive Y side
+            target_block_pos + IVec3::new(0, 1, 0)
+        } else {
+            // Looking at positive Y face, place on negative Y side
+            target_block_pos + IVec3::new(0, -1, 0)
+        }
+    } else {
+        // Looking at Z face
+        if ray_direction.z > 0.0 {
+            // Looking at negative Z face, place on positive Z side
+            target_block_pos + IVec3::new(0, 0, 1)
+        } else {
+            // Looking at positive Z face, place on negative Z side
+            target_block_pos + IVec3::new(0, 0, -1)
+        }
+    }
+}
+
 /// System to provide visual feedback for targeted blocks
 pub fn block_targeting_feedback_system(
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
@@ -172,8 +247,7 @@ pub fn block_targeting_feedback_system(
     let ray_direction: Vec3 = camera_transform.forward().into();
     
     // Perform raycast to find the block the player is looking at
-    if let Some((target_block_pos, distance)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0) {
-        println!("👀 Looking at block at: {:?} (distance: {:.2})", target_block_pos, distance);
+    if let Some((_target_block_pos, _distance)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0) {
         // TODO: Add visual highlight for targeted block
     }
 }
