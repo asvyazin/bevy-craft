@@ -159,7 +159,14 @@ impl TextureAtlas {
         block_textures: &Res<BlockTextures>,
     ) {
         println!("🎨 Loading procedural textures into texture atlas...");
-        println!("  Debug: BlockTextures resource exists: {}", block_textures.is_added());
+        
+        // Check if BlockTextures resource exists
+        if !block_textures.is_added() {
+            println!("  ⚠️  BlockTextures resource not found - no procedural textures available");
+            self.has_procedural_textures = false;
+            return;
+        }
+        
         println!("  Debug: BlockTextures textures count: {}", block_textures.textures.len());
         
         // List all available textures in BlockTextures
