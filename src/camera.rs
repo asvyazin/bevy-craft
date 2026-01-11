@@ -1,28 +1,74 @@
 use bevy::prelude::*;
-use crate::player::Player;
+use bevy::input::mouse::MouseMotion;
+use bevy::window::CursorGrabMode;
+use crate::player::{Player, PlayerMovementSettings};
 
 /// Camera component that marks the main game camera
 #[derive(Component)]
-pub struct GameCamera;
+pub struct GameCamera {
+    pub yaw: f32,
+    pub pitch: f32,
+}
 
-/// System to make the camera follow the player
-pub fn camera_follow_system(
-    player_query: Query<&Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (With<GameCamera>, Without<Player>)>,
+impl Default for GameCamera {
+    fn default() -> Self {
+        Self {
+            yaw: 0.0,
+            pitch: 0.0,
+        }
+    }
+}
+
+/// System to handle mouse input for camera rotation
+pub fn camera_mouse_control_system(
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut query: Query<&mut GameCamera>,
+    settings: Res<PlayerMovementSettings>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+) {
+    // Only rotate camera when right mouse button is pressed
+    if !mouse_button_input.pressed(MouseButton::Right) {
+        return;
+    }
+    
+    let mut camera = query.single_mut();
+    
+    // Process mouse motion events
+    for event in mouse_motion_events.read() {
+        // Apply mouse sensitivity
+        camera.yaw -= event.delta.x * settings.mouse_sensitivity;
+        camera.pitch -= event.delta.y * settings.mouse_sensitivity;
+        
+        // Limit pitch to avoid over-rotation
+        camera.pitch = camera.pitch.clamp(-1.5, 1.5);
+    }
+}
+
+/// System to update camera transform based on rotation
+pub fn camera_rotation_system(
+    player_query: Query<&Transform, (With<Player>, Without<GameCamera>)>,
+    mut camera_query: Query<(&mut Transform, &GameCamera), Without<Player>>, 
 ) {
     // Get player transform
     if let Ok(player_transform) = player_query.get_single() {
-        // Get camera transform
-        if let Ok(mut camera_transform) = camera_query.get_single_mut() {
-            // Calculate desired camera position (behind and above the player)
-            let offset = Vec3::new(0.0, 2.0, 5.0);
-            let desired_position = player_transform.translation + offset;
+        // Get camera transform and rotation
+        if let Ok((mut camera_transform, camera_rotation)) = camera_query.get_single_mut() {
+            // Calculate camera rotation from yaw and pitch
+            let yaw_rad = camera_rotation.yaw;
+            let pitch_rad = camera_rotation.pitch;
             
-            // Smoothly interpolate camera position
-            camera_transform.translation = camera_transform.translation.lerp(desired_position, 0.1);
+            // Calculate camera position (first-person view, slightly above player)
+            let camera_offset = Vec3::new(0.0, 1.7, 0.0); // Eye level offset
+            let camera_position = player_transform.translation + camera_offset;
             
-            // Make camera look at player
-            camera_transform.look_at(player_transform.translation, Vec3::Y);
+            // Apply rotation to camera
+            camera_transform.translation = camera_position;
+            camera_transform.rotation = Quat::from_euler(
+                EulerRot::ZYX, 
+                0.0, 
+                yaw_rad, 
+                pitch_rad
+            );
         }
     }
 }
@@ -31,9 +77,27 @@ pub fn camera_follow_system(
 pub fn spawn_game_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 1.7, 0.0),
             ..default()
         },
-        GameCamera,
+        GameCamera::default(),
     ));
+}
+
+/// System to handle cursor visibility and grabbing when right mouse button is pressed
+pub fn cursor_control_system(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut windows: Query<&mut Window>,
+) {
+    let mut window = windows.single_mut();
+    
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        // Grab and hide cursor when right mouse button is pressed
+        window.cursor.visible = false;
+        window.cursor.grab_mode = CursorGrabMode::Locked;
+    } else if mouse_button_input.just_released(MouseButton::Right) {
+        // Release cursor when right mouse button is released
+        window.cursor.visible = true;
+        window.cursor.grab_mode = CursorGrabMode::None;
+    }
 }

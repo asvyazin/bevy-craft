@@ -72,8 +72,16 @@ pub fn spawn_player(
 pub fn player_movement_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut Player)>,
+    camera_query: Query<&crate::camera::GameCamera>,
     time: Res<Time>,
 ) {
+    // Get camera rotation for movement direction
+    let camera_rotation = if let Ok(camera) = camera_query.get_single() {
+        camera
+    } else {
+        return; // No camera, can't determine movement direction
+    };
+    
     for (mut transform, mut player) in &mut query {
         // Reset horizontal velocity
         player.velocity.x = 0.0;
@@ -104,8 +112,18 @@ pub fn player_movement_system(
         // Normalize movement direction and apply speed
         if move_direction.length() > 0.0 {
             move_direction = move_direction.normalize();
-            player.velocity.x = move_direction.x * player.speed;
-            player.velocity.z = move_direction.z * player.speed;
+            
+            // Store speed in local variable to avoid borrowing issues
+            let speed = player.speed;
+            
+            // Rotate movement direction based on camera yaw
+            let yaw_rad = camera_rotation.yaw;
+            let forward = Vec3::new(-yaw_rad.sin(), 0.0, -yaw_rad.cos());
+            let right = Vec3::new(yaw_rad.cos(), 0.0, -yaw_rad.sin());
+            
+            // Apply movement relative to camera direction
+            player.velocity += forward * move_direction.z * speed;
+            player.velocity += right * move_direction.x * speed;
         }
 
         // Apply gravity

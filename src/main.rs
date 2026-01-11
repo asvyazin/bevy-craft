@@ -15,7 +15,7 @@ use world_gen::{WorldGenSettings, generate_chunks_system};
 use player::PlayerMovementSettings;
 
 mod camera;
-use camera::{camera_follow_system, spawn_game_camera};
+use camera::{camera_mouse_control_system, camera_rotation_system, cursor_control_system, spawn_game_camera};
 
 fn main() {
     App::new()
@@ -33,7 +33,9 @@ fn main() {
         .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
         .add_systems(Startup, player::spawn_player) // Add player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
-        .add_systems(Update, camera_follow_system) // Add camera follow system
+        .add_systems(Update, cursor_control_system) // Add cursor control system
+        .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
+        .add_systems(Update, camera_rotation_system) // Add camera rotation system
         .run();
 }
 
