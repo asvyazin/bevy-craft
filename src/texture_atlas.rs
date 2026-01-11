@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::block::BlockType;
+use crate::texture_gen::BlockTextures;
 
 /// Enum representing different faces of a block
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -21,8 +22,12 @@ pub struct TextureAtlas {
     pub texture_handle: Handle<Image>,
     /// Map of block types to their UV coordinates in the atlas for each face
     pub block_face_uvs: HashMap<BlockType, HashMap<BlockFace, (f32, f32, f32, f32)>>,  // (u_min, v_min, u_max, v_max)
+    /// Map of block types to their procedural texture handles
+    pub procedural_textures: HashMap<BlockType, Handle<Image>>,
     /// Flag indicating if the atlas is loaded
     pub is_loaded: bool,
+    /// Flag indicating if procedural textures are available
+    pub has_procedural_textures: bool,
 }
 
 impl Default for TextureAtlas {
@@ -30,7 +35,9 @@ impl Default for TextureAtlas {
         Self {
             texture_handle: Handle::default(),
             block_face_uvs: HashMap::new(),
+            procedural_textures: HashMap::new(),
             is_loaded: false,
+            has_procedural_textures: false,
         }
     }
 }
@@ -145,6 +152,51 @@ impl TextureAtlas {
     pub fn texture_handle(&self) -> &Handle<Image> {
         &self.texture_handle
     }
+    
+    /// Load procedural textures from BlockTextures resource
+    pub fn load_procedural_textures(
+        &mut self,
+        block_textures: &Res<BlockTextures>,
+    ) {
+        println!("🎨 Loading procedural textures into texture atlas...");
+        
+        // Map block type names to BlockType enum
+        let block_type_mapping = [
+            ("stone", BlockType::Stone),
+            ("dirt", BlockType::Dirt),
+            ("grass", BlockType::Grass),
+            ("wood", BlockType::Wood),
+            ("sand", BlockType::Sand),
+            ("water", BlockType::Water),
+            ("bedrock", BlockType::Bedrock),
+            ("leaves", BlockType::Leaves),
+        ];
+        
+        for (name, block_type) in block_type_mapping {
+            if let Some(texture_handle) = block_textures.textures.get(name) {
+                self.procedural_textures.insert(block_type, texture_handle.clone());
+                println!("  ✓ Loaded procedural texture for {:?}", block_type);
+            }
+        }
+        
+        self.has_procedural_textures = !self.procedural_textures.is_empty();
+        
+        if self.has_procedural_textures {
+            println!("✓ Procedural textures loaded successfully");
+        } else {
+            println!("⚠️  No procedural textures found");
+        }
+    }
+    
+    /// Get procedural texture handle for a block type, if available
+    pub fn get_procedural_texture(&self, block_type: BlockType) -> Option<&Handle<Image>> {
+        self.procedural_textures.get(&block_type)
+    }
+    
+    /// Check if procedural textures are available
+    pub fn has_procedural_textures(&self) -> bool {
+        self.has_procedural_textures
+    }
 }
 
 /// System to initialize the texture atlas
@@ -154,4 +206,12 @@ pub fn initialize_texture_atlas(
     mut images: ResMut<Assets<Image>>,
 ) {
     texture_atlas.initialize(&asset_server, &mut images);
+}
+
+/// System to load procedural textures into the texture atlas
+pub fn load_procedural_textures_into_atlas(
+    mut texture_atlas: ResMut<TextureAtlas>,
+    block_textures: Res<BlockTextures>,
+) {
+    texture_atlas.load_procedural_textures(&block_textures);
 }
