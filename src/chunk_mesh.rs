@@ -17,7 +17,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
 use crate::block::BlockType;
-use crate::texture_atlas::TextureAtlas;
+use crate::texture_atlas::{TextureAtlas, BlockFace};
 
 /// Component that stores the mesh data for a chunk
 #[derive(Component, Debug)]
@@ -309,10 +309,9 @@ fn add_block_mesh(
     texture_atlas: &TextureAtlas,
 ) {
     let base_index = positions.len() as u32;
-    let uv = get_block_uv(block_type, texture_atlas);
     let mut current_index = base_index;
     
-    // Front face (positive Z)
+    // Front face (positive Z) - uses side texture
     if visibility.front {
         let z = local_z as f32 + 1.0;
         let vertices = [
@@ -321,11 +320,12 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
             [local_x as f32, y as f32 + 1.0, z],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, 1.0], uv);
         current_index += 4;
     }
     
-    // Back face (negative Z)
+    // Back face (negative Z) - uses side texture
     if visibility.back {
         let z = local_z as f32;
         let vertices = [
@@ -334,11 +334,12 @@ fn add_block_mesh(
             [local_x as f32, y as f32 + 1.0, z],
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, -1.0], uv);
         current_index += 4;
     }
     
-    // Right face (positive X)
+    // Right face (positive X) - uses side texture
     if visibility.right {
         let x = local_x as f32 + 1.0;
         let vertices = [
@@ -347,11 +348,12 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32],
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
         add_face(positions, normals, uvs, indices, current_index, vertices, [1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
     
-    // Left face (negative X)
+    // Left face (negative X) - uses side texture
     if visibility.left {
         let x = local_x as f32;
         let vertices = [
@@ -360,11 +362,12 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
             [x, y as f32 + 1.0, local_z as f32],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
         add_face(positions, normals, uvs, indices, current_index, vertices, [-1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
     
-    // Top face (positive Y)
+    // Top face (positive Y) - uses top texture
     if visibility.top {
         let y_top = y as f32 + 1.0;
         let vertices = [
@@ -373,11 +376,12 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_top, local_z as f32],
             [local_x as f32, y_top, local_z as f32],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Top);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 1.0, 0.0], uv);
         current_index += 4;
     }
     
-    // Bottom face (negative Y)
+    // Bottom face (negative Y) - uses bottom texture
     if visibility.bottom {
         let y_bottom = y as f32;
         let vertices = [
@@ -386,59 +390,42 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_bottom, local_z as f32 + 1.0],
             [local_x as f32, y_bottom, local_z as f32 + 1.0],
         ];
+        let uv = texture_atlas.get_uv(block_type, BlockFace::Bottom);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, -1.0, 0.0], uv);
     }
 }
 
-/// Get UV coordinates for a block type using a texture atlas
-/// The texture atlas is organized in a 4x2 grid:
-/// Row 0 (top): Grass, Dirt, Stone, Wood
-/// Row 1 (bottom): Leaves, Sand, Water, Bedrock
-fn get_block_uv(block_type: BlockType, texture_atlas: &TextureAtlas) -> (f32, f32, f32, f32) {
-    // Use the texture atlas to get UV coordinates
-    texture_atlas.get_uv(block_type)
-}
 
-/// Test function to verify texture atlas UV coordinates
+
+/// Test function to verify face-specific texture atlas UV coordinates
 #[cfg(test)]
 mod tests {
     use super::*;
     
     #[test]
-    fn test_texture_atlas_uv_coordinates() {
-        // Test that each block type gets unique UV coordinates
-        let grass_uv = get_block_uv(BlockType::Grass);
-        let dirt_uv = get_block_uv(BlockType::Dirt);
-        let stone_uv = get_block_uv(BlockType::Stone);
-        let wood_uv = get_block_uv(BlockType::Wood);
-        let leaves_uv = get_block_uv(BlockType::Leaves);
-        let sand_uv = get_block_uv(BlockType::Sand);
-        let water_uv = get_block_uv(BlockType::Water);
-        let bedrock_uv = get_block_uv(BlockType::Bedrock);
+    fn test_face_specific_texture_uv_coordinates() {
+        // Create a mock texture atlas for testing
+        let mut texture_atlas = TextureAtlas::default();
         
-        // Verify that all coordinates are unique and within expected ranges
-        assert_ne!(grass_uv, dirt_uv);
-        assert_ne!(dirt_uv, stone_uv);
-        assert_ne!(stone_uv, wood_uv);
-        assert_ne!(wood_uv, leaves_uv);
-        assert_ne!(leaves_uv, sand_uv);
-        assert_ne!(sand_uv, water_uv);
-        assert_ne!(water_uv, bedrock_uv);
+        // Initialize with face-specific textures
+        let mut grass_uvs = std::collections::HashMap::new();
+        grass_uvs.insert(BlockFace::Top, (0.0, 0.0, 0.25, 0.333));
+        grass_uvs.insert(BlockFace::Side, (0.0, 0.333, 0.25, 0.666));
+        grass_uvs.insert(BlockFace::Bottom, (0.0, 0.666, 0.25, 1.0));
+        texture_atlas.block_face_uvs.insert(BlockType::Grass, grass_uvs);
         
-        // Verify that top row blocks (Grass, Dirt, Stone, Wood) are in the top half (v < 0.5)
-        assert!(grass_uv.1 < 0.5);
-        assert!(dirt_uv.1 < 0.5);
-        assert!(stone_uv.1 < 0.5);
-        assert!(wood_uv.1 < 0.5);
+        // Test that each face gets different UV coordinates
+        let grass_top_uv = texture_atlas.get_uv(BlockType::Grass, BlockFace::Top);
+        let grass_side_uv = texture_atlas.get_uv(BlockType::Grass, BlockFace::Side);
+        let grass_bottom_uv = texture_atlas.get_uv(BlockType::Grass, BlockFace::Bottom);
         
-        // Verify that bottom row blocks (Leaves, Sand, Water, Bedrock) are in the bottom half (v >= 0.5)
-        assert!(leaves_uv.1 >= 0.5);
-        assert!(sand_uv.1 >= 0.5);
-        assert!(water_uv.1 >= 0.5);
-        assert!(bedrock_uv.1 >= 0.5);
+        // Verify that face coordinates are different
+        assert_ne!(grass_top_uv, grass_side_uv);
+        assert_ne!(grass_side_uv, grass_bottom_uv);
+        assert_ne!(grass_top_uv, grass_bottom_uv);
         
-        // Verify that all coordinates are within valid texture space [0.0, 1.0]
-        for uv in [grass_uv, dirt_uv, stone_uv, wood_uv, leaves_uv, sand_uv, water_uv, bedrock_uv] {
+        // Verify that coordinates are within valid texture space [0.0, 1.0]
+        for uv in [grass_top_uv, grass_side_uv, grass_bottom_uv] {
             assert!(uv.0 >= 0.0 && uv.0 <= 1.0);
             assert!(uv.1 >= 0.0 && uv.1 <= 1.0);
             assert!(uv.2 >= 0.0 && uv.2 <= 1.0);
@@ -446,5 +433,9 @@ mod tests {
             assert!(uv.2 > uv.0, "u_max should be greater than u_min");
             assert!(uv.3 > uv.1, "v_max should be greater than v_min");
         }
+        
+        // Test fallback behavior for unknown block types
+        let unknown_uv = texture_atlas.get_uv(BlockType::Air, BlockFace::Top);
+        assert_eq!(unknown_uv, (0.0, 0.0, 1.0, 1.0));  // Should return default fallback
     }
 }

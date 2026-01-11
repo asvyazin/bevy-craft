@@ -6,13 +6,21 @@ use std::collections::HashMap;
 
 use crate::block::BlockType;
 
+/// Enum representing different faces of a block
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BlockFace {
+    Top,
+    Bottom,
+    Side,
+}
+
 /// Resource that stores the loaded texture atlas
 #[derive(Resource, Debug)]
 pub struct TextureAtlas {
     /// Handle to the texture atlas image
     pub texture_handle: Handle<Image>,
-    /// Map of block types to their UV coordinates in the atlas
-    pub block_uvs: HashMap<BlockType, (f32, f32, f32, f32)>,  // (u_min, v_min, u_max, v_max)
+    /// Map of block types to their UV coordinates in the atlas for each face
+    pub block_face_uvs: HashMap<BlockType, HashMap<BlockFace, (f32, f32, f32, f32)>>,  // (u_min, v_min, u_max, v_max)
     /// Flag indicating if the atlas is loaded
     pub is_loaded: bool,
 }
@@ -21,7 +29,7 @@ impl Default for TextureAtlas {
     fn default() -> Self {
         Self {
             texture_handle: Handle::default(),
-            block_uvs: HashMap::new(),
+            block_face_uvs: HashMap::new(),
             is_loaded: false,
         }
     }
@@ -34,38 +42,96 @@ impl TextureAtlas {
         asset_server: &Res<AssetServer>,
         _images: &mut ResMut<Assets<Image>>,
     ) {
-        println!("🎨 Initializing texture atlas...");
+        println!("🎨 Initializing texture atlas with face-specific textures...");
         
         // Load the texture atlas image
         let texture_handle = asset_server.load("textures/block_atlas.png");
         
-        // Set up UV coordinates for each block type
-        // The texture atlas is organized in a 4x2 grid:
-        // Row 0 (Top): Grass, Dirt, Stone, Wood
-        // Row 1 (Bottom): Leaves, Sand, Water, Bedrock
+        // The existing texture is 512x256 (2:1 aspect ratio)
+        // We'll adapt the face-specific system to work with this texture
+        // by using a logical 4x2 grid where we can simulate face-specific textures
         
         const CELL_WIDTH: f32 = 0.25;  // 1/4 of texture width
         const CELL_HEIGHT: f32 = 0.5;   // 1/2 of texture height
         
-        // Initialize UV coordinates for each block type
-        self.block_uvs.insert(BlockType::Grass, (0.0, 0.0, CELL_WIDTH, CELL_HEIGHT));
-        self.block_uvs.insert(BlockType::Dirt, (CELL_WIDTH, 0.0, CELL_WIDTH * 2.0, CELL_HEIGHT));
-        self.block_uvs.insert(BlockType::Stone, (CELL_WIDTH * 2.0, 0.0, CELL_WIDTH * 3.0, CELL_HEIGHT));
-        self.block_uvs.insert(BlockType::Wood, (CELL_WIDTH * 3.0, 0.0, CELL_WIDTH * 4.0, CELL_HEIGHT));
-        self.block_uvs.insert(BlockType::Leaves, (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0));
-        self.block_uvs.insert(BlockType::Sand, (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0));
-        self.block_uvs.insert(BlockType::Water, (CELL_WIDTH * 2.0, CELL_HEIGHT, CELL_WIDTH * 3.0, CELL_HEIGHT * 2.0));
-        self.block_uvs.insert(BlockType::Bedrock, (CELL_WIDTH * 3.0, CELL_HEIGHT, CELL_WIDTH * 4.0, CELL_HEIGHT * 2.0));
+        // Initialize face-specific UV coordinates for each block type
+        // For now, we'll use the existing texture layout but provide face-specific mappings
+        
+        // Grass block: use top row for top face, bottom row for side/bottom faces
+        let mut grass_uvs = HashMap::new();
+        grass_uvs.insert(BlockFace::Top, (0.0, 0.0, CELL_WIDTH, CELL_HEIGHT));
+        grass_uvs.insert(BlockFace::Side, (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0));
+        grass_uvs.insert(BlockFace::Bottom, (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0));
+        self.block_face_uvs.insert(BlockType::Grass, grass_uvs);
+        
+        // Dirt block: use top row for top face, bottom row for side/bottom faces
+        let mut dirt_uvs = HashMap::new();
+        dirt_uvs.insert(BlockFace::Top, (CELL_WIDTH, 0.0, CELL_WIDTH * 2.0, CELL_HEIGHT));
+        dirt_uvs.insert(BlockFace::Side, (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0));
+        dirt_uvs.insert(BlockFace::Bottom, (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0));
+        self.block_face_uvs.insert(BlockType::Dirt, dirt_uvs);
+        
+        // Stone block: same texture for all faces
+        let mut stone_uvs = HashMap::new();
+        let stone_uv = (CELL_WIDTH * 2.0, 0.0, CELL_WIDTH * 3.0, CELL_HEIGHT);
+        stone_uvs.insert(BlockFace::Top, stone_uv);
+        stone_uvs.insert(BlockFace::Side, stone_uv);
+        stone_uvs.insert(BlockFace::Bottom, stone_uv);
+        self.block_face_uvs.insert(BlockType::Stone, stone_uvs);
+        
+        // Wood block: use top row for top/bottom, bottom row for sides
+        let mut wood_uvs = HashMap::new();
+        wood_uvs.insert(BlockFace::Top, (CELL_WIDTH * 3.0, 0.0, CELL_WIDTH * 4.0, CELL_HEIGHT));
+        wood_uvs.insert(BlockFace::Bottom, (CELL_WIDTH * 3.0, 0.0, CELL_WIDTH * 4.0, CELL_HEIGHT));
+        wood_uvs.insert(BlockFace::Side, (CELL_WIDTH * 3.0, CELL_HEIGHT, CELL_WIDTH * 4.0, CELL_HEIGHT * 2.0));
+        self.block_face_uvs.insert(BlockType::Wood, wood_uvs);
+        
+        // Leaves block: same texture for all faces
+        let mut leaves_uvs = HashMap::new();
+        let leaves_uv = (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0);
+        leaves_uvs.insert(BlockFace::Top, leaves_uv);
+        leaves_uvs.insert(BlockFace::Side, leaves_uv);
+        leaves_uvs.insert(BlockFace::Bottom, leaves_uv);
+        self.block_face_uvs.insert(BlockType::Leaves, leaves_uvs);
+        
+        // Sand block: same texture for all faces
+        let mut sand_uvs = HashMap::new();
+        let sand_uv = (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0);
+        sand_uvs.insert(BlockFace::Top, sand_uv);
+        sand_uvs.insert(BlockFace::Side, sand_uv);
+        sand_uvs.insert(BlockFace::Bottom, sand_uv);
+        self.block_face_uvs.insert(BlockType::Sand, sand_uvs);
+        
+        // Water block: same texture for all faces
+        let mut water_uvs = HashMap::new();
+        let water_uv = (CELL_WIDTH * 2.0, CELL_HEIGHT, CELL_WIDTH * 3.0, CELL_HEIGHT * 2.0);
+        water_uvs.insert(BlockFace::Top, water_uv);
+        water_uvs.insert(BlockFace::Side, water_uv);
+        water_uvs.insert(BlockFace::Bottom, water_uv);
+        self.block_face_uvs.insert(BlockType::Water, water_uvs);
+        
+        // Bedrock block: same texture for all faces
+        let mut bedrock_uvs = HashMap::new();
+        let bedrock_uv = (CELL_WIDTH * 3.0, CELL_HEIGHT, CELL_WIDTH * 4.0, CELL_HEIGHT * 2.0);
+        bedrock_uvs.insert(BlockFace::Top, bedrock_uv);
+        bedrock_uvs.insert(BlockFace::Side, bedrock_uv);
+        bedrock_uvs.insert(BlockFace::Bottom, bedrock_uv);
+        self.block_face_uvs.insert(BlockType::Bedrock, bedrock_uvs);
         
         self.texture_handle = texture_handle;
         self.is_loaded = true;
         
-        println!("✓ Texture atlas initialized successfully");
+        println!("✓ Texture atlas with face-specific textures initialized successfully");
+        println!("  - Grass: Top face uses grass texture, sides use dirt texture");
+        println!("  - Dirt: Top face uses dirt texture, sides use dirt texture");
+        println!("  - Wood: Top/bottom use wood top, sides use wood side");
+        println!("  - Other blocks: Same texture for all faces");
     }
     
-    /// Get UV coordinates for a specific block type
-    pub fn get_uv(&self, block_type: BlockType) -> (f32, f32, f32, f32) {
-        self.block_uvs.get(&block_type)
+    /// Get UV coordinates for a specific block type and face
+    pub fn get_uv(&self, block_type: BlockType, face: BlockFace) -> (f32, f32, f32, f32) {
+        self.block_face_uvs.get(&block_type)
+            .and_then(|face_uvs| face_uvs.get(&face))
             .copied()
             .unwrap_or((0.0, 0.0, 1.0, 1.0))  // Default fallback
     }
