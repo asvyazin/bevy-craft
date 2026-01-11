@@ -758,9 +758,60 @@ fn get_neighbor_block_for_greedy(
     z: usize,
     direction: Direction,
 ) -> Option<crate::block::BlockType> {
-    // For now, return Air for out-of-bounds blocks
-    // This will be improved later to properly handle neighbor chunks
-    Some(crate::block::BlockType::Air)
+    // Debug log for neighbor block access
+    // println!("🔍 Checking neighbor block at (x:{}, y:{}, z:{}) for direction {:?}", x, y, z, direction);
+    // Determine if we're at a chunk boundary and need to check neighbor chunks
+    match direction {
+        Direction::X => {
+            // X direction: slice = Y, y = Z, x = X
+            if x >= crate::chunk::CHUNK_SIZE {
+                // Need to check east neighbor chunk
+                let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x + 1, chunk_pos.z);
+                if let Some(&neighbor_entity) = chunk_manager.loaded_chunks.get(&neighbor_pos) {
+                    if let Ok(neighbor_chunk) = chunks.get(neighbor_entity) {
+                        // In east neighbor, we're at local_x = 0
+                        return neighbor_chunk.data.get_block(0, z, y);
+                    }
+                }
+                // No neighbor chunk or neighbor chunk not loaded, treat as air
+                Some(crate::block::BlockType::Air)
+            } else {
+                // Within chunk bounds
+                chunk_data.get_block(x, z, y)
+            }
+        },
+        Direction::Y => {
+            // Y direction: slice = X, y = Y, x = Z
+            if y >= crate::chunk::CHUNK_HEIGHT {
+                // Above chunk, treat as air (no chunks above)
+                Some(crate::block::BlockType::Air)
+            } else if y > 0 && y < crate::chunk::CHUNK_HEIGHT {
+                // Within chunk bounds
+                chunk_data.get_block(z, y, x)
+            } else {
+                // Below chunk (y == 0), treat as air (no chunks below)
+                Some(crate::block::BlockType::Air)
+            }
+        },
+        Direction::Z => {
+            // Z direction: slice = X, y = Y, x = Z
+            if z >= crate::chunk::CHUNK_SIZE {
+                // Need to check south neighbor chunk
+                let neighbor_pos = crate::chunk::ChunkPosition::new(chunk_pos.x, chunk_pos.z + 1);
+                if let Some(&neighbor_entity) = chunk_manager.loaded_chunks.get(&neighbor_pos) {
+                    if let Ok(neighbor_chunk) = chunks.get(neighbor_entity) {
+                        // In south neighbor, we're at local_z = 0
+                        return neighbor_chunk.data.get_block(x, y, 0);
+                    }
+                }
+                // No neighbor chunk or neighbor chunk not loaded, treat as air
+                Some(crate::block::BlockType::Air)
+            } else {
+                // Within chunk bounds
+                chunk_data.get_block(x, y, z)
+            }
+        },
+    }
 }
 
 /// Add a quad for greedy meshing
