@@ -11,6 +11,9 @@ use chunk::{Chunk, ChunkManager, ChunkPosition};
 mod chunk_mesh;
 use chunk_mesh::{ChunkMesh, ChunkMeshMaterials};
 
+mod texture_atlas;
+use texture_atlas::{TextureAtlas, initialize_texture_atlas};
+
 mod noise_demo;
 mod world_gen;
 mod player;
@@ -34,9 +37,11 @@ fn main() {
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
+        .init_resource::<TextureAtlas>() // Initialize texture atlas
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
+        .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_chunk_mesh_materials)
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
@@ -100,9 +105,10 @@ fn generate_demo_chunks(commands: &mut Commands, chunk_manager: &mut ChunkManage
 fn initialize_chunk_mesh_materials(
     mut mesh_materials: ResMut<ChunkMeshMaterials>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    texture_atlas: Res<TextureAtlas>,
 ) {
     println!("🎨 Initializing chunk mesh materials...");
-    mesh_materials.initialize(&mut materials);
+    mesh_materials.initialize(&mut materials, &texture_atlas);
     println!("✓ Chunk mesh materials initialized");
 }
 
@@ -114,6 +120,7 @@ fn generate_chunk_meshes(
     chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
     all_chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
+    texture_atlas: Res<TextureAtlas>,
 ) {
     for (chunk_entity, chunk) in &chunks {
         if chunk.is_generated && chunk.needs_mesh_update {
@@ -125,6 +132,7 @@ fn generate_chunk_meshes(
                 &chunk.position,
                 &chunk_manager,
                 &all_chunks,
+                &texture_atlas,
             );
             let mesh_handle = meshes.add(mesh);
             

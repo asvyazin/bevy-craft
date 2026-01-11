@@ -17,6 +17,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
 use crate::block::BlockType;
+use crate::texture_atlas::TextureAtlas;
 
 /// Component that stores the mesh data for a chunk
 #[derive(Component, Debug)]
@@ -47,12 +48,45 @@ pub struct ChunkMeshMaterials {
 }
 
 impl ChunkMeshMaterials {
-    /// Initialize default materials for all block types
+    /// Initialize default materials for all block types using texture atlas
     pub fn initialize(
         &mut self,
         materials: &mut ResMut<Assets<StandardMaterial>>,
+        texture_atlas: &Res<TextureAtlas>,
     ) {
-        // Create materials for each block type
+        // Check if texture atlas is loaded
+        if !texture_atlas.is_loaded() {
+            println!("⚠️  Texture atlas not loaded, falling back to solid colors");
+            // Fallback to solid colors if texture atlas is not available
+            for block_type in [
+                BlockType::Dirt,
+                BlockType::Stone,
+                BlockType::Grass,
+                BlockType::Wood,
+                BlockType::Leaves,
+                BlockType::Sand,
+                BlockType::Water,
+                BlockType::Bedrock,
+            ] {
+                let material = materials.add(StandardMaterial {
+                    base_color: block_type.color(),
+                    ..default()
+                });
+                self.materials.insert(block_type, material);
+            }
+            return;
+        }
+        
+        // Create a single material that uses the texture atlas
+        // All blocks will share the same material but use different UV coordinates
+        let atlas_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,  // Use white to show texture colors accurately
+            base_color_texture: Some(texture_atlas.texture_handle().clone()),
+            ..default()
+        });
+        
+        // Store the same material for all block types
+        // The UV coordinates will be handled in the mesh generation
         for block_type in [
             BlockType::Dirt,
             BlockType::Stone,
@@ -63,11 +97,7 @@ impl ChunkMeshMaterials {
             BlockType::Water,
             BlockType::Bedrock,
         ] {
-            let material = materials.add(StandardMaterial {
-                base_color: block_type.color(),
-                ..default()
-            });
-            self.materials.insert(block_type, material);
+            self.materials.insert(block_type, atlas_material.clone());
         }
     }
     
@@ -210,6 +240,7 @@ pub fn generate_chunk_mesh(
     chunk_pos: &crate::chunk::ChunkPosition,
     chunk_manager: &crate::chunk::ChunkManager,
     chunks: &Query<&crate::chunk::Chunk>,
+    texture_atlas: &TextureAtlas,
 ) -> Mesh {
     let mut mesh = Mesh::new(
         bevy::render::mesh::PrimitiveTopology::TriangleList,
@@ -244,6 +275,7 @@ pub fn generate_chunk_mesh(
                                 local_z,
                                 &visibility,
                                 block_type,
+                                texture_atlas,
                             );
                         }
                     }
@@ -274,9 +306,10 @@ fn add_block_mesh(
     local_z: usize,
     visibility: &FaceVisibility,
     block_type: BlockType,
+    texture_atlas: &TextureAtlas,
 ) {
     let base_index = positions.len() as u32;
-    let uv = get_block_uv(block_type);
+    let uv = get_block_uv(block_type, texture_atlas);
     let mut current_index = base_index;
     
     // Front face (positive Z)
@@ -361,22 +394,9 @@ fn add_block_mesh(
 /// The texture atlas is organized in a 4x2 grid:
 /// Row 0 (top): Grass, Dirt, Stone, Wood
 /// Row 1 (bottom): Leaves, Sand, Water, Bedrock
-fn get_block_uv(block_type: BlockType) -> (f32, f32, f32, f32) {
-    // Each texture cell is 0.25 units wide and 0.5 units tall
-    const CELL_WIDTH: f32 = 0.25;
-    const CELL_HEIGHT: f32 = 0.5;
-    
-    match block_type {
-        BlockType::Grass => (0.0, 0.0, CELL_WIDTH, CELL_HEIGHT),
-        BlockType::Dirt => (CELL_WIDTH, 0.0, CELL_WIDTH * 2.0, CELL_HEIGHT),
-        BlockType::Stone => (CELL_WIDTH * 2.0, 0.0, CELL_WIDTH * 3.0, CELL_HEIGHT),
-        BlockType::Wood => (CELL_WIDTH * 3.0, 0.0, CELL_WIDTH * 4.0, CELL_HEIGHT),
-        BlockType::Leaves => (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0),
-        BlockType::Sand => (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0),
-        BlockType::Water => (CELL_WIDTH * 2.0, CELL_HEIGHT, CELL_WIDTH * 3.0, CELL_HEIGHT * 2.0),
-        BlockType::Bedrock => (CELL_WIDTH * 3.0, CELL_HEIGHT, CELL_WIDTH * 4.0, CELL_HEIGHT * 2.0),
-        _ => (0.0, 0.0, 1.0, 1.0), // Default fallback for unknown types
-    }
+fn get_block_uv(block_type: BlockType, texture_atlas: &TextureAtlas) -> (f32, f32, f32, f32) {
+    // Use the texture atlas to get UV coordinates
+    texture_atlas.get_uv(block_type)
 }
 
 /// Test function to verify texture atlas UV coordinates
