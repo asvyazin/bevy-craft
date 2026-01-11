@@ -10,7 +10,6 @@ pub struct Player {
     pub is_grounded: bool,
     pub velocity: Vec3,
     pub gravity: f32,
-    pub ground_detection_hysteresis: f32, // For preventing rapid ground state toggling
 }
 
 impl Player {
@@ -22,7 +21,6 @@ impl Player {
                 is_grounded: false,
                 velocity: Vec3::ZERO,
                 gravity: 20.0,
-                ground_detection_hysteresis: 0.0, // Start with no hysteresis
             },
             CollisionState::default(),
             TransformBundle::from_transform(Transform::from_translation(spawn_position)),

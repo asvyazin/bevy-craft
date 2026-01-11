@@ -7,8 +7,6 @@ use crate::player::Player;
 /// Constants for collision detection
 const COLLISION_EPSILON: f32 = 0.001;
 const GROUND_DETECTION_EPSILON: f32 = 0.01;
-const GROUND_HYSTERESIS_THRESHOLD: f32 = 1.0; // Increased threshold for better stability
-const GROUND_HYSTERESIS_INCREMENT: f32 = 0.2; // Larger increment for faster response
 
 /// Component to track collision information for entities
 #[derive(Component, Debug)]
@@ -69,18 +67,6 @@ pub fn collision_detection_system(
         let entity_position = transform.translation;
         let entity_aabb = get_entity_aabb(entity_position, collider);
         
-        // Check collision with blocks
-        if let Some(resolved_position) = check_block_collisions(entity_aabb, &blocks) {
-            if let Some(final_position) = handle_collision(
-                entity_position,
-                resolved_position,
-                player.as_ref().map(|v| &**v),
-                collision_state.as_mut().map(|v| &mut **v),
-            ) {
-                transform.translation = final_position;
-            }
-        }
-        
         // Check collision with chunks (for chunk-based worlds)
         if let Some(resolved_position) = check_chunk_collisions(entity_aabb, &chunks, &chunk_manager) {
             if let Some(final_position) = handle_collision(
@@ -95,44 +81,23 @@ pub fn collision_detection_system(
         
         // Ground detection for player - do this BEFORE collision resolution to get accurate state
         if let Some(ref mut player) = player.as_mut() {
-            let feet_position = get_player_feet_position(entity_position, collider);
-            let ground_check_position = feet_position - Vec3::new(0.0, 0.2, 0.0); // Check further below feet for better stability
+            let (entity_min, entity_max) = entity_aabb;
             let ground_check_aabb = (
-                Vec3::new(ground_check_position.x - 0.3, ground_check_position.y - 0.1, ground_check_position.z - 0.3),
-                Vec3::new(ground_check_position.x + 0.3, ground_check_position.y + 0.1, ground_check_position.z + 0.3)
+                entity_min - Vec3::new(0.0, 0.2, 0.0),
+                entity_max
             );
             
             // Check if there's ground below the player
-            let mut ground_detected = check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
-            
-            // Additional check: if we're very close to the ground (within 0.3 units), consider it detected
-            // This helps prevent micro-movements from causing ground state toggling
-            if !ground_detected {
-                // Check a bit closer to the player
-                let close_ground_check_position = feet_position - Vec3::new(0.0, 0.05, 0.0);
-                let close_ground_check_aabb = (
-                    Vec3::new(close_ground_check_position.x - 0.2, close_ground_check_position.y - 0.05, close_ground_check_position.z - 0.2),
-                    Vec3::new(close_ground_check_position.x + 0.2, close_ground_check_position.y + 0.05, close_ground_check_position.z + 0.2)
-                );
-                ground_detected = check_ground_collision(close_ground_check_aabb, &blocks, &chunks, &chunk_manager);
-            }
-            
+            let ground_detected = check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
+
             // Apply hysteresis to prevent rapid toggling of grounded state
-            if ground_detected {
-                // If we detect ground, reduce hysteresis more aggressively
-                player.ground_detection_hysteresis = (player.ground_detection_hysteresis - GROUND_HYSTERESIS_INCREMENT * 2.0).max(0.0);
-                
-                // If we're not grounded and hysteresis is low enough, set grounded
-                if !player.is_grounded && player.ground_detection_hysteresis <= GROUND_HYSTERESIS_INCREMENT {
+            if ground_detected {                
+                if !player.is_grounded {
                     println!("👣 Player is now grounded");
                     player.is_grounded = true;
                 }
             } else {
-                // If no ground detected, increase hysteresis more slowly
-                player.ground_detection_hysteresis = (player.ground_detection_hysteresis + GROUND_HYSTERESIS_INCREMENT * 0.5).min(GROUND_HYSTERESIS_THRESHOLD);
-                
-                // Only set not grounded if hysteresis is very high
-                if player.is_grounded && player.ground_detection_hysteresis >= GROUND_HYSTERESIS_THRESHOLD * 0.8 {
+                if player.is_grounded {
                     println!("👣 Player is no longer grounded");
                     player.is_grounded = false;
                 }
@@ -196,33 +161,6 @@ fn get_entity_aabb(position: Vec3, collider: &Collider) -> (Vec3, Vec3) {
     let min = position - half_size + collider.offset;
     let max = position + half_size + collider.offset;
     (min, max)
-}
-
-/// Get the player's feet position for ground detection
-fn get_player_feet_position(player_position: Vec3, collider: &Collider) -> Vec3 {
-    let half_size = collider.size / 2.0;
-    player_position - half_size + collider.offset
-}
-
-/// Check for collisions with individual blocks
-fn check_block_collisions(entity_aabb: (Vec3, Vec3), blocks: &Query<&Block>) -> Option<Vec3> {
-    let (entity_min, entity_max) = entity_aabb;
-    
-    for block in blocks.iter() {
-        if block.block_type.is_solid() {
-            let block_min = block.position.as_vec3();
-            let block_max = block.position.as_vec3() + Vec3::ONE;
-            
-            if check_aabb_collision(entity_min, entity_max, block_min, block_max) {
-                // Resolve collision by moving entity out of the block
-                if let Some(resolved_pos) = resolve_aabb_collision(entity_min, entity_max, block_min, block_max) {
-                    return Some(resolved_pos);
-                }
-            }
-        }
-    }
-    
-    None
 }
 
 /// Check for collisions with chunk-based world
@@ -608,7 +546,6 @@ fn find_highest_solid_ground(
 /// Check if a position is safe for spawning (no collisions with blocks)
 fn is_position_safe(
     position: Vec3,
-    blocks: &Query<&Block>,
     chunks: &Query<&Chunk>,
     chunk_manager: &ChunkManager,
 ) -> bool {
@@ -617,10 +554,9 @@ fn is_position_safe(
     let entity_aabb = get_entity_aabb(position, &collider);
     
     // Check if there are any collisions at this position
-    let has_block_collision = check_block_collisions(entity_aabb, blocks).is_some();
     let has_chunk_collision = check_chunk_collisions(entity_aabb, chunks, chunk_manager).is_some();
     
-    !has_block_collision && !has_chunk_collision
+    !has_chunk_collision
 }
 
 /// Find the ground level at a specific X,Z position
