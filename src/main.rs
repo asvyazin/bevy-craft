@@ -38,10 +38,10 @@ fn main() {
         .add_systems(Update, update_block_rendering)
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
-        .add_systems(Update, spawn_blocks_from_chunks) // Add chunk rendering system (legacy)
-        .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
+        // .add_systems(Update, spawn_blocks_from_chunks) // Disabled legacy block spawning system
+        // .add_systems(Update, update_chunk_mesh_status) // Disabled legacy mesh status system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
-        .add_systems(Update, test_neighbor_detection) // Add neighbor detection test
+        // .add_systems(Update, test_neighbor_detection) // Disabled frequent neighbor detection test
         .add_systems(Startup, player::spawn_player) // Add player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(Update, cursor_control_system) // Add cursor control system
@@ -234,18 +234,24 @@ fn generate_chunk_meshes(
             let mut chunk_mesh = ChunkMesh::new();
             chunk_mesh.mesh_handle = mesh_handle;
             
-            // Add materials for the block types present in this chunk
+            // Optimized: Collect unique block types first, then get materials
+            let mut unique_block_types = std::collections::HashSet::new();
             for local_x in 0..crate::chunk::CHUNK_SIZE {
                 for local_z in 0..crate::chunk::CHUNK_SIZE {
                     for y in 0..crate::chunk::CHUNK_HEIGHT {
                         if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
                             if block_type != BlockType::Air {
-                                if let Some(material_handle) = mesh_materials.get_material(block_type) {
-                                    chunk_mesh.material_handles.insert(block_type, material_handle);
-                                }
+                                unique_block_types.insert(block_type);
                             }
                         }
                     }
+                }
+            }
+            
+            // Add materials for unique block types only
+            for block_type in unique_block_types {
+                if let Some(material_handle) = mesh_materials.get_material(block_type) {
+                    chunk_mesh.material_handles.insert(block_type, material_handle);
                 }
             }
             
@@ -260,9 +266,9 @@ fn generate_chunk_meshes(
 /// System to render chunk meshes
 fn render_chunk_meshes(
     mut commands: Commands,
-    chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
+    chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk), Without<Handle<Mesh>>>, 
 ) {
-    for (entity, chunk_mesh, chunk) in chunk_meshes.iter() {
+    for (entity, chunk_mesh, chunk) in &chunk_meshes {
         // For now, just render the first material we find
         // This will be improved later with proper material assignment
         if let Some((_, material_handle)) = chunk_mesh.material_handles.iter().next() {

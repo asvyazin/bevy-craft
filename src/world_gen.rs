@@ -183,9 +183,19 @@ pub fn generate_chunks_system(
     mut chunks: Query<&mut Chunk>,
     settings: Res<WorldGenSettings>,
 ) {
+    // Limit the number of chunks generated per frame to prevent performance issues
+    let mut chunks_generated = 0;
+    const MAX_CHUNKS_PER_FRAME: usize = 2;
+    
     for mut chunk in &mut chunks {
         if !chunk.is_generated {
             generate_chunk_heightmap(&mut chunk, &settings);
+            chunks_generated += 1;
+            
+            // Stop if we've generated enough chunks for this frame
+            if chunks_generated >= MAX_CHUNKS_PER_FRAME {
+                break;
+            }
         }
     }
 }
