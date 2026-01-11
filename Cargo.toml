@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 bevy = "0.13"
 bevy_compute_noise = "0.1.1"
+alkyd = "0.3.2"

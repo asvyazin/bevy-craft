@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::math::primitives::Cuboid;
 use bevy_compute_noise::prelude::*;
+use alkyd::prelude::*;
 
 mod block;
 use block::{Block, BlockType};
@@ -13,6 +14,9 @@ use chunk_mesh::{ChunkMesh, ChunkMeshMaterials};
 
 mod texture_atlas;
 use texture_atlas::{TextureAtlas, initialize_texture_atlas};
+
+mod texture_gen;
+use texture_gen::{TextureGenSettings, generate_procedural_textures, spawn_procedural_texture_demo};
 
 mod noise_demo;
 mod world_gen;
@@ -33,16 +37,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin::<Perlin2d>::default()) // Add Perlin noise plugin for world generation
+        .add_plugins(alkyd::AlkydPlugin) // Add alkyd plugin for procedural texture generation
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
+        .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_chunk_mesh_materials)
+        .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo
+        .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
