@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::math::primitives::Cuboid;
+use crate::collision::CollisionState;
 
 /// Player component representing the player character
 #[derive(Component, Debug)]
@@ -23,6 +24,7 @@ impl Player {
                 gravity: 20.0,
                 ground_detection_hysteresis: 0.0, // Start with no hysteresis
             },
+            CollisionState::default(),
             TransformBundle::from_transform(Transform::from_translation(spawn_position)),
         )
     }
