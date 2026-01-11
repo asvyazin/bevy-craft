@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::math::primitives::Cuboid;
 use bevy_compute_noise::prelude::*;
-use alkyd::prelude::*;
 
 mod block;
 use block::{Block, BlockType};
@@ -37,7 +36,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin::<Perlin2d>::default()) // Add Perlin noise plugin for world generation
-        .add_plugins(alkyd::AlkydPlugin) // Add alkyd plugin for procedural texture generation
+        // .add_plugins(alkyd::AlkydPlugin) // Add alkyd plugin for procedural texture generation (commented out for now)
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings

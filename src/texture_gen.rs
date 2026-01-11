@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use alkyd::prelude::*;
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
 #[cfg(test)]
 mod texture_gen_test;
@@ -44,6 +45,7 @@ pub fn generate_procedural_textures(
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
         );
 
         // Generate procedural texture data
