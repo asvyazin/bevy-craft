@@ -2,6 +2,7 @@
 // This module handles block breaking and placement
 
 use bevy::prelude::*;
+use bevy::ecs::system::ParamSet;
 use bevy::input::mouse::MouseButton;
 
 use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
@@ -12,9 +13,11 @@ pub fn block_interaction_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
     player_query: Query<&Transform, With<crate::player::Player>>,
-    chunks: Query<&Chunk>,
-    mut chunks_mut: Query<&mut Chunk>,
     chunk_manager: Res<ChunkManager>,
+    mut chunk_params: ParamSet<(
+        Query<&Chunk>,
+        Query<&mut Chunk>,
+    )>,
 ) {
     // Handle block breaking with left mouse button
     if mouse_button_input.just_pressed(MouseButton::Left) {
@@ -36,13 +39,13 @@ pub fn block_interaction_system(
         let ray_direction: Vec3 = camera_transform.forward().into();
         
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks_mut, &chunk_manager, 5.0) {
+        if let Some((target_block_pos, _)) = raycast_for_block_mutable(ray_origin, ray_direction, &mut chunk_params.p1(), &chunk_manager, 5.0) {
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
             
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(mut chunk) = chunks_mut.get_mut(*chunk_entity) {
+                if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
                     // Remove the block (set to Air)
                     chunk.set_block_world(target_block_pos, BlockType::Air);
                 }
@@ -70,7 +73,7 @@ pub fn block_interaction_system(
         let ray_direction: Vec3 = camera_transform.forward().into();
         
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0) {
+        if let Some((target_block_pos, _)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunk_params.p0(), &chunk_manager, 5.0) {
             // Calculate the adjacent block position where we want to place the new block
             let placement_pos = find_adjacent_block_position(target_block_pos, ray_origin, ray_direction);
             
@@ -79,7 +82,7 @@ pub fn block_interaction_system(
             
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(mut chunk) = chunks_mut.get_mut(*chunk_entity) {
+                if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
                     // Place a new block (for now, we'll use Stone as the default block type)
                     // TODO: Add inventory system to select different block types
                     chunk.set_block_world(placement_pos, BlockType::Stone);

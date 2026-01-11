@@ -8,6 +8,9 @@ use block::{Block, BlockType};
 mod chunk;
 use chunk::{Chunk, ChunkManager, ChunkPosition};
 
+mod chunk_mesh;
+use chunk_mesh::{ChunkMesh, ChunkMeshMaterials};
+
 mod noise_demo;
 mod world_gen;
 mod player;
@@ -27,13 +30,17 @@ fn main() {
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
+        .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
+        .add_systems(Startup, initialize_chunk_mesh_materials)
         .add_systems(Update, update_block_rendering)
+        .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
-        .add_systems(Update, spawn_blocks_from_chunks) // Add chunk rendering system
+        .add_systems(Update, spawn_blocks_from_chunks) // Add chunk rendering system (legacy)
         .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
+        .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
         .add_systems(Startup, player::spawn_player) // Add player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(Update, cursor_control_system) // Add cursor control system
@@ -186,6 +193,77 @@ fn update_chunk_mesh_status(
             // Check if we should mark it as updated
             // For now, we'll just mark it after a delay to allow block spawning
             chunk.needs_mesh_update = false;
+        }
+    }
+}
+
+/// System to initialize chunk mesh materials
+fn initialize_chunk_mesh_materials(
+    mut mesh_materials: ResMut<ChunkMeshMaterials>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    println!("🎨 Initializing chunk mesh materials...");
+    mesh_materials.initialize(&mut materials);
+    println!("✓ Chunk mesh materials initialized");
+}
+
+/// System to generate chunk meshes
+fn generate_chunk_meshes(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mesh_materials: Res<ChunkMeshMaterials>,
+    chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
+) {
+    for (chunk_entity, chunk) in &chunks {
+        if chunk.is_generated && chunk.needs_mesh_update {
+            println!("🏗️  Generating mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
+            
+            // Generate the mesh for this chunk
+            let mesh = chunk_mesh::generate_simple_chunk_mesh(&chunk.data);
+            let mesh_handle = meshes.add(mesh);
+            
+            // Create the chunk mesh component
+            let mut chunk_mesh = ChunkMesh::new();
+            chunk_mesh.mesh_handle = mesh_handle;
+            
+            // Add materials for the block types present in this chunk
+            for local_x in 0..crate::chunk::CHUNK_SIZE {
+                for local_z in 0..crate::chunk::CHUNK_SIZE {
+                    for y in 0..crate::chunk::CHUNK_HEIGHT {
+                        if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
+                            if block_type != BlockType::Air {
+                                if let Some(material_handle) = mesh_materials.get_material(block_type) {
+                                    chunk_mesh.material_handles.insert(block_type, material_handle);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Add the chunk mesh component to the chunk entity
+            commands.entity(chunk_entity).insert(chunk_mesh);
+            
+            println!("✓ Generated mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
+        }
+    }
+}
+
+/// System to render chunk meshes
+fn render_chunk_meshes(
+    mut commands: Commands,
+    chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
+) {
+    for (entity, chunk_mesh, chunk) in chunk_meshes.iter() {
+        // For now, just render the first material we find
+        // This will be improved later with proper material assignment
+        if let Some((_, material_handle)) = chunk_mesh.material_handles.iter().next() {
+            commands.entity(entity).insert(PbrBundle {
+                mesh: chunk_mesh.mesh_handle.clone(),
+                material: material_handle.clone(),
+                transform: Transform::from_translation(chunk.position.min_block_position().as_vec3()),
+                ..default()
+            });
         }
     }
 }
