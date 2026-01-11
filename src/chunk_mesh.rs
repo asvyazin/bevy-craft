@@ -99,6 +99,31 @@ impl ChunkMeshMaterials {
         ] {
             self.materials.insert(block_type, atlas_material.clone());
         }
+        
+        // If procedural textures are available, create separate materials for each block type
+        if texture_atlas.has_procedural_textures() {
+            println!("🎨 Creating procedural materials for block types...");
+            for block_type in [
+                BlockType::Dirt,
+                BlockType::Stone,
+                BlockType::Grass,
+                BlockType::Wood,
+                BlockType::Leaves,
+                BlockType::Sand,
+                BlockType::Water,
+                BlockType::Bedrock,
+            ] {
+                if let Some(procedural_texture) = texture_atlas.get_procedural_texture(block_type) {
+                    let procedural_material = materials.add(StandardMaterial {
+                        base_color: Color::WHITE,
+                        base_color_texture: Some(procedural_texture.clone()),
+                        ..default()
+                    });
+                    self.materials.insert(block_type, procedural_material);
+                    println!("  ✓ Created procedural material for {:?}", block_type);
+                }
+            }
+        }
     }
     
     /// Get material handle for a block type
@@ -320,7 +345,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
             [local_x as f32, y as f32 + 1.0, z],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, 1.0], uv);
         current_index += 4;
     }
@@ -334,7 +359,7 @@ fn add_block_mesh(
             [local_x as f32, y as f32 + 1.0, z],
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, -1.0], uv);
         current_index += 4;
     }
@@ -348,7 +373,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32],
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -362,7 +387,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
             [x, y as f32 + 1.0, local_z as f32],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Side);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [-1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -376,7 +401,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_top, local_z as f32],
             [local_x as f32, y_top, local_z as f32],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Top);
+        let uv = get_block_face_uv(block_type, BlockFace::Top, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 1.0, 0.0], uv);
         current_index += 4;
     }
@@ -390,7 +415,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_bottom, local_z as f32 + 1.0],
             [local_x as f32, y_bottom, local_z as f32 + 1.0],
         ];
-        let uv = texture_atlas.get_uv(block_type, BlockFace::Bottom);
+        let uv = get_block_face_uv(block_type, BlockFace::Bottom, texture_atlas);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, -1.0, 0.0], uv);
     }
 }
@@ -437,5 +462,17 @@ mod tests {
         // Test fallback behavior for unknown block types
         let unknown_uv = texture_atlas.get_uv(BlockType::Air, BlockFace::Top);
         assert_eq!(unknown_uv, (0.0, 0.0, 1.0, 1.0));  // Should return default fallback
+    }
+}
+
+/// Get UV coordinates for a block face, using full texture UVs if procedural textures are enabled
+fn get_block_face_uv(block_type: BlockType, face: BlockFace, texture_atlas: &TextureAtlas) -> (f32, f32, f32, f32) {
+    // If procedural textures are available, use full texture UVs (0,0 to 1,1)
+    if texture_atlas.has_procedural_textures() && texture_atlas.get_procedural_texture(block_type).is_some() {
+        // For procedural textures, use the entire texture space
+        (0.0, 0.0, 1.0, 1.0)
+    } else {
+        // For atlas textures, use the original UV mapping
+        texture_atlas.get_uv(block_type, face)
     }
 }
