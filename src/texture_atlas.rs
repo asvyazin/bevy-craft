@@ -159,6 +159,13 @@ impl TextureAtlas {
         block_textures: &Res<BlockTextures>,
     ) {
         println!("🎨 Loading procedural textures into texture atlas...");
+        println!("  Debug: BlockTextures resource exists: {}", block_textures.is_added());
+        println!("  Debug: BlockTextures textures count: {}", block_textures.textures.len());
+        
+        // List all available textures in BlockTextures
+        for (name, handle) in &block_textures.textures {
+            println!("  Debug: Available texture: {} - {:?}", name, handle);
+        }
         
         // Map block type names to BlockType enum
         let block_type_mapping = [
@@ -176,6 +183,8 @@ impl TextureAtlas {
             if let Some(texture_handle) = block_textures.textures.get(name) {
                 self.procedural_textures.insert(block_type, texture_handle.clone());
                 println!("  ✓ Loaded procedural texture for {:?}", block_type);
+            } else {
+                println!("  ⚠️  No procedural texture found for: {}", name);
             }
         }
         
