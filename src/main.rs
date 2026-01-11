@@ -47,7 +47,7 @@ fn main() {
         // .add_systems(Update, test_neighbor_detection) // Disabled frequent neighbor detection test
         .add_systems(Startup, spawn_player_safe) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
-        .add_systems(Update, collision_detection_system) // Add collision detection system
+        .add_systems(Update, collision_detection_system.after(player::player_movement_system)) // Add collision detection system
         .add_systems(Update, cursor_control_system) // Add cursor control system
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
