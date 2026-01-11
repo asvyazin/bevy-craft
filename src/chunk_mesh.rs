@@ -1,5 +1,15 @@
 // Chunk mesh system for Bevy Craft
 // This module handles efficient mesh generation and rendering for chunks
+// 
+// Texture Atlas System:
+// The system uses a 4x2 texture atlas grid where each block type has unique UV coordinates.
+// This allows different block types to use different textures from a single texture atlas image.
+// 
+// Atlas Layout:
+// Row 0 (Top):    Grass | Dirt | Stone | Wood  
+// Row 1 (Bottom): Leaves| Sand | Water | Bedrock
+// 
+// Each texture cell is 0.25 units wide and 0.5 units tall in normalized UV space.
 
 use bevy::prelude::*;
 use bevy::render::mesh::{Mesh, Indices};
@@ -347,19 +357,74 @@ fn add_block_mesh(
     }
 }
 
-/// Get UV coordinates for a block type
+/// Get UV coordinates for a block type using a texture atlas
+/// The texture atlas is organized in a 4x2 grid:
+/// Row 0 (top): Grass, Dirt, Stone, Wood
+/// Row 1 (bottom): Leaves, Sand, Water, Bedrock
 fn get_block_uv(block_type: BlockType) -> (f32, f32, f32, f32) {
-    // Simple UV mapping - all blocks use the same texture for now
-    // This will be replaced with a proper texture atlas later
+    // Each texture cell is 0.25 units wide and 0.5 units tall
+    const CELL_WIDTH: f32 = 0.25;
+    const CELL_HEIGHT: f32 = 0.5;
+    
     match block_type {
-        BlockType::Grass => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Dirt => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Stone => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Wood => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Leaves => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Sand => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Water => (0.0, 0.0, 1.0, 1.0),
-        BlockType::Bedrock => (0.0, 0.0, 1.0, 1.0),
-        _ => (0.0, 0.0, 1.0, 1.0),
+        BlockType::Grass => (0.0, 0.0, CELL_WIDTH, CELL_HEIGHT),
+        BlockType::Dirt => (CELL_WIDTH, 0.0, CELL_WIDTH * 2.0, CELL_HEIGHT),
+        BlockType::Stone => (CELL_WIDTH * 2.0, 0.0, CELL_WIDTH * 3.0, CELL_HEIGHT),
+        BlockType::Wood => (CELL_WIDTH * 3.0, 0.0, CELL_WIDTH * 4.0, CELL_HEIGHT),
+        BlockType::Leaves => (0.0, CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT * 2.0),
+        BlockType::Sand => (CELL_WIDTH, CELL_HEIGHT, CELL_WIDTH * 2.0, CELL_HEIGHT * 2.0),
+        BlockType::Water => (CELL_WIDTH * 2.0, CELL_HEIGHT, CELL_WIDTH * 3.0, CELL_HEIGHT * 2.0),
+        BlockType::Bedrock => (CELL_WIDTH * 3.0, CELL_HEIGHT, CELL_WIDTH * 4.0, CELL_HEIGHT * 2.0),
+        _ => (0.0, 0.0, 1.0, 1.0), // Default fallback for unknown types
+    }
+}
+
+/// Test function to verify texture atlas UV coordinates
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_texture_atlas_uv_coordinates() {
+        // Test that each block type gets unique UV coordinates
+        let grass_uv = get_block_uv(BlockType::Grass);
+        let dirt_uv = get_block_uv(BlockType::Dirt);
+        let stone_uv = get_block_uv(BlockType::Stone);
+        let wood_uv = get_block_uv(BlockType::Wood);
+        let leaves_uv = get_block_uv(BlockType::Leaves);
+        let sand_uv = get_block_uv(BlockType::Sand);
+        let water_uv = get_block_uv(BlockType::Water);
+        let bedrock_uv = get_block_uv(BlockType::Bedrock);
+        
+        // Verify that all coordinates are unique and within expected ranges
+        assert_ne!(grass_uv, dirt_uv);
+        assert_ne!(dirt_uv, stone_uv);
+        assert_ne!(stone_uv, wood_uv);
+        assert_ne!(wood_uv, leaves_uv);
+        assert_ne!(leaves_uv, sand_uv);
+        assert_ne!(sand_uv, water_uv);
+        assert_ne!(water_uv, bedrock_uv);
+        
+        // Verify that top row blocks (Grass, Dirt, Stone, Wood) are in the top half (v < 0.5)
+        assert!(grass_uv.1 < 0.5);
+        assert!(dirt_uv.1 < 0.5);
+        assert!(stone_uv.1 < 0.5);
+        assert!(wood_uv.1 < 0.5);
+        
+        // Verify that bottom row blocks (Leaves, Sand, Water, Bedrock) are in the bottom half (v >= 0.5)
+        assert!(leaves_uv.1 >= 0.5);
+        assert!(sand_uv.1 >= 0.5);
+        assert!(water_uv.1 >= 0.5);
+        assert!(bedrock_uv.1 >= 0.5);
+        
+        // Verify that all coordinates are within valid texture space [0.0, 1.0]
+        for uv in [grass_uv, dirt_uv, stone_uv, wood_uv, leaves_uv, sand_uv, water_uv, bedrock_uv] {
+            assert!(uv.0 >= 0.0 && uv.0 <= 1.0);
+            assert!(uv.1 >= 0.0 && uv.1 <= 1.0);
+            assert!(uv.2 >= 0.0 && uv.2 <= 1.0);
+            assert!(uv.3 >= 0.0 && uv.3 <= 1.0);
+            assert!(uv.2 > uv.0, "u_max should be greater than u_min");
+            assert!(uv.3 > uv.1, "v_max should be greater than v_min");
+        }
     }
 }
