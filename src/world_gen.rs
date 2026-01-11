@@ -21,12 +21,12 @@ pub struct WorldGenSettings {
 impl Default for WorldGenSettings {
     fn default() -> Self {
         Self {
-            base_height: 32.0,
-            height_scale: 16.0,
-            frequency: 0.05,
-            octaves: 4,
-            persistence: 0.5,
-            lacunarity: 2.0,
+            base_height: 10.0,   // Lower base height for extreme variation
+            height_scale: 80.0,  // Very high height scale for dramatic terrain
+            frequency: 0.015,    // Very low frequency for large-scale features
+            octaves: 10,         // Many octaves for detailed terrain
+            persistence: 0.3,    // Low persistence for extreme variation
+            lacunarity: 2.3,     // Higher lacunarity for more detail
             perlin_seed: 42,
         }
     }
@@ -41,6 +41,11 @@ pub fn generate_chunk_heightmap(
     let chunk_z = chunk.position.z;
     
     println!("🌱 Generating terrain for chunk ({}, {})", chunk_x, chunk_z);
+    
+    let mut min_height = i32::MAX;
+    let mut max_height = i32::MIN;
+    let mut total_height = 0;
+    let mut height_count = 0;
     
     // Generate heightmap for this chunk
     for local_x in 0..CHUNK_SIZE {
@@ -59,10 +64,22 @@ pub fn generate_chunk_heightmap(
             // Calculate height based on noise
             let height = calculate_height(noise_value, settings);
             
+            // Track height statistics
+            min_height = min_height.min(height);
+            max_height = max_height.max(height);
+            total_height += height;
+            height_count += 1;
+            
             // Generate terrain column
             generate_terrain_column(chunk, local_x, local_z, height);
         }
     }
+    
+    let average_height = total_height as f32 / height_count as f32;
+    let height_range = max_height - min_height;
+    
+    println!("📊 Terrain stats for chunk ({}, {}): min={}, max={}, avg={:.1}, range={}", 
+             chunk_x, chunk_z, min_height, max_height, average_height, height_range);
     
     chunk.is_generated = true;
     chunk.needs_mesh_update = true;
@@ -99,12 +116,16 @@ fn generate_fractal_noise(
 
 /// Simple CPU-based Perlin noise implementation for world generation
 fn cpu_perlin_noise(x: f32, z: f32, seed: u32) -> f32 {
-    // Simple hash function for pseudo-random numbers
+    // Improved hash function for pseudo-random numbers
     fn hash(seed: u32, x: i32, y: i32) -> f32 {
         let mut n = seed;
         n = n.wrapping_mul(1664525).wrapping_add(1013904223);
-        n ^= (x as u32).wrapping_mul(1664525).wrapping_add(1013904223);
-        n ^= (y as u32).wrapping_mul(1664525).wrapping_add(1013904223);
+        n ^= (x as u32).wrapping_mul(314159265).wrapping_add(271828183); // Different multiplier for x
+        n ^= (y as u32).wrapping_mul(271828183).wrapping_add(314159265); // Different multiplier for y
+        // Mix it up more
+        n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+        n ^= n >> 16;
+        n = n.wrapping_mul(1664525).wrapping_add(1013904223);
         (n as f32) / (u32::MAX as f32)
     }
     
@@ -150,17 +171,21 @@ fn calculate_height(noise_value: f32, settings: &WorldGenSettings) -> i32 {
     // Map noise range [-1, 1] to height range
     let normalized = (noise_value + 1.0) / 2.0; // Map to [0, 1]
     
-    // Apply height settings
+    // Apply height settings with extreme variation
     let height = settings.base_height + normalized * settings.height_scale;
     
-    // Ensure height is within valid range
-    height.clamp(1.0, (CHUNK_HEIGHT - 1) as f32) as i32
+    // Add significant additional variation to make terrain dramatically different
+    let variation_factor = 1.0 + (noise_value.abs() * 1.2); // Add up to 120% more variation
+    let final_height = height * variation_factor;
+    
+    // Ensure height is within valid range, but allow very low terrain
+    final_height.clamp(2.0, (CHUNK_HEIGHT - 1) as f32) as i32
 }
 
 /// Generate a terrain column (vertical stack of blocks)
 fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32) {
     // Define minimum terrain height to prevent voids
-    const MIN_TERRAIN_HEIGHT: i32 = 5;
+    const MIN_TERRAIN_HEIGHT: i32 = 3;
     
     // Use the maximum of calculated height and minimum height to ensure solid foundation
     let effective_height = height.max(MIN_TERRAIN_HEIGHT);
@@ -168,13 +193,24 @@ fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, he
     // Generate bedrock layer at the bottom
     chunk.data.set_block(local_x, 0, local_z, BlockType::Bedrock);
     
-    // Fill with stone up to 80% of the terrain height for more natural variation
-    let stone_height = (effective_height as f32 * 0.8) as i32;
+    // Create more dynamic layering based on height
+    let stone_height = if effective_height < 10 {
+        // For lower terrain, have more stone relative to height
+        (effective_height as f32 * 0.9) as i32
+    } else if effective_height < 30 {
+        // For medium terrain, standard 80% stone
+        (effective_height as f32 * 0.8) as i32
+    } else {
+        // For high terrain, less stone relative to height for more dramatic mountains
+        (effective_height as f32 * 0.6) as i32
+    };
+    
+    // Fill with stone
     for y in 1..stone_height.min(effective_height) {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
     }
     
-    // Fill with dirt for the remaining 20% up to the surface
+    // Fill with dirt for the remaining part up to the surface
     for y in stone_height.min(effective_height)..effective_height {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Dirt);
     }
@@ -184,11 +220,29 @@ fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, he
         chunk.data.set_block(local_x, effective_height as usize, local_z, BlockType::Grass);
     }
     
-    // Add some sand near water level (around y=5-10) for beach-like areas
-    if effective_height > 8 && effective_height < 15 {
-        for y in 5..=8 {
-            if y < effective_height {
+    // Add environmental features based on height and position
+    add_environmental_features(chunk, local_x, local_z, effective_height);
+}
+
+/// Add environmental features like sand, water, etc. based on terrain characteristics
+fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32) {
+    // Add sand for beach-like areas (low terrain near "water level")
+    if height > 5 && height < 12 {
+        for y in 3..=6 {
+            if y < height {
                 chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+            }
+        }
+    }
+    
+    // Add some stone variation at higher elevations for more interesting mountains
+    if height > 25 {
+        // Add some exposed stone at the top of mountains
+        if height > 30 {
+            for y in (height - 3)..height {
+                if y > 0 && y < height {
+                    chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
+                }
             }
         }
     }
