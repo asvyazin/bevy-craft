@@ -23,6 +23,9 @@ use camera::{camera_mouse_control_system, camera_rotation_system, cursor_control
 mod block_interaction;
 use block_interaction::block_targeting_feedback_system;
 
+mod collision;
+use collision::{Collider, collision_detection_system, find_safe_spawn_position};
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -42,8 +45,9 @@ fn main() {
         // .add_systems(Update, update_chunk_mesh_status) // Disabled legacy mesh status system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
         // .add_systems(Update, test_neighbor_detection) // Disabled frequent neighbor detection test
-        .add_systems(Startup, player::spawn_player) // Add player spawning system
+        .add_systems(Startup, spawn_player_safe) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
+        .add_systems(Update, collision_detection_system) // Add collision detection system
         .add_systems(Update, cursor_control_system) // Add cursor control system
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
@@ -280,6 +284,45 @@ fn render_chunk_meshes(
             });
         }
     }
+}
+
+/// System to spawn the player at a safe position
+fn spawn_player_safe(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    blocks: Query<&Block>,
+    chunks: Query<&Chunk>,
+    chunk_manager: Res<ChunkManager>,
+) {
+    // Desired spawn position (where we want the player to spawn)
+    let desired_spawn_position = Vec3::new(0.0, 3.0, 0.0);
+    
+    // Find a safe spawn position that doesn't intersect with blocks
+    let safe_spawn_position = find_safe_spawn_position(
+        &blocks, 
+        &chunks, 
+        &chunk_manager, 
+        desired_spawn_position
+    );
+    
+    println!("🎮 Spawning player at safe position: {:?}", safe_spawn_position);
+    
+    // Create player mesh
+    let player_mesh = meshes.add(Mesh::from(Cuboid { half_size: Vec3::new(0.3, 0.8, 0.3) }));
+    let player_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.1, 0.5, 0.9),
+        ..default()
+    });
+
+    // Spawn the player with collider
+    commands.spawn(player::Player::new(safe_spawn_position))
+        .insert(PbrBundle {
+            mesh: player_mesh,
+            material: player_material,
+            ..default()
+        })
+        .insert(Collider::player());
 }
 
 /// Test system to verify neighbor detection is working

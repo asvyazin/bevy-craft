@@ -131,14 +131,10 @@ pub fn player_movement_system(
             player.velocity.y -= player.gravity * time.delta_seconds();
         }
 
-        // Apply velocity to position
+        // Apply velocity to position (collision system will handle actual positioning)
         transform.translation += player.velocity * time.delta_seconds();
 
-        // Simple ground detection (for now, just check if we're below a certain height)
-        if transform.translation.y <= 0.8 { // Player height is 1.6, so 0.8 is close to ground
-            transform.translation.y = 0.8;
-            player.velocity.y = 0.0;
-            player.is_grounded = true;
-        }
+        // Simple ground detection is now handled by collision system
+        // The collision system will prevent the player from falling through the ground
     }
 }
