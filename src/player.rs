@@ -91,10 +91,10 @@ pub fn player_movement_system(
         let mut move_direction = Vec3::ZERO;
 
         if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
-            move_direction.z -= 1.0;
+            move_direction.z += 1.0;  // Fixed: W now moves forward (positive Z)
         }
         if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
-            move_direction.z += 1.0;
+            move_direction.z -= 1.0;  // Fixed: S now moves backward (negative Z)
         }
         if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
             move_direction.x -= 1.0;
