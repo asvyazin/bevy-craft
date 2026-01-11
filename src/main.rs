@@ -10,7 +10,9 @@ use chunk::{Chunk, ChunkManager, ChunkPosition};
 
 mod noise_demo;
 mod world_gen;
+mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
+use player::{Player, PlayerMovementSettings};
 
 fn main() {
     App::new()
@@ -18,12 +20,15 @@ fn main() {
         .add_plugins(ComputeNoisePlugin::<Perlin2d>::default()) // Add Perlin noise plugin for world generation
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
+        .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .add_systems(Startup, setup)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Update, update_block_rendering)
         .add_systems(Update, generate_chunks_system) // Add world generation system
         .add_systems(Update, spawn_blocks_from_chunks) // Add chunk rendering system
         .add_systems(Update, update_chunk_mesh_status) // Add mesh status update system
+        .add_systems(Startup, player::spawn_player) // Add player spawning system
+        .add_systems(Update, player::player_movement_system) // Add player movement system
         .run();
 }
 
@@ -56,6 +61,8 @@ fn setup(
 
     // Generate some chunks for demonstration
     generate_demo_chunks(&mut commands, &mut chunk_manager);
+
+
 }
 
 /// Generate a simple world with different block types for demonstration
