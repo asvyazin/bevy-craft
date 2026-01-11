@@ -111,7 +111,7 @@ fn raycast_for_block_immutable(
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
             current_pos.x.floor() as i32,
-            current_pos.y.floor() as i32,
+            current_pos.y.floor().clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
             current_pos.z.floor() as i32,
         );
         
@@ -157,7 +157,7 @@ fn raycast_for_block_mutable(
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
             current_pos.x.floor() as i32,
-            current_pos.y.floor() as i32,
+            current_pos.y.floor().clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
             current_pos.z.floor() as i32,
         );
         

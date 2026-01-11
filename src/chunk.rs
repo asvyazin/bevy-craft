@@ -56,12 +56,20 @@ impl ChunkData {
 
     /// Get block at local chunk coordinates
     pub fn get_block(&self, local_x: usize, y: usize, local_z: usize) -> Option<BlockType> {
+        // Bounds checking to prevent overflow
+        if local_x >= CHUNK_SIZE || local_z >= CHUNK_SIZE || y >= CHUNK_HEIGHT {
+            return None;
+        }
         let index = self.local_to_index(local_x, y, local_z);
         self.blocks[index]
     }
 
     /// Set block at local chunk coordinates
     pub fn set_block(&mut self, local_x: usize, y: usize, local_z: usize, block_type: BlockType) {
+        // Bounds checking to prevent overflow
+        if local_x >= CHUNK_SIZE || local_z >= CHUNK_SIZE || y >= CHUNK_HEIGHT {
+            return;
+        }
         let index = self.local_to_index(local_x, y, local_z);
         self.blocks[index] = Some(block_type);
     }
@@ -117,7 +125,7 @@ impl Chunk {
     fn world_to_local(&self, world_pos: IVec3) -> IVec3 {
         IVec3::new(
             world_pos.x.rem_euclid(CHUNK_SIZE as i32),
-            world_pos.y,
+            world_pos.y.clamp(0, CHUNK_HEIGHT as i32 - 1),
             world_pos.z.rem_euclid(CHUNK_SIZE as i32),
         )
     }
