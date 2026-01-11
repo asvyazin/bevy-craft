@@ -587,8 +587,10 @@ pub fn initialize_block_textures(
         println!("✓ Generated {} texture with size {:?}", block_type, block_settings.texture_size);
     }
     
-    // Add the resource to the world
+    // Replace the existing resource with the new one
+    let textures_count = block_textures.textures.len();
     commands.insert_resource(block_textures);
+    println!("✓ BlockTextures resource initialized with {} textures", textures_count);
 }
 
 /// System to handle dynamic texture regeneration

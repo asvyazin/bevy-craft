@@ -15,7 +15,7 @@ mod texture_atlas;
 use texture_atlas::{TextureAtlas, initialize_texture_atlas, load_procedural_textures_into_atlas};
 
 mod texture_gen;
-use texture_gen::{TextureGenSettings, generate_procedural_textures, spawn_procedural_texture_demo, initialize_block_textures, regenerate_dynamic_textures};
+use texture_gen::{TextureGenSettings, generate_procedural_textures, spawn_procedural_texture_demo, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
 
 mod noise_demo;
 mod world_gen;
@@ -43,7 +43,7 @@ fn main() {
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
-        // .init_resource::<BlockTextures>() // Removed: Let initialize_block_textures create this resource
+        .init_resource::<BlockTextures>() // Initialize block textures resource
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
