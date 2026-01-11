@@ -543,3 +543,296 @@ fn get_block_uv(block_type: crate::block::BlockType) -> (f32, f32, f32, f32) {
         _ => (0.0, 0.0, 1.0, 1.0),
     }
 }
+
+/// Greedy meshing algorithm implementation
+/// This algorithm merges adjacent blocks of the same type into larger quads for better performance
+pub fn generate_chunk_mesh_greedy(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+) -> Mesh {
+    let mut mesh = Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default()
+    );
+
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uvs = Vec::new();
+    let mut indices = Vec::new();
+
+    // We'll process the chunk in 3 axes for greedy meshing
+    // For now, let's implement a simplified version that processes each direction separately
+
+    // Process each direction (X, Y, Z axes)
+    for direction in [Direction::X, Direction::Y, Direction::Z] {
+        greedy_mesh_direction(
+            chunk_data,
+            chunk_pos,
+            chunk_manager,
+            chunks,
+            direction,
+            &mut positions,
+            &mut normals,
+            &mut uvs,
+            &mut indices,
+        );
+    }
+
+    // Insert mesh data
+    if !positions.is_empty() {
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_indices(Indices::U32(indices));
+    }
+
+    mesh
+}
+
+/// Direction enum for greedy meshing
+#[derive(Debug, Clone, Copy)]
+enum Direction {
+    X, // Right/Left faces
+    Y, // Top/Bottom faces  
+    Z, // Front/Back faces
+}
+
+/// Greedy mesh generation for a specific direction
+fn greedy_mesh_direction(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+    direction: Direction,
+    positions: &mut Vec<[f32; 3]>,
+    normals: &mut Vec<[f32; 3]>,
+    uvs: &mut Vec<[f32; 2]>,
+    indices: &mut Vec<u32>,
+) {
+    // Determine the dimensions based on direction
+    let (width, height, depth) = match direction {
+        Direction::X => (crate::chunk::CHUNK_HEIGHT, crate::chunk::CHUNK_SIZE, crate::chunk::CHUNK_SIZE),
+        Direction::Y => (crate::chunk::CHUNK_SIZE, crate::chunk::CHUNK_HEIGHT, crate::chunk::CHUNK_SIZE),
+        Direction::Z => (crate::chunk::CHUNK_SIZE, crate::chunk::CHUNK_SIZE, crate::chunk::CHUNK_HEIGHT),
+    };
+
+    // We'll implement a simplified greedy meshing approach
+    // For each slice perpendicular to the direction, find contiguous blocks
+
+    // Iterate through each slice
+    for slice in 0..width {
+        // Iterate through each row in the slice
+        for y in 0..height {
+            // Find contiguous blocks in each row
+            let mut x = 0;
+            while x < depth {
+                // Find the start of a contiguous block
+                let block_type = match direction {
+                    Direction::X => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, x, y, slice, direction),
+                    Direction::Y => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, x, y, direction),
+                    Direction::Z => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, y, x, direction),
+                };
+
+                if let Some(block_type) = block_type {
+                    if block_type != crate::block::BlockType::Air {
+                        // Find the width of this contiguous block
+                        let mut block_width = 1;
+                        while x + block_width < depth {
+                            let next_block = match direction {
+                                Direction::X => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, x + block_width, y, slice, direction),
+                                Direction::Y => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, x + block_width, y, direction),
+                                Direction::Z => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, y, x + block_width, direction),
+                            };
+
+                            if next_block == Some(block_type) {
+                                block_width += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // Find the height of this contiguous block
+                        let mut block_height = 1;
+                        while y + block_height < height {
+                            let mut all_same = true;
+                            for wx in 0..block_width {
+                                let test_block = match direction {
+                                    Direction::X => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, x + wx, y + block_height, slice, direction),
+                                    Direction::Y => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, x + wx, y + block_height, direction),
+                                    Direction::Z => get_block_in_direction(chunk_data, chunk_pos, chunk_manager, chunks, slice, y + wx, x + block_height, direction),
+                                };
+
+                                if test_block != Some(block_type) {
+                                    all_same = false;
+                                    break;
+                                }
+                            }
+
+                            if all_same {
+                                block_height += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        // Add the quad for this contiguous block
+                        add_greedy_quad(
+                            positions,
+                            normals,
+                            uvs,
+                            indices,
+                            x,
+                            y,
+                            slice,
+                            block_width,
+                            block_height,
+                            direction,
+                            block_type,
+                        );
+
+                        // Skip the processed blocks
+                        x += block_width;
+                    } else {
+                        x += 1;
+                    }
+                } else {
+                    x += 1;
+                }
+            }
+        }
+    }
+}
+
+/// Get block type in a specific direction
+fn get_block_in_direction(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+    x: usize,
+    y: usize,
+    z: usize,
+    direction: Direction,
+) -> Option<crate::block::BlockType> {
+    match direction {
+        Direction::X => {
+            // X direction: slice = Y, y = Z, x = X
+            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_SIZE && z < crate::chunk::CHUNK_HEIGHT {
+                chunk_data.get_block(x, z, y)
+            } else {
+                // Handle chunk boundaries
+                get_neighbor_block_for_greedy(chunk_data, chunk_pos, chunk_manager, chunks, x, y, z, direction)
+            }
+        },
+        Direction::Y => {
+            // Y direction: slice = X, y = Y, x = Z
+            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_HEIGHT && z < crate::chunk::CHUNK_SIZE {
+                chunk_data.get_block(z, y, x)
+            } else {
+                // Handle chunk boundaries
+                get_neighbor_block_for_greedy(chunk_data, chunk_pos, chunk_manager, chunks, x, y, z, direction)
+            }
+        },
+        Direction::Z => {
+            // Z direction: slice = X, y = Y, x = Z
+            if x < crate::chunk::CHUNK_SIZE && y < crate::chunk::CHUNK_SIZE && z < crate::chunk::CHUNK_HEIGHT {
+                chunk_data.get_block(x, y, z)
+            } else {
+                // Handle chunk boundaries
+                get_neighbor_block_for_greedy(chunk_data, chunk_pos, chunk_manager, chunks, x, y, z, direction)
+            }
+        },
+    }
+}
+
+/// Get neighbor block for greedy meshing (handles chunk boundaries)
+fn get_neighbor_block_for_greedy(
+    chunk_data: &crate::chunk::ChunkData,
+    chunk_pos: &crate::chunk::ChunkPosition,
+    chunk_manager: &crate::chunk::ChunkManager,
+    chunks: &Query<&crate::chunk::Chunk>,
+    x: usize,
+    y: usize,
+    z: usize,
+    direction: Direction,
+) -> Option<crate::block::BlockType> {
+    // For now, return Air for out-of-bounds blocks
+    // This will be improved later to properly handle neighbor chunks
+    Some(crate::block::BlockType::Air)
+}
+
+/// Add a quad for greedy meshing
+fn add_greedy_quad(
+    positions: &mut Vec<[f32; 3]>,
+    normals: &mut Vec<[f32; 3]>,
+    uvs: &mut Vec<[f32; 2]>,
+    indices: &mut Vec<u32>,
+    x: usize,
+    y: usize,
+    slice: usize,
+    width: usize,
+    height: usize,
+    direction: Direction,
+    block_type: crate::block::BlockType,
+) {
+    let base_index = positions.len() as u32;
+    
+    // Calculate the normal based on direction
+    let normal = match direction {
+        Direction::X => [1.0, 0.0, 0.0], // Right face
+        Direction::Y => [0.0, 1.0, 0.0], // Top face
+        Direction::Z => [0.0, 0.0, 1.0], // Front face
+    };
+
+    // Calculate the quad vertices based on direction
+    let (v0, v1, v2, v3) = match direction {
+        Direction::X => {
+            // Right face quad
+            let x_pos = slice as f32 + 1.0;
+            (
+                [x_pos, y as f32, x as f32],
+                [x_pos, y as f32, x as f32 + height as f32],
+                [x_pos, y as f32 + width as f32, x as f32 + height as f32],
+                [x_pos, y as f32 + width as f32, x as f32],
+            )
+        },
+        Direction::Y => {
+            // Top face quad
+            let y_pos = slice as f32 + 1.0;
+            let z_val = x; // Use the x parameter as z coordinate for Y direction
+            (
+                [x as f32, y_pos, z_val as f32],
+                [x as f32 + width as f32, y_pos, z_val as f32],
+                [x as f32 + width as f32, y_pos, z_val as f32 + height as f32],
+                [x as f32, y_pos, z_val as f32 + height as f32],
+            )
+        },
+        Direction::Z => {
+            // Front face quad
+            let z_pos = slice as f32 + 1.0;
+            (
+                [x as f32, y as f32, z_pos],
+                [x as f32 + width as f32, y as f32, z_pos],
+                [x as f32 + width as f32, y as f32 + height as f32, z_pos],
+                [x as f32, y as f32 + height as f32, z_pos],
+            )
+        },
+    };
+
+    positions.extend_from_slice(&[v0, v1, v2, v3]);
+    normals.extend_from_slice(&[normal, normal, normal, normal]);
+
+    // UV coordinates
+    let uv = get_block_uv(block_type);
+    uvs.extend_from_slice(&[
+        [uv.0, uv.1],
+        [uv.2, uv.1],
+        [uv.2, uv.3],
+        [uv.0, uv.3],
+    ]);
+
+    // Indices for two triangles
+    indices.extend_from_slice(&[base_index, base_index + 1, base_index + 2, base_index, base_index + 2, base_index + 3]);
+}

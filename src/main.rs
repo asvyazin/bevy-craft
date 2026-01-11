@@ -221,8 +221,8 @@ fn generate_chunk_meshes(
         if chunk.is_generated && chunk.needs_mesh_update {
             println!("🏗️  Generating mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
             
-            // Generate the mesh for this chunk using neighbor-aware generation
-            let mesh = chunk_mesh::generate_chunk_mesh_with_neighbors(
+            // Generate the mesh for this chunk using greedy meshing algorithm
+            let mesh = chunk_mesh::generate_chunk_mesh_greedy(
                 &chunk.data,
                 &chunk.position,
                 &chunk_manager,
