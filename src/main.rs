@@ -81,8 +81,6 @@ fn setup(
 
     // Generate some chunks for demonstration
     generate_demo_chunks(&mut commands, &mut chunk_manager);
-
-
 }
 
 /// Generate a simple world with different block types for demonstration

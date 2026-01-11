@@ -159,22 +159,28 @@ fn calculate_height(noise_value: f32, settings: &WorldGenSettings) -> i32 {
 
 /// Generate a terrain column (vertical stack of blocks)
 fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32) {
+    // Define minimum terrain height to prevent voids
+    const MIN_TERRAIN_HEIGHT: i32 = 5;
+    
+    // Use the maximum of calculated height and minimum height to ensure solid foundation
+    let effective_height = height.max(MIN_TERRAIN_HEIGHT);
+    
     // Generate bedrock layer at the bottom
     chunk.data.set_block(local_x, 0, local_z, BlockType::Bedrock);
     
     // Fill with stone up to a certain level
-    for y in 1..height.min(10) {
+    for y in 1..effective_height.min(10) {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
     }
     
     // Fill with dirt for the middle layer
-    for y in height.min(10)..height {
+    for y in effective_height.min(10)..effective_height {
         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Dirt);
     }
     
     // Add grass on top if there's terrain
-    if height > 0 {
-        chunk.data.set_block(local_x, height as usize, local_z, BlockType::Grass);
+    if effective_height > 0 {
+        chunk.data.set_block(local_x, effective_height as usize, local_z, BlockType::Grass);
     }
 }
 
