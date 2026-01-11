@@ -1,0 +1,157 @@
+// Chunk system for Bevy Craft
+// This module handles world chunking for efficient rendering and world generation
+
+use bevy::prelude::*;
+use std::collections::HashMap;
+
+use crate::block::BlockType;
+
+/// Constants for chunk system
+pub const CHUNK_SIZE: usize = 16; // 16x16x16 chunks
+pub const CHUNK_HEIGHT: usize = 128; // Maximum height for chunks
+pub const CHUNK_AREA: usize = CHUNK_SIZE * CHUNK_SIZE;
+pub const CHUNK_VOLUME: usize = CHUNK_AREA * CHUNK_HEIGHT;
+
+/// Chunk position in world coordinates
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ChunkPosition {
+    pub x: i32,
+    pub z: i32,
+}
+
+impl ChunkPosition {
+    pub fn new(x: i32, z: i32) -> Self {
+        Self { x, z }
+    }
+
+    /// Convert block position to chunk position
+    pub fn from_block_position(block_pos: IVec3) -> Self {
+        let chunk_x = block_pos.x.div_euclid(CHUNK_SIZE as i32);
+        let chunk_z = block_pos.z.div_euclid(CHUNK_SIZE as i32);
+        Self::new(chunk_x, chunk_z)
+    }
+
+    /// Get the minimum block position for this chunk
+    pub fn min_block_position(&self) -> IVec3 {
+        IVec3::new(
+            self.x * CHUNK_SIZE as i32,
+            0,
+            self.z * CHUNK_SIZE as i32,
+        )
+    }
+}
+
+/// Chunk data structure containing block information
+#[derive(Debug, Default)]
+pub struct ChunkData {
+    pub blocks: Vec<Option<BlockType>>, // Using Option to represent air blocks
+}
+
+impl ChunkData {
+    pub fn new() -> Self {
+        Self {
+            blocks: vec![None; CHUNK_VOLUME],
+        }
+    }
+
+    /// Get block at local chunk coordinates
+    pub fn get_block(&self, local_x: usize, y: usize, local_z: usize) -> Option<BlockType> {
+        let index = self.local_to_index(local_x, y, local_z);
+        self.blocks[index]
+    }
+
+    /// Set block at local chunk coordinates
+    pub fn set_block(&mut self, local_x: usize, y: usize, local_z: usize, block_type: BlockType) {
+        let index = self.local_to_index(local_x, y, local_z);
+        self.blocks[index] = Some(block_type);
+    }
+
+    /// Convert local coordinates to array index
+    fn local_to_index(&self, local_x: usize, y: usize, local_z: usize) -> usize {
+        y * CHUNK_AREA + local_z * CHUNK_SIZE + local_x
+    }
+
+    /// Convert array index to local coordinates
+    fn index_to_local(&self, index: usize) -> (usize, usize, usize) {
+        let y = index / CHUNK_AREA;
+        let remainder = index % CHUNK_AREA;
+        let local_z = remainder / CHUNK_SIZE;
+        let local_x = remainder % CHUNK_SIZE;
+        (local_x, y, local_z)
+    }
+}
+
+/// Chunk component that will be attached to chunk entities
+#[derive(Component, Debug)]
+pub struct Chunk {
+    pub position: ChunkPosition,
+    pub data: ChunkData,
+    pub is_generated: bool,
+    pub needs_mesh_update: bool,
+}
+
+impl Chunk {
+    pub fn new(position: ChunkPosition) -> Self {
+        Self {
+            position,
+            data: ChunkData::new(),
+            is_generated: false,
+            needs_mesh_update: true,
+        }
+    }
+
+    /// Get block at world position relative to this chunk
+    pub fn get_block_world(&self, world_pos: IVec3) -> Option<BlockType> {
+        let local_pos = self.world_to_local(world_pos);
+        self.data.get_block(local_pos.x as usize, local_pos.y as usize, local_pos.z as usize)
+    }
+
+    /// Set block at world position relative to this chunk
+    pub fn set_block_world(&mut self, world_pos: IVec3, block_type: BlockType) {
+        let local_pos = self.world_to_local(world_pos);
+        self.data.set_block(local_pos.x as usize, local_pos.y as usize, local_pos.z as usize, block_type);
+        self.needs_mesh_update = true;
+    }
+
+    /// Convert world position to local chunk coordinates
+    fn world_to_local(&self, world_pos: IVec3) -> IVec3 {
+        IVec3::new(
+            world_pos.x.rem_euclid(CHUNK_SIZE as i32),
+            world_pos.y,
+            world_pos.z.rem_euclid(CHUNK_SIZE as i32),
+        )
+    }
+
+    /// Check if a world position is within this chunk
+    pub fn contains(&self, world_pos: IVec3) -> bool {
+        let min_pos = self.position.min_block_position();
+        let max_pos = min_pos + IVec3::new(CHUNK_SIZE as i32, CHUNK_HEIGHT as i32, CHUNK_SIZE as i32);
+        
+        world_pos.x >= min_pos.x && world_pos.x < max_pos.x &&
+        world_pos.y >= min_pos.y && world_pos.y < max_pos.y &&
+        world_pos.z >= min_pos.z && world_pos.z < max_pos.z
+    }
+}
+
+/// Resource to track loaded chunks
+#[derive(Resource, Default, Debug)]
+pub struct ChunkManager {
+    pub loaded_chunks: HashMap<ChunkPosition, Entity>,
+    pub render_distance: i32,
+}
+
+impl ChunkManager {
+    pub fn new(render_distance: i32) -> Self {
+        Self {
+            loaded_chunks: HashMap::new(),
+            render_distance,
+        }
+    }
+
+    /// Check if a chunk should be loaded based on player position
+    pub fn should_load_chunk(&self, chunk_pos: ChunkPosition, player_chunk_pos: ChunkPosition) -> bool {
+        let dx = (chunk_pos.x - player_chunk_pos.x).abs();
+        let dz = (chunk_pos.z - player_chunk_pos.z).abs();
+        dx <= self.render_distance && dz <= self.render_distance
+    }
+}
