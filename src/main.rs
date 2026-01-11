@@ -38,14 +38,10 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_chunk_mesh_materials)
-        // .add_systems(Update, update_block_rendering) // Disabled individual block rendering - using chunk meshes instead
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
-        // .add_systems(Update, spawn_blocks_from_chunks) // Disabled legacy block spawning system
-        // .add_systems(Update, update_chunk_mesh_status) // Disabled legacy mesh status system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
-        // .add_systems(Update, test_neighbor_detection) // Disabled frequent neighbor detection test
-        .add_systems(Startup, spawn_player_safe) // Add safe player spawning system
+        .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(Update, collision_detection_system.after(player::player_movement_system)) // Add collision detection system
         .add_systems(Update, cursor_control_system) // Add cursor control system
@@ -76,41 +72,8 @@ fn setup(
         ..default()
     });
 
-    // Create a simple world with different block types
-    // generate_simple_world(&mut commands); // Disabled - using chunk-based world generation instead
-
     // Generate some chunks for demonstration
     generate_demo_chunks(&mut commands, &mut chunk_manager);
-}
-
-/// Generate a simple world with different block types for demonstration
-fn generate_simple_world(commands: &mut Commands) {
-    // Create a small platform of different blocks
-    for x in -2..=2 {
-        for z in -2..=2 {
-            // Bedrock layer
-            commands.spawn(Block::new(BlockType::Bedrock, IVec3::new(x, 0, z)));
-            
-            // Dirt layer
-            commands.spawn(Block::new(BlockType::Dirt, IVec3::new(x, 1, z)));
-            
-            // Grass layer (top)
-            commands.spawn(Block::new(BlockType::Grass, IVec3::new(x, 2, z)));
-        }
-    }
-    
-    // Add some stone blocks
-    commands.spawn(Block::new(BlockType::Stone, IVec3::new(0, 3, 0)));
-    commands.spawn(Block::new(BlockType::Stone, IVec3::new(1, 3, 0)));
-    
-    // Add some wood blocks
-    commands.spawn(Block::new(BlockType::Wood, IVec3::new(-1, 3, 0)));
-    
-    // Add some leaves
-    commands.spawn(Block::new(BlockType::Leaves, IVec3::new(0, 4, 0)));
-    
-    // Add some sand
-    commands.spawn(Block::new(BlockType::Sand, IVec3::new(2, 2, 2)));
 }
 
 /// Generate demo chunks for testing the chunk system
@@ -131,73 +94,6 @@ fn generate_demo_chunks(commands: &mut Commands, chunk_manager: &mut ChunkManage
     }
     
     println!("🎮 Chunks created, terrain generation will be handled by the world generation system");
-}
-
-/// System to render blocks based on their type
-fn update_block_rendering(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    blocks: Query<(Entity, &Block), Without<Handle<Mesh>>>, // Only blocks without mesh handles
-) {
-    // Spawn visual representations for all blocks
-    for (entity, block) in &blocks {
-        let mesh = meshes.add(Mesh::from(Cuboid { half_size: Vec3::ONE * 0.5 }));
-        let material = materials.add(StandardMaterial {
-            base_color: block.block_type.color(),
-            ..default()
-        });
-        
-        // Spawn the visual representation
-        commands.entity(entity).insert(PbrBundle {
-            mesh,
-            material,
-            transform: Transform::from_translation(block.position.as_vec3()),
-            ..default()
-        });
-    }
-}
-
-/// System to spawn block entities from generated chunks
-fn spawn_blocks_from_chunks(
-    mut commands: Commands,
-    chunks: Query<&Chunk>,
-) {
-    for chunk in &chunks {
-        if chunk.is_generated && chunk.needs_mesh_update {
-            println!("🏗️  Spawning blocks for chunk ({}, {})", chunk.position.x, chunk.position.z);
-            
-            // Spawn all non-air blocks in the chunk
-            for local_x in 0..crate::chunk::CHUNK_SIZE {
-                for local_z in 0..crate::chunk::CHUNK_SIZE {
-                    for y in 0..crate::chunk::CHUNK_HEIGHT {
-                        if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
-                            if block_type != BlockType::Air {
-                                let world_pos = chunk.position.min_block_position() + IVec3::new(local_x as i32, y as i32, local_z as i32);
-                                commands.spawn(Block::new(block_type, world_pos));
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Mark chunk as no longer needing mesh update
-            // Note: We can't modify the chunk directly here, so we'll handle this in another system
-        }
-    }
-}
-
-/// System to mark chunks as updated after block spawning
-fn update_chunk_mesh_status(
-    mut chunks: Query<&mut Chunk>,
-) {
-    for mut chunk in &mut chunks {
-        if chunk.needs_mesh_update {
-            // Check if we should mark it as updated
-            // For now, we'll just mark it after a delay to allow block spawning
-            chunk.needs_mesh_update = false;
-        }
-    }
 }
 
 /// System to initialize chunk mesh materials
@@ -224,7 +120,7 @@ fn generate_chunk_meshes(
             println!("🏗️  Generating mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
             
             // Generate the mesh for this chunk using neighbor-aware algorithm
-            let mesh = chunk_mesh::generate_chunk_mesh_with_neighbors(
+            let mesh = chunk_mesh::generate_chunk_mesh(
                 &chunk.data,
                 &chunk.position,
                 &chunk_manager,
@@ -323,42 +219,4 @@ fn spawn_player_safe(
             ..default()
         })
         .insert(Collider::player());
-}
-
-/// Test system to verify neighbor detection is working
-fn test_neighbor_detection(
-    chunk_manager: Res<ChunkManager>,
-    chunks: Query<&Chunk>,
-) {
-    // Test neighbor detection for the center chunk (0, 0)
-    let center_pos = crate::chunk::ChunkPosition::new(0, 0);
-    
-    if chunk_manager.loaded_chunks.contains_key(&center_pos) {
-        println!("🔍 Testing neighbor detection for chunk (0, 0):");
-        
-        // Test each direction
-        let directions = [
-            ("North", crate::chunk::ChunkPosition::new(0, -1)),
-            ("South", crate::chunk::ChunkPosition::new(0, 1)),
-            ("East", crate::chunk::ChunkPosition::new(1, 0)),
-            ("West", crate::chunk::ChunkPosition::new(-1, 0)),
-        ];
-        
-        for (dir_name, neighbor_pos) in directions {
-            if chunk_manager.loaded_chunks.contains_key(&neighbor_pos) {
-                println!("  ✓ {} neighbor found at ({}, {})", dir_name, neighbor_pos.x, neighbor_pos.z);
-            } else {
-                println!("  ✗ {} neighbor missing", dir_name);
-            }
-        }
-        
-        // Test neighbor block access
-        if let Some(neighbor_entity) = chunk_manager.loaded_chunks.get(&crate::chunk::ChunkPosition::new(1, 0)) {
-            if let Ok(neighbor_chunk) = chunks.get(*neighbor_entity) {
-                if let Some(block) = neighbor_chunk.data.get_block(0, 0, 0) {
-                    println!("  ✓ Can access neighbor block: {:?}", block);
-                }
-            }
-        }
-    }
 }

@@ -9,14 +9,6 @@ const COLLISION_EPSILON: f32 = 0.001;
 const GROUND_DETECTION_EPSILON: f32 = 0.01;
 const GROUND_HYSTERESIS_THRESHOLD: f32 = 1.0; // Increased threshold for better stability
 const GROUND_HYSTERESIS_INCREMENT: f32 = 0.2; // Larger increment for faster response
-const GROUNDED_STABILITY_BUFFER: f32 = 0.01; // Small buffer to prevent micro-adjustments when grounded
-const GROUNDED_SAFE_ZONE: f32 = 0.2; // Safe zone for upward collisions only
-const COLLISION_DAMPING_FACTOR: f32 = 0.8; // Damping factor for collision resolution
-const POSITION_SMOOTHING_FACTOR: f32 = 0.6; // Smoothing factor for position changes
-const MIN_COLLISION_RESOLUTION_INTERVAL: f32 = 0.1; // Minimum time between collision resolutions
-const ABSOLUTE_STABILIZATION_THRESHOLD: f32 = 0.05; // Threshold for absolute position stabilization
-const GROUND_LOCK_STABILITY_FRAMES: u32 = 3; // Number of stable frames required for ground lock
-const MAX_VERTICAL_VELOCITY_CLAMP: f32 = 0.1; // Maximum vertical velocity to prevent micro-oscillations
 
 /// Component to track collision information for entities
 #[derive(Component, Debug)]
@@ -71,85 +63,32 @@ pub fn collision_detection_system(
     blocks: Query<&Block>,
     chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
-    time: Res<Time>,
+    _time: Res<Time>,
 ) {
     for (mut transform, collider, mut player, mut collision_state) in &mut query {
         let entity_position = transform.translation;
         let entity_aabb = get_entity_aabb(entity_position, collider);
         
-        // Use collision state if available for advanced smoothing
-        let _has_collision_state = collision_state.is_some();
-        
         // Check collision with blocks
-        let collision_result = check_block_collisions(entity_aabb, &blocks);
-        
-        if let Some(resolved_position) = collision_result {
-            // Use simplified collision resolution that always resolves downward collisions
-            let penetration_depth = resolved_position.y - entity_position.y;
-            
-            let (should_resolve, final_position) = if let Some(ref mut state) = collision_state {
-                resolve_collision_simple(
-                    entity_position,
-                    resolved_position,
-                    player.as_ref().map(|v| &**v),
-                )
-            } else {
-                // Fallback for entities without collision state - always resolve downward collisions
-                if penetration_depth < 0.0 {
-                    (true, resolved_position)
-                } else {
-                    // For upward collisions, be conservative
-                    if let Some(ref player) = player.as_ref() {
-                        if player.is_grounded && penetration_depth <= 0.1 {
-                            (false, entity_position)
-                        } else {
-                            (true, resolved_position)
-                        }
-                    } else {
-                        (true, resolved_position)
-                    }
-                }
-            };
-            
-            if should_resolve {
-                println!("⚡ Block collision resolved: {:?} -> {:?}", entity_position, final_position);
+        if let Some(resolved_position) = check_block_collisions(entity_aabb, &blocks) {
+            if let Some(final_position) = handle_collision(
+                entity_position,
+                resolved_position,
+                player.as_ref().map(|v| &**v),
+                collision_state.as_mut().map(|v| &mut **v),
+            ) {
                 transform.translation = final_position;
             }
         }
         
         // Check collision with chunks (for chunk-based worlds)
-        let chunk_collision_result = check_chunk_collisions(entity_aabb, &chunks, &chunk_manager);
-        
-        if let Some(resolved_position) = chunk_collision_result {
-            // Use simplified collision resolution that always resolves downward collisions
-            let penetration_depth = resolved_position.y - entity_position.y;
-            
-            let (should_resolve, final_position) = if let Some(ref mut state) = collision_state {
-                resolve_collision_simple(
-                    entity_position,
-                    resolved_position,
-                    player.as_ref().map(|v| &**v),
-                )
-            } else {
-                // Fallback for entities without collision state - always resolve downward collisions
-                if penetration_depth < 0.0 {
-                    (true, resolved_position)
-                } else {
-                    // For upward collisions, be conservative
-                    if let Some(ref player) = player.as_ref() {
-                        if player.is_grounded && penetration_depth <= 0.1 {
-                            (false, entity_position)
-                        } else {
-                            (true, resolved_position)
-                        }
-                    } else {
-                        (true, resolved_position)
-                    }
-                }
-            };
-            
-            if should_resolve {
-                println!("⚡ Chunk collision resolved: {:?} -> {:?}", entity_position, final_position);
+        if let Some(resolved_position) = check_chunk_collisions(entity_aabb, &chunks, &chunk_manager) {
+            if let Some(final_position) = handle_collision(
+                entity_position,
+                resolved_position,
+                player.as_ref().map(|v| &**v),
+                collision_state.as_mut().map(|v| &mut **v),
+            ) {
                 transform.translation = final_position;
             }
         }
@@ -454,6 +393,40 @@ fn check_chunk_block_collisions(entity_aabb: (Vec3, Vec3), chunk: &Chunk) -> Opt
     }
     
     None
+}
+
+/// Unified collision handling function
+fn handle_collision(
+    current_position: Vec3,
+    resolved_position: Vec3,
+    player: Option<&Player>,
+    _collision_state: Option<&mut CollisionState>,
+) -> Option<Vec3> {
+    let penetration_depth = resolved_position.y - current_position.y;
+    
+    // Always resolve downward collisions to prevent falling through
+    if penetration_depth < 0.0 {
+        println!("⚡ Collision resolved (downward): {:?} -> {:?}", current_position, resolved_position);
+        return Some(resolved_position);
+    }
+    
+    // For upward collisions, be more conservative for grounded players
+    if let Some(player) = player {
+        if player.is_grounded {
+            // Only resolve significant upward collisions for grounded players
+            if penetration_depth > 0.1 {
+                println!("⚡ Collision resolved (upward): {:?} -> {:?}", current_position, resolved_position);
+                return Some(resolved_position);
+            } else {
+                // Small upward collisions might be jittering, ignore them
+                return None;
+            }
+        }
+    }
+    
+    // For non-grounded players or significant collisions, resolve normally
+    println!("⚡ Collision resolved: {:?} -> {:?}", current_position, resolved_position);
+    Some(resolved_position)
 }
 
 /// Check if two AABBs are colliding
@@ -793,248 +766,13 @@ fn find_empty_space_near_position(
     best_position
 }
 
-/// Advanced collision resolution with ground locking and absolute stabilization
-fn resolve_collision_with_ground_lock(
-    current_position: Vec3,
-    resolved_position: Vec3,
-    player: Option<&Player>,
-    current_time: f32,
-    collision_state: &mut CollisionState,
-) -> (bool, Vec3) {
-    let penetration_depth = resolved_position.y - current_position.y;
-    
-    // ALWAYS resolve downward collisions (standing on ground) to prevent falling through
-    if penetration_depth < 0.0 {
-        // This is a downward collision - player is standing on something
-        // Always resolve this to prevent falling through the ground
-        let final_position = apply_strong_position_smoothing(
-            current_position,
-            resolved_position,
-            collision_state,
-        );
-        collision_state.last_collision_time = current_time;
-        
-        // Reset ground lock if we have significant downward penetration
-        if penetration_depth.abs() > GROUNDED_SAFE_ZONE {
-            collision_state.is_ground_locked = false;
-            collision_state.stable_frames_count = 0;
-        }
-        
-        return (true, final_position);
-    }
-    
-    // For upward collisions, apply more conservative logic
-    if let Some(player) = player {
-        if player.is_grounded {
-            // For grounded players, be more conservative about upward collisions
-            if penetration_depth <= GROUNDED_SAFE_ZONE {
-                // Small upward penetration - this might be jittering, ignore it
-                collision_state.stable_frames_count += 1;
-                
-                // If we've been stable for a while, activate ground lock
-                if collision_state.stable_frames_count >= GROUND_LOCK_STABILITY_FRAMES && !collision_state.is_ground_locked {
-                    collision_state.is_ground_locked = true;
-                    collision_state.ground_lock_position = current_position;
-                    println!("🔒 Ground lock activated at position: {:?}", collision_state.ground_lock_position);
-                }
-                
-                return (false, current_position);
-            } else {
-                // Significant upward penetration - reset stability
-                collision_state.stable_frames_count = 0;
-                collision_state.is_ground_locked = false;
-                
-                // Only resolve if enough time has passed since last collision
-                let time_since_last_collision = current_time - collision_state.last_collision_time;
-                if time_since_last_collision >= MIN_COLLISION_RESOLUTION_INTERVAL {
-                    let final_position = apply_strong_position_smoothing(
-                        current_position,
-                        resolved_position,
-                        collision_state,
-                    );
-                    collision_state.last_collision_time = current_time;
-                    return (true, final_position);
-                }
-            }
-        }
-    }
-    
-    // For non-grounded players or significant upward collisions
-    let time_since_last_collision = current_time - collision_state.last_collision_time;
-    if time_since_last_collision >= MIN_COLLISION_RESOLUTION_INTERVAL {
-        let final_position = apply_strong_position_smoothing(
-            current_position,
-            resolved_position,
-            collision_state,
-        );
-        collision_state.last_collision_time = current_time;
-        return (true, final_position);
-    }
-    
-    (false, current_position)
-}
 
-/// Simplified collision resolution that always resolves downward collisions
-fn resolve_collision_simple(
-    current_position: Vec3,
-    resolved_position: Vec3,
-    player: Option<&Player>,
-) -> (bool, Vec3) {
-    let penetration_depth = resolved_position.y - current_position.y;
-    
-    // Always resolve downward collisions to prevent falling through
-    if penetration_depth < 0.0 {
-        return (true, resolved_position);
-    }
-    
-    // For upward collisions, be more conservative for grounded players
-    if let Some(player) = player {
-        if player.is_grounded {
-            // Only resolve significant upward collisions for grounded players
-            if penetration_depth > 0.1 {
-                return (true, resolved_position);
-            } else {
-                // Small upward collisions might be jittering, ignore them
-                return (false, current_position);
-            }
-        }
-    }
-    
-    // For non-grounded players or significant collisions, resolve normally
-    (true, resolved_position)
-}
 
-/// Apply strong position smoothing with velocity clamping
-fn apply_strong_position_smoothing(
-    current_position: Vec3,
-    resolved_position: Vec3,
-    collision_state: &mut CollisionState,
-) -> Vec3 {
-    let displacement = resolved_position - current_position;
-    
-    // Calculate and clamp velocity
-    let time_delta = (collision_state.last_collision_time + 0.001).max(0.001);
-    collision_state.velocity = displacement / time_delta;
-    
-    // Clamp vertical velocity to prevent micro-oscillations
-    if collision_state.velocity.y.abs() > MAX_VERTICAL_VELOCITY_CLAMP {
-        collision_state.velocity.y = collision_state.velocity.y.signum() * MAX_VERTICAL_VELOCITY_CLAMP;
-    }
-    
-    // Apply strong damping
-    let damped_displacement = displacement * COLLISION_DAMPING_FACTOR;
-    
-    // Apply strong smoothing
-    let final_position = current_position + damped_displacement * POSITION_SMOOTHING_FACTOR;
-    
-    // Update state
-    collision_state.previous_position = current_position;
-    
-    final_position
-}
 
-/// Simplified version of collision resolution that works with optional collision state
-fn should_resolve_collision_simple(
-    current_position: Vec3,
-    resolved_position: Vec3,
-    player: Option<&Player>,
-    current_time: f32,
-    collision_state: Option<&CollisionState>,
-) -> bool {
-    // For grounded players, be more conservative about collision resolution
-    if let Some(player) = player {
-        if player.is_grounded {
-            // Check if collision is within the safe zone
-            let penetration_depth = resolved_position.y - current_position.y;
-            
-            // If within safe zone, don't resolve
-            if penetration_depth.abs() <= GROUNDED_SAFE_ZONE {
-                return false;
-            }
-            
-            // If we have collision state, check timing to prevent rapid oscillations
-            if let Some(state) = collision_state {
-                let time_since_last_collision = current_time - state.last_collision_time;
-                if time_since_last_collision < MIN_COLLISION_RESOLUTION_INTERVAL {
-                    return false;
-                }
-            }
-        }
-    }
-    
-    // Allow resolution for non-grounded players or significant collisions
-    true
-}
 
-/// Determine if a collision should be resolved based on timing and player state
-fn should_resolve_collision(
-    collision_state: &mut CollisionState,
-    current_position: Vec3,
-    resolved_position: Vec3,
-    player: Option<&Player>,
-    current_time: f32,
-) -> bool {
-    // Calculate time since last collision resolution
-    let time_since_last_collision = current_time - collision_state.last_collision_time;
-    
-    // For grounded players, be more conservative about collision resolution
-    if let Some(player) = player {
-        if player.is_grounded {
-            // Check if collision is within the safe zone
-            let penetration_depth = resolved_position.y - current_position.y;
-            
-            // If within safe zone, don't resolve
-            if penetration_depth.abs() <= GROUNDED_SAFE_ZONE {
-                return false;
-            }
-            
-            // If too frequent collision resolution, skip to prevent jittering
-            if time_since_last_collision < MIN_COLLISION_RESOLUTION_INTERVAL {
-                return false;
-            }
-        }
-    }
-    
-    // For non-grounded players or significant collisions, allow resolution
-    // but with minimum time interval to prevent rapid oscillations
-    time_since_last_collision >= MIN_COLLISION_RESOLUTION_INTERVAL
-}
 
-/// Apply smooth position change with damping
-fn apply_smooth_position_change(
-    current_position: Vec3,
-    resolved_position: Vec3,
-    collision_state: &mut CollisionState,
-    player: Option<&Player>,
-) -> Vec3 {
-    let displacement = resolved_position - current_position;
-    
-    // Calculate velocity for damping
-    collision_state.velocity = displacement / (collision_state.last_collision_time + 0.001).max(0.001);
-    
-    // Apply damping to the displacement
-    let damped_displacement = displacement * COLLISION_DAMPING_FACTOR;
-    
-    // For grounded players, apply additional smoothing
-    if let Some(player) = player {
-        if player.is_grounded {
-            // Apply position smoothing for grounded players
-            let smoothed_position = current_position + damped_displacement * POSITION_SMOOTHING_FACTOR;
-            
-            // Update collision state
-            collision_state.last_collision_time = 0.0; // Will be set by caller
-            collision_state.previous_position = current_position;
-            
-            return smoothed_position;
-        }
-    }
-    
-    // For non-grounded players, apply basic damping
-    let final_position = current_position + damped_displacement;
-    
-    // Update collision state
-    collision_state.last_collision_time = 0.0; // Will be set by caller
-    collision_state.previous_position = current_position;
-    
-    final_position
-}
+
+
+
+
+
