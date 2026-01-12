@@ -59,7 +59,7 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
-        .add_systems(Startup, initialize_block_textures)
+        .add_systems(Startup, initialize_block_textures.after(initialize_texture_atlas))
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources
