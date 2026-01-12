@@ -88,7 +88,4 @@ pub fn cursor_control_system(
     // This ensures the cursor is always locked and hidden, providing automatic camera control
     window.cursor.visible = false;
     window.cursor.grab_mode = CursorGrabMode::Locked;
-    
-    // Log to confirm cursor control is active
-    println!("🖱️  Cursor locked and hidden for automatic camera control");
 }
