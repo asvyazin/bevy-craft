@@ -23,6 +23,9 @@ use test_procedural_integration::test_procedural_texture_integration;
 mod alkyd_integration;
 use alkyd_integration::{AlkydResources, AlkydTextureConfig};
 
+mod test_alkyd_enhancement;
+use test_alkyd_enhancement::{test_alkyd_enhanced_textures, test_texture_data_generation};
+
 mod debug_texture_usage;
 use debug_texture_usage::debug_texture_usage;
 
@@ -55,6 +58,7 @@ fn main() {
         .init_resource::<BlockTextures>() // Initialize block textures resource
         .init_resource::<AlkydResources>() // Initialize alkyd resources
         .init_resource::<AlkydTextureConfig>() // Initialize alkyd texture configuration
+        .init_resource::<alkyd_integration::EnhancedBlockTextures>() // Initialize enhanced block textures
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
@@ -64,10 +68,13 @@ fn main() {
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources
         .add_systems(Startup, alkyd_integration::spawn_alkyd_texture_demo) // Add alkyd texture demo
+        .add_systems(Startup, alkyd_integration::generate_all_block_textures) // Generate enhanced textures
         .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo
         .add_systems(Startup, test_procedural_texture_integration.after(load_procedural_textures_into_atlas)) // Add procedural texture integration test
         .add_systems(Startup, debug_texture_usage.after(initialize_chunk_mesh_materials)) // Add debug texture usage check
+        .add_systems(Startup, test_texture_data_generation) // Add alkyd enhancement test
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
+        .add_systems(Update, test_alkyd_enhanced_textures) // Add alkyd texture verification
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
         .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
         .add_systems(Update, generate_chunk_meshes)

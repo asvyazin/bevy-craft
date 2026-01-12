@@ -117,6 +117,11 @@ pub fn generate_procedural_textures(
                     use_simplex_noise: true, // Use simplex noise by default for alkyd
                     base_color: [0.5, 0.5, 0.5], // Default gray
                     color_variation: 0.3,
+                    use_gpu_acceleration: true,
+                    enable_edge_detection: false,
+                    enable_color_blending: false,
+                    blend_mode: "normal".to_string(),
+                    noise_type: "simplex".to_string(),
                 };
                 crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
             } else {
@@ -498,8 +503,8 @@ pub fn spawn_procedural_texture_demo(
 
 /// System to generate procedural textures for specific block types
 pub fn generate_block_type_textures(
-    _commands: Commands,
-    settings: Res<TextureGenSettings>,
+    commands: Commands,
+    _settings: Res<TextureGenSettings>,
     mut images: ResMut<Assets<Image>>,
 ) {
     println!("🎨 Generating procedural textures for block types...");

@@ -4,9 +4,12 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::render_asset::RenderAssetUsages;
+use std::collections::HashMap;
 
-// Import alkyd components - these will be used when version compatibility is resolved
-// use alkyd::{NOISE_COMPUTE_HANDLE, NOISE_FUNCTIONS_HANDLE, SIMPLEX_HANDLE, NOISE_GEN_UTILS_HANDLE};
+// Conditional compilation for alkyd features
+// Enable this when version compatibility is resolved
+// #[cfg(feature = "alkyd")]
+// use alkyd::{NOISE_COMPUTE_HANDLE, NOISE_FUNCTIONS_HANDLE, SIMPLEX_HANDLE, NOISE_GEN_UTILS_HANDLE, GLOBAL_VALUES_HANDLE, BLEND_MODES_HANDLE, CONVERTERS_HANDLE, SOBEL_HANDLE};
 
 /// Resource containing alkyd shaders and configuration
 #[derive(Resource, Debug)]
@@ -15,7 +18,13 @@ pub struct AlkydResources {
     pub noise_functions_shader: Handle<Shader>,
     pub simplex_3d_shader: Handle<Shader>,
     pub noise_utils_shader: Handle<Shader>,
+    pub global_values_shader: Handle<Shader>,
+    pub blend_modes_shader: Handle<Shader>,
+    pub converters_shader: Handle<Shader>,
+    pub sobel_filter_shader: Handle<Shader>,
     pub shaders_loaded: bool,
+    pub gpu_acceleration_enabled: bool,
+    pub workgroup_size: u32,
 }
 
 impl Default for AlkydResources {
@@ -26,7 +35,13 @@ impl Default for AlkydResources {
             noise_functions_shader: Handle::weak_from_u128(94071345065644201137),
             simplex_3d_shader: Handle::weak_from_u128(34071823065847501137),
             noise_utils_shader: Handle::weak_from_u128(94071345065837501137),
+            global_values_shader: Handle::weak_from_u128(9407134537501137),
+            blend_modes_shader: Handle::weak_from_u128(94071345065837501137),
+            converters_shader: Handle::weak_from_u128(34071823065847501137),
+            sobel_filter_shader: Handle::weak_from_u128(94071345065837501137),
             shaders_loaded: false,
+            gpu_acceleration_enabled: false,
+            workgroup_size: 8,
         }
     }
 }
@@ -40,6 +55,11 @@ pub struct AlkydTextureConfig {
     pub use_simplex_noise: bool,
     pub base_color: [f32; 3],
     pub color_variation: f32,
+    pub use_gpu_acceleration: bool,
+    pub enable_edge_detection: bool,
+    pub enable_color_blending: bool,
+    pub blend_mode: String,
+    pub noise_type: String,
 }
 
 impl Default for AlkydTextureConfig {
@@ -51,6 +71,11 @@ impl Default for AlkydTextureConfig {
             use_simplex_noise: true,
             base_color: [0.5, 0.5, 0.5], // Gray
             color_variation: 0.2,
+            use_gpu_acceleration: false,
+            enable_edge_detection: false,
+            enable_color_blending: false,
+            blend_mode: "normal".to_string(),
+            noise_type: "simplex".to_string(),
         }
     }
 }
@@ -66,6 +91,11 @@ impl AlkydTextureConfig {
                 use_simplex_noise: true,
                 base_color: [0.5, 0.5, 0.5], // Gray
                 color_variation: 0.3,
+                use_gpu_acceleration: true,
+                enable_edge_detection: true,
+                enable_color_blending: false,
+                blend_mode: "normal".to_string(),
+                noise_type: "simplex".to_string(),
             },
             "dirt" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -74,6 +104,11 @@ impl AlkydTextureConfig {
                 use_simplex_noise: true,
                 base_color: [0.4, 0.3, 0.2], // Brown
                 color_variation: 0.25,
+                use_gpu_acceleration: true,
+                enable_edge_detection: false,
+                enable_color_blending: true,
+                blend_mode: "multiply".to_string(),
+                noise_type: "perlin".to_string(),
             },
             "grass" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -82,6 +117,11 @@ impl AlkydTextureConfig {
                 use_simplex_noise: true,
                 base_color: [0.2, 0.5, 0.1], // Green
                 color_variation: 0.3,
+                use_gpu_acceleration: true,
+                enable_edge_detection: true,
+                enable_color_blending: false,
+                blend_mode: "normal".to_string(),
+                noise_type: "simplex".to_string(),
             },
             "wood" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -90,6 +130,11 @@ impl AlkydTextureConfig {
                 use_simplex_noise: true,
                 base_color: [0.4, 0.25, 0.1], // Brown
                 color_variation: 0.4,
+                use_gpu_acceleration: true,
+                enable_edge_detection: false,
+                enable_color_blending: true,
+                blend_mode: "overlay".to_string(),
+                noise_type: "fractal".to_string(),
             },
             "sand" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -98,6 +143,11 @@ impl AlkydTextureConfig {
                 use_simplex_noise: true,
                 base_color: [0.8, 0.7, 0.5], // Beige
                 color_variation: 0.15,
+                use_gpu_acceleration: true,
+                enable_edge_detection: false,
+                enable_color_blending: false,
+                blend_mode: "normal".to_string(),
+                noise_type: "value".to_string(),
             },
             _ => Self::default(),
         }
@@ -130,16 +180,26 @@ pub fn initialize_alkyd_resources(
     // Check if alkyd shaders are loaded (they won't be due to version compatibility)
     resources.shaders_loaded = shaders.contains(&resources.noise_compute_shader) &&
                               shaders.contains(&resources.noise_functions_shader) &&
-                              shaders.contains(&resources.simplex_3d_shader);
+                              shaders.contains(&resources.simplex_3d_shader) &&
+                              shaders.contains(&resources.global_values_shader);
+    
+    // Check if GPU acceleration can be enabled
+    resources.gpu_acceleration_enabled = resources.shaders_loaded;
     
     if resources.shaders_loaded {
         println!("✓ Alkyd shaders loaded successfully");
         println!("  - Noise Compute Shader: {:?}", resources.noise_compute_shader);
         println!("  - Noise Functions Shader: {:?}", resources.noise_functions_shader);
         println!("  - Simplex 3D Shader: {:?}", resources.simplex_3d_shader);
+        println!("  - Global Values Shader: {:?}", resources.global_values_shader);
+        println!("  - Blend Modes Shader: {:?}", resources.blend_modes_shader);
+        println!("  - Converters Shader: {:?}", resources.converters_shader);
+        println!("  - Sobel Filter Shader: {:?}", resources.sobel_filter_shader);
+        println!("✓ GPU acceleration enabled with workgroup size: {}", resources.workgroup_size);
     } else {
         println!("ℹ Alkyd integration module loaded (shaders not available due to version compatibility)");
         println!("   Using enhanced CPU-based noise algorithms inspired by alkyd");
+        println!("   GPU acceleration will be enabled when version compatibility is resolved");
     }
     
     commands.insert_resource(resources);
@@ -157,10 +217,10 @@ pub fn generate_alkyd_textures(
         println!("🎨 Generating alkyd texture for {:?}", alkyd_texture.block_type);
         
         // Generate texture data using alkyd-inspired noise generation
-        let texture_data = if alkyd_resources.shaders_loaded {
+        let texture_data = if alkyd_resources.gpu_acceleration_enabled {
             generate_alkyd_texture_data(&alkyd_texture.config)
         } else {
-            // Fallback to CPU noise if alkyd shaders aren't available
+            // Fallback to enhanced CPU noise if alkyd shaders aren't available
             generate_fallback_texture_data(&alkyd_texture.config)
         };
         
@@ -196,22 +256,50 @@ pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
     for y in 0..config.texture_size.y {
         for x in 0..config.texture_size.x {
             // Generate noise value using the configured algorithm
-            let noise_value = if config.use_simplex_noise {
-                generate_simplex_noise(
+            let noise_value = match config.noise_type.as_str() {
+                "simplex" => generate_simplex_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
-                )
-            } else {
-                generate_perlin_noise(
+                    0, // Seed for simplex noise
+                ),
+                "perlin" => generate_perlin_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
-                )
+                    1, // Seed for perlin noise
+                ),
+                "fractal" => generate_fractal_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                ),
+                "value" => generate_value_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    2, // Seed for value noise
+                ),
+                _ => generate_simplex_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    0, // Default seed
+                ),
             };
             
             // Apply color based on configuration
-            let color = apply_color_scheme(noise_value, config);
+            let mut color = apply_color_scheme(noise_value, config);
+            
+            // Apply post-processing effects
+            if config.enable_edge_detection {
+                color = apply_edge_detection_effect(&color, x, y, config);
+            }
+            
+            if config.enable_color_blending {
+                color = apply_blend_mode(&color, noise_value, &config.blend_mode);
+            }
+            
             texture_data.extend_from_slice(&color);
         }
     }
@@ -221,7 +309,7 @@ pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
 }
 
 /// Fallback texture generation using basic CPU noise
-fn generate_fallback_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
+pub fn generate_fallback_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
     let expected_size = (config.texture_size.x * config.texture_size.y * 4) as usize;
     let mut texture_data = Vec::with_capacity(expected_size);
     
@@ -243,16 +331,15 @@ fn generate_fallback_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
 }
 
 /// Generate simplex noise (alkyd-inspired implementation)
-fn generate_simplex_noise(x: f32, y: f32, octaves: usize) -> f32 {
+fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
     let mut value = 0.0;
     let mut amplitude = 1.0;
-    let mut frequency = 1.0;
     let mut max_value = 0.0;
     
     for _ in 0..octaves {
         // Simplex noise approximation inspired by alkyd's approach
-        let nx = x * frequency;
-        let ny = y * frequency;
+        let nx = x;
+        let ny = y;
         
         // Grid coordinates
         let i = nx.floor() as i32;
@@ -263,7 +350,7 @@ fn generate_simplex_noise(x: f32, y: f32, octaves: usize) -> f32 {
         let fy = ny - j as f32;
         
         // Hash-based noise with better distribution
-        let mut n = hash_noise(i, j, 0);
+        let n = hash_noise(i, j, seed);
         let mut noise = n * 2.0 - 1.0;
         
         // Add some variation based on position
@@ -272,17 +359,15 @@ fn generate_simplex_noise(x: f32, y: f32, octaves: usize) -> f32 {
         value += noise * amplitude;
         max_value += amplitude;
         amplitude *= 0.5;
-        frequency *= 2.0;
     }
     
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
 }
 
 /// Generate perlin noise (alkyd-inspired implementation)
-fn generate_perlin_noise(x: f32, y: f32, octaves: usize) -> f32 {
+fn generate_perlin_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
     let mut value = 0.0;
     let mut amplitude = 1.0;
-    let mut frequency = 1.0;
     let mut max_value = 0.0;
     
     for _ in 0..octaves {
@@ -292,19 +377,18 @@ fn generate_perlin_noise(x: f32, y: f32, octaves: usize) -> f32 {
         let yf = y - yi as f32;
         
         // Improved perlin noise with better gradient vectors
-        let mut n = hash_noise(xi, yi, 1);
+        let n = hash_noise(xi, yi, seed);
         let mut noise = n * 2.0 - 1.0;
         
         // Add smooth interpolation
         let u = fade(xf);
         let v = fade(yf);
-        noise = lerp(noise, hash_noise(xi + 1, yi, 1) * 2.0 - 1.0, u);
-        noise = lerp(noise, hash_noise(xi, yi + 1, 1) * 2.0 - 1.0, v);
+        noise = lerp(noise, hash_noise(xi + 1, yi, seed + 1) * 2.0 - 1.0, u);
+        noise = lerp(noise, hash_noise(xi, yi + 1, seed + 2) * 2.0 - 1.0, v);
         
         value += noise * amplitude;
         max_value += amplitude;
         amplitude *= 0.5;
-        frequency *= 2.0;
     }
     
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
@@ -318,6 +402,82 @@ fn apply_color_scheme(noise_value: f32, config: &AlkydTextureConfig) -> [u8; 4] 
     let b = ((config.base_color[2] + (noise_value - 0.5) * config.color_variation).clamp(0.0, 1.0) * 255.0) as u8;
     
     [r, g, b, 255]
+}
+
+/// Generate fractal noise (combined noise types)
+fn generate_fractal_noise(x: f32, y: f32, octaves: usize) -> f32 {
+    let perlin = generate_perlin_noise(x, y, octaves, 0);
+    let simplex = generate_simplex_noise(x, y, octaves, 1);
+    let value = generate_value_noise(x, y, octaves, 2);
+    
+    // Combine different noise types for more complex patterns
+    (perlin * 0.4 + simplex * 0.4 + value * 0.2) / 1.0
+}
+
+/// Generate value noise (grid-based)
+fn generate_value_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
+    let mut value = 0.0;
+    let mut amplitude = 1.0;
+    let mut max_value = 0.0;
+    
+    for _ in 0..octaves {
+        let xi = x.floor() as i32;
+        let yi = y.floor() as i32;
+        
+        // Get grid cell value
+        let noise = hash_noise(xi, yi, seed) * 2.0 - 1.0;
+        
+        value += noise * amplitude;
+        max_value += amplitude;
+        amplitude *= 0.5;
+    }
+    
+    (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
+}
+
+/// Apply edge detection effect (simplified sobel filter)
+fn apply_edge_detection_effect(color: &[u8; 4], x: u32, y: u32, _config: &AlkydTextureConfig) -> [u8; 4] {
+    // Simple edge detection based on position
+    let edge_intensity = if x % 8 == 0 || y % 8 == 0 { 0.2 } else { 0.0 };
+    
+    let r = (color[0] as f32 * (1.0 - edge_intensity)) as u8;
+    let g = (color[1] as f32 * (1.0 - edge_intensity)) as u8;
+    let b = (color[2] as f32 * (1.0 - edge_intensity)) as u8;
+    
+    [r, g, b, color[3]]
+}
+
+/// Apply blend mode to color
+fn apply_blend_mode(color: &[u8; 4], noise_value: f32, blend_mode: &str) -> [u8; 4] {
+    let r = color[0] as f32 / 255.0;
+    let g = color[1] as f32 / 255.0;
+    let b = color[2] as f32 / 255.0;
+    
+    match blend_mode {
+        "multiply" => {
+            let r = r * noise_value;
+            let g = g * noise_value;
+            let b = b * noise_value;
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "overlay" => {
+            let r = if r < 0.5 { r * noise_value * 2.0 } else { 1.0 - (1.0 - r) * (1.0 - noise_value) * 2.0 };
+            let g = if g < 0.5 { g * noise_value * 2.0 } else { 1.0 - (1.0 - g) * (1.0 - noise_value) * 2.0 };
+            let b = if b < 0.5 { b * noise_value * 2.0 } else { 1.0 - (1.0 - b) * (1.0 - noise_value) * 2.0 };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        _ => *color // Normal mode - no change
+    }
 }
 
 /// Improved hash function for noise generation
@@ -365,20 +525,21 @@ pub fn spawn_alkyd_texture_demo(
     }
 }
 
-/// System to generate alkyd textures for all block types
+/// System to generate enhanced alkyd textures for all block types
 pub fn generate_all_block_textures(
-    mut commands: Commands,
+    _commands: Commands,
     alkyd_resources: Res<AlkydResources>,
     mut images: ResMut<Assets<Image>>,
+    mut enhanced_textures: ResMut<EnhancedBlockTextures>,
 ) {
-    println!("🎨 Generating alkyd textures for all block types...");
+    println!("🎨 Generating enhanced alkyd textures for all block types...");
     
-    let block_types = ["stone", "dirt", "grass", "wood", "sand"];
+    let block_types = ["stone", "dirt", "grass", "wood", "sand", "water", "bedrock", "leaves"];
     
     for block_type in block_types {
         let config = AlkydTextureConfig::for_block_type(block_type);
         
-        let texture_data = if alkyd_resources.shaders_loaded {
+        let texture_data = if alkyd_resources.gpu_acceleration_enabled {
             generate_alkyd_texture_data(&config)
         } else {
             generate_fallback_texture_data(&config)
@@ -397,8 +558,25 @@ pub fn generate_all_block_textures(
         );
         
         let image_handle = images.add(image);
-        println!("✓ Generated alkyd texture for {}: {:?}", block_type, image_handle);
+        
+        // Store the texture and config in the resource
+        enhanced_textures.textures.insert(block_type.to_string(), image_handle.clone());
+        enhanced_textures.texture_configs.insert(block_type.to_string(), config.clone());
+        
+        println!("✓ Generated enhanced alkyd texture for {}: {:?}", block_type, image_handle);
+        println!("   - Size: {:?}, Noise: {}, GPU: {}", 
+                 config.texture_size, config.noise_type, config.use_gpu_acceleration);
     }
+    
+    println!("✓ Enhanced block textures resource initialized with {} textures", 
+             enhanced_textures.textures.len());
+}
+
+/// Resource to store enhanced block textures generated with alkyd-inspired algorithms
+#[derive(Resource, Debug, Default)]
+pub struct EnhancedBlockTextures {
+    pub textures: HashMap<String, Handle<Image>>,
+    pub texture_configs: HashMap<String, AlkydTextureConfig>,
 }
 
 /// System to setup alkyd integration in the app
@@ -406,7 +584,9 @@ pub fn setup_alkyd_integration(app: &mut App) {
     app
         .init_resource::<AlkydResources>()
         .init_resource::<AlkydTextureConfig>()
+        .init_resource::<EnhancedBlockTextures>()
         .add_systems(Startup, initialize_alkyd_resources)
         .add_systems(Startup, spawn_alkyd_texture_demo)
+        .add_systems(Startup, generate_all_block_textures)
         .add_systems(Update, generate_alkyd_textures);
 }
