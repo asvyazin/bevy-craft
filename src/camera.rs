@@ -24,13 +24,7 @@ pub fn camera_mouse_control_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut query: Query<&mut GameCamera>,
     settings: Res<PlayerMovementSettings>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
 ) {
-    // Only rotate camera when right mouse button is pressed
-    if !mouse_button_input.pressed(MouseButton::Right) {
-        return;
-    }
-    
     let mut camera = query.single_mut();
     
     // Process mouse motion events
@@ -84,20 +78,17 @@ pub fn spawn_game_camera(mut commands: Commands) {
     ));
 }
 
-/// System to handle cursor visibility and grabbing when right mouse button is pressed
+/// System to handle cursor visibility and grabbing for automatic camera control
 pub fn cursor_control_system(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
 ) {
     let mut window = windows.single_mut();
     
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        // Grab and hide cursor when right mouse button is pressed
-        window.cursor.visible = false;
-        window.cursor.grab_mode = CursorGrabMode::Locked;
-    } else if mouse_button_input.just_released(MouseButton::Right) {
-        // Release cursor when right mouse button is released
-        window.cursor.visible = true;
-        window.cursor.grab_mode = CursorGrabMode::None;
-    }
+    // Always grab and hide cursor for automatic camera control
+    // This ensures the cursor is always locked and hidden, providing automatic camera control
+    window.cursor.visible = false;
+    window.cursor.grab_mode = CursorGrabMode::Locked;
+    
+    // Log to confirm cursor control is active
+    println!("🖱️  Cursor locked and hidden for automatic camera control");
 }
