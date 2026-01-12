@@ -17,6 +17,12 @@ use texture_atlas::{TextureAtlas, initialize_texture_atlas, load_procedural_text
 mod texture_gen;
 use texture_gen::{TextureGenSettings, generate_procedural_textures, spawn_procedural_texture_demo, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
 
+mod test_procedural_integration;
+use test_procedural_integration::test_procedural_texture_integration;
+
+mod alkyd_integration;
+use alkyd_integration::{AlkydResources, AlkydTextureConfig};
+
 mod noise_demo;
 mod world_gen;
 mod player;
@@ -36,7 +42,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin::<Perlin2d>::default()) // Add Perlin noise plugin for world generation
-        // .add_plugins(alkyd::AlkydPlugin::default()) // Add alkyd plugin for procedural texture generation (commented out due to version issues)
+        // .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add alkyd plugin for procedural texture generation (version compatibility issues)
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
@@ -44,6 +50,8 @@ fn main() {
         .init_resource::<TextureAtlas>() // Initialize texture atlas
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .init_resource::<BlockTextures>() // Initialize block textures resource
+        .init_resource::<AlkydResources>() // Initialize alkyd resources
+        .init_resource::<AlkydTextureConfig>() // Initialize alkyd texture configuration
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
@@ -51,9 +59,13 @@ fn main() {
         .add_systems(Startup, initialize_block_textures)
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
+        .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources
+        .add_systems(Startup, alkyd_integration::spawn_alkyd_texture_demo) // Add alkyd texture demo
         .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo
+        .add_systems(Startup, test_procedural_texture_integration.after(load_procedural_textures_into_atlas)) // Add procedural texture integration test
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
+        .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
