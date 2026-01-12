@@ -49,7 +49,7 @@ fn main() {
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_block_textures)
-        .add_systems(Startup, load_procedural_textures_into_atlas)
+        .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
