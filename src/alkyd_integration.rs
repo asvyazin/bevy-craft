@@ -151,7 +151,7 @@ pub fn generate_alkyd_textures(
     mut commands: Commands,
     alkyd_resources: Res<AlkydResources>,
     mut images: ResMut<Assets<Image>>,
-    query: Query<(Entity, &AlkydTexture)>,
+    query: Query<(Entity, &AlkydTexture), Added<AlkydTexture>>,
 ) {
     for (entity, alkyd_texture) in &query {
         println!("🎨 Generating alkyd texture for {:?}", alkyd_texture.block_type);
@@ -180,6 +180,9 @@ pub fn generate_alkyd_textures(
         // Add image to assets and assign to entity
         let image_handle = images.add(image);
         commands.entity(entity).insert(image_handle);
+        
+        // Remove the AlkydTexture component to prevent re-generation
+        commands.entity(entity).remove::<AlkydTexture>();
         
         println!("✓ Generated alkyd texture for {:?}", alkyd_texture.block_type);
     }
