@@ -3,6 +3,8 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::collections::HashMap;
 
+use crate::alkyd_integration::{AlkydResources, AlkydTextureConfig};
+
 
 #[cfg(test)]
 mod texture_gen_test;
@@ -99,12 +101,32 @@ pub struct ProceduralTexture;
 pub fn generate_procedural_textures(
     mut commands: Commands,
     settings: Res<TextureGenSettings>,
+    alkyd_resources: Option<Res<AlkydResources>>,
     mut images: ResMut<Assets<Image>>,
     query: Query<Entity, Added<ProceduralTexture>>,
 ) {
     for entity in &query {
-        // Generate procedural texture data
-        let texture_data = generate_procedural_texture_data(&settings);
+        // Generate procedural texture data using alkyd-enhanced algorithms if available
+        let texture_data = if let Some(alkyd) = &alkyd_resources {
+            if alkyd.shaders_loaded {
+                // Use alkyd-inspired enhanced algorithms
+                let alkyd_config = AlkydTextureConfig {
+                    texture_size: settings.texture_size,
+                    noise_scale: settings.noise_scale,
+                    noise_octaves: settings.noise_octaves,
+                    use_simplex_noise: true, // Use simplex noise by default for alkyd
+                    base_color: [0.5, 0.5, 0.5], // Default gray
+                    color_variation: 0.3,
+                };
+                crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
+            } else {
+                // Use original algorithm
+                generate_procedural_texture_data(&settings)
+            }
+        } else {
+            // Use original algorithm
+            generate_procedural_texture_data(&settings)
+        };
 
         // Create a new image for the procedural texture with the correct data
         let image = Image::new(
@@ -551,6 +573,7 @@ impl Default for BlockTextures {
 pub fn initialize_block_textures(
     mut commands: Commands,
     settings: Res<TextureGenSettings>,
+    alkyd_resources: Option<Res<AlkydResources>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     println!("🎨 Initializing block textures resource...");
@@ -564,8 +587,20 @@ pub fn initialize_block_textures(
         // Create settings for this block type
         let block_settings = TextureGenSettings::for_block_type(block_type);
         
-        // Generate texture data
-        let texture_data = generate_procedural_texture_data(&block_settings);
+        // Generate texture data using alkyd-enhanced algorithms if available
+        let texture_data = if let Some(alkyd) = &alkyd_resources {
+            if alkyd.shaders_loaded {
+                // Use alkyd-inspired enhanced algorithms
+                let alkyd_config = AlkydTextureConfig::for_block_type(block_type);
+                crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
+            } else {
+                // Use original algorithm
+                generate_procedural_texture_data(&block_settings)
+            }
+        } else {
+            // Use original algorithm
+            generate_procedural_texture_data(&block_settings)
+        };
         
         // Create image
         let image = Image::new(

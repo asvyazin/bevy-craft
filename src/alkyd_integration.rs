@@ -186,7 +186,7 @@ pub fn generate_alkyd_textures(
 }
 
 /// Generate texture data using alkyd-inspired noise algorithms
-fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
+pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
     let expected_size = (config.texture_size.x * config.texture_size.y * 4) as usize;
     let mut texture_data = Vec::with_capacity(expected_size);
     
