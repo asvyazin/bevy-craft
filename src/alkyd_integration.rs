@@ -1091,7 +1091,7 @@ pub fn initialize_alkyd_integration(
         println!("ℹ Documentation: cargo doc --open --features alkyd");
         
         // Note: AlkydPlugin should be added in main.rs before this system runs
-        commands.init_resource::<AlkydResources>();
+        // Note: AlkydResources is already initialized by setup_alkyd_integration
         commands.init_resource::<EnhancedBlockTextures>();
         
         // Initialize or update AlkydTextureConfig with GPU acceleration
