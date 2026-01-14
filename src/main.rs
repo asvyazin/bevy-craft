@@ -18,12 +18,14 @@ mod texture_gen;
 use texture_gen::{TextureGenSettings, generate_procedural_textures, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
 
 mod alkyd_integration;
+mod alkyd_world_gen;
 
 
 
 mod world_gen;
 mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
+use alkyd_world_gen::{AlkydWorldGenSettings, initialize_alkyd_world_gen};
 use player::PlayerMovementSettings;
 
 mod camera;
@@ -47,6 +49,7 @@ fn main() {
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
+        .init_resource::<AlkydWorldGenSettings>() // Initialize Alkyd world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
@@ -60,6 +63,7 @@ fn main() {
     app
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
+        .add_systems(Startup, initialize_alkyd_world_gen) // Initialize Alkyd world generation
         .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
