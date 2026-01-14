@@ -344,25 +344,47 @@ pub fn initialize_alkyd_resources(
     mut commands: Commands,
     #[cfg(not(feature = "alkyd"))] shaders: Res<Assets<Shader>>,
 ) {
-    let mut resources = AlkydResources::default();
-    
     #[cfg(feature = "alkyd")]
     {
-        // Real Alkyd plugin is loaded
-        resources.plugin_loaded = true;
-        resources.shaders_loaded = true;
-        resources.gpu_acceleration_enabled = true;
+        // Real Alkyd plugin is loaded - create resource with GPU acceleration enabled
+        let resources = AlkydResources {
+            plugin_loaded: true,
+            shaders_loaded: true,
+            gpu_acceleration_enabled: true,
+            workgroup_size: 8,
+            #[cfg(not(feature = "alkyd"))]
+            noise_compute_shader: Handle::weak_from_u128(24071345358763528837),
+            #[cfg(not(feature = "alkyd"))]
+            noise_functions_shader: Handle::weak_from_u128(94071345065644201137),
+            #[cfg(not(feature = "alkyd"))]
+            simplex_3d_shader: Handle::weak_from_u128(34071823065847501137),
+            #[cfg(not(feature = "alkyd"))]
+            noise_utils_shader: Handle::weak_from_u128(94071345065837501137),
+            #[cfg(not(feature = "alkyd"))]
+            global_values_shader: Handle::weak_from_u128(9407134537501137),
+            #[cfg(not(feature = "alkyd"))]
+            blend_modes_shader: Handle::weak_from_u128(94071345065837501137),
+            #[cfg(not(feature = "alkyd"))]
+            converters_shader: Handle::weak_from_u128(34071823065847501137),
+            #[cfg(not(feature = "alkyd"))]
+            sobel_filter_shader: Handle::weak_from_u128(94071345065837501137),
+        };
         
         println!("✓ Real Alkyd plugin loaded successfully!");
-        println!("  - GPU acceleration enabled with workgroup size: {}", resources.workgroup_size);
+        println!("  - GPU acceleration enabled: {}", resources.gpu_acceleration_enabled);
+        println!("  - Shaders loaded: {}", resources.shaders_loaded);
+        println!("  - Plugin loaded: {}", resources.plugin_loaded);
         println!("  - Using real Alkyd compute shaders for texture generation");
         println!("  - GPU-optimized texture generation will be used");
         println!("  - Enhanced parameters for better visual quality");
+        
+        commands.insert_resource(resources);
     }
     
     #[cfg(not(feature = "alkyd"))]
     {
         // Check if alkyd shaders are loaded (they won't be due to version compatibility)
+        let mut resources = AlkydResources::default();
         resources.shaders_loaded = shaders.contains(&resources.noise_compute_shader) &&
                                   shaders.contains(&resources.noise_functions_shader) &&
                                   shaders.contains(&resources.simplex_3d_shader) &&
@@ -386,9 +408,9 @@ pub fn initialize_alkyd_resources(
             println!("   Using enhanced CPU-based noise algorithms inspired by alkyd");
             println!("   GPU acceleration will be enabled when version compatibility is resolved");
         }
+        
+        commands.insert_resource(resources);
     }
-    
-    commands.insert_resource(resources);
 }
 
 /// System to generate textures using alkyd-inspired approach
@@ -403,6 +425,7 @@ pub fn generate_alkyd_textures(
         println!("🎨 Generating alkyd texture for {:?}", alkyd_texture.block_type);
         
         // Generate texture data using alkyd-inspired noise generation
+        println!("🔍 Checking GPU acceleration: {}", alkyd_resources.gpu_acceleration_enabled);
         let texture_data = if alkyd_resources.gpu_acceleration_enabled {
             #[cfg(feature = "alkyd")]
             {
@@ -434,6 +457,7 @@ pub fn generate_alkyd_textures(
             }
         } else {
             // Fallback to enhanced CPU noise if alkyd shaders aren't available
+            println!("ℹ Using CPU fallback for texture generation");
             generate_fallback_texture_data(&alkyd_texture.config)
         };
         
