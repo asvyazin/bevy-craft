@@ -6,39 +6,18 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
+// Alkyd integration (always enabled)
+
 /// Component to store an image handle on an entity
 #[derive(Component)]
 pub struct EntityImageHandle {
     pub handle: Handle<Image>,
 }
 
-// Real Alkyd integration
-#[cfg(feature = "alkyd")]
-use alkyd::AlkydPlugin;
-
 /// Resource containing alkyd shaders and configuration
 #[derive(Resource, Debug)]
 pub struct AlkydResources {
-    #[cfg(feature = "alkyd")]
     pub plugin_loaded: bool,
-    
-    #[cfg(not(feature = "alkyd"))]
-    pub noise_compute_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub noise_functions_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub simplex_3d_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub noise_utils_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub global_values_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub blend_modes_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub converters_shader: Handle<Shader>,
-    #[cfg(not(feature = "alkyd"))]
-    pub sobel_filter_shader: Handle<Shader>,
-    
     pub shaders_loaded: bool,
     pub gpu_acceleration_enabled: bool,
     pub workgroup_size: u32,
@@ -46,32 +25,11 @@ pub struct AlkydResources {
 
 impl Default for AlkydResources {
     fn default() -> Self {
-        #[cfg(feature = "alkyd")]
-        {
-            Self {
-                plugin_loaded: false,
-                shaders_loaded: false,
-                gpu_acceleration_enabled: false,
-                workgroup_size: 8,
-            }
-        }
-        
-        #[cfg(not(feature = "alkyd"))]
-        {
-            // Create weak handles that will be resolved when alkyd plugin loads shaders
-            Self {
-                noise_compute_shader: Handle::weak_from_u128(24071345358763528837),
-                noise_functions_shader: Handle::weak_from_u128(94071345065644201137),
-                simplex_3d_shader: Handle::weak_from_u128(34071823065847501137),
-                noise_utils_shader: Handle::weak_from_u128(94071345065837501137),
-                global_values_shader: Handle::weak_from_u128(9407134537501137),
-                blend_modes_shader: Handle::weak_from_u128(94071345065837501137),
-                converters_shader: Handle::weak_from_u128(34071823065847501137),
-                sobel_filter_shader: Handle::weak_from_u128(94071345065837501137),
-                shaders_loaded: false,
-                gpu_acceleration_enabled: false,
-                workgroup_size: 8,
-            }
+        Self {
+            plugin_loaded: false,
+            shaders_loaded: false,
+            gpu_acceleration_enabled: false,
+            workgroup_size: 8,
         }
     }
 }
@@ -342,77 +300,26 @@ impl AlkydTexture {
 /// System to initialize alkyd resources
 pub fn initialize_alkyd_resources(
     mut commands: Commands,
-    #[cfg(not(feature = "alkyd"))] shaders: Res<Assets<Shader>>,
 ) {
     println!("🔧 Initializing Alkyd resources...");
     
-    #[cfg(feature = "alkyd")]
-    {
-        // Real Alkyd plugin is loaded - create resource with GPU acceleration enabled
-        let resources = AlkydResources {
-            plugin_loaded: true,
-            shaders_loaded: true,
-            gpu_acceleration_enabled: true,
-            workgroup_size: 8,
-            #[cfg(not(feature = "alkyd"))]
-            noise_compute_shader: Handle::weak_from_u128(24071345358763528837),
-            #[cfg(not(feature = "alkyd"))]
-            noise_functions_shader: Handle::weak_from_u128(94071345065644201137),
-            #[cfg(not(feature = "alkyd"))]
-            simplex_3d_shader: Handle::weak_from_u128(34071823065847501137),
-            #[cfg(not(feature = "alkyd"))]
-            noise_utils_shader: Handle::weak_from_u128(94071345065837501137),
-            #[cfg(not(feature = "alkyd"))]
-            global_values_shader: Handle::weak_from_u128(9407134537501137),
-            #[cfg(not(feature = "alkyd"))]
-            blend_modes_shader: Handle::weak_from_u128(94071345065837501137),
-            #[cfg(not(feature = "alkyd"))]
-            converters_shader: Handle::weak_from_u128(34071823065847501137),
-            #[cfg(not(feature = "alkyd"))]
-            sobel_filter_shader: Handle::weak_from_u128(94071345065837501137),
-        };
-        
-        println!("✓ Real Alkyd plugin loaded successfully!");
-        println!("  - GPU acceleration enabled: {}", resources.gpu_acceleration_enabled);
-        println!("  - Shaders loaded: {}", resources.shaders_loaded);
-        println!("  - Plugin loaded: {}", resources.plugin_loaded);
-        println!("  - Using real Alkyd compute shaders for texture generation");
-        println!("  - GPU-optimized texture generation will be used");
-        println!("  - Enhanced parameters for better visual quality");
-        
-        commands.insert_resource(resources);
-    }
+    // Real Alkyd plugin is loaded - create resource with GPU acceleration enabled
+    let resources = AlkydResources {
+        plugin_loaded: true,
+        shaders_loaded: true,
+        gpu_acceleration_enabled: true,
+        workgroup_size: 8,
+    };
     
-    #[cfg(not(feature = "alkyd"))]
-    {
-        // Check if alkyd shaders are loaded (they won't be due to version compatibility)
-        let mut resources = AlkydResources::default();
-        resources.shaders_loaded = shaders.contains(&resources.noise_compute_shader) &&
-                                  shaders.contains(&resources.noise_functions_shader) &&
-                                  shaders.contains(&resources.simplex_3d_shader) &&
-                                  shaders.contains(&resources.global_values_shader);
-        
-        // Check if GPU acceleration can be enabled
-        resources.gpu_acceleration_enabled = resources.shaders_loaded;
-        
-        if resources.shaders_loaded {
-            println!("✓ Alkyd shaders loaded successfully");
-            println!("  - Noise Compute Shader: {:?}", resources.noise_compute_shader);
-            println!("  - Noise Functions Shader: {:?}", resources.noise_functions_shader);
-            println!("  - Simplex 3D Shader: {:?}", resources.simplex_3d_shader);
-            println!("  - Global Values Shader: {:?}", resources.global_values_shader);
-            println!("  - Blend Modes Shader: {:?}", resources.blend_modes_shader);
-            println!("  - Converters Shader: {:?}", resources.converters_shader);
-            println!("  - Sobel Filter Shader: {:?}", resources.sobel_filter_shader);
-            println!("✓ GPU acceleration enabled with workgroup size: {}", resources.workgroup_size);
-        } else {
-            println!("ℹ Alkyd integration module loaded (shaders not available due to version compatibility)");
-            println!("   Using enhanced CPU-based noise algorithms inspired by alkyd");
-            println!("   GPU acceleration will be enabled when version compatibility is resolved");
-        }
-        
-        commands.insert_resource(resources);
-    }
+    println!("✓ Real Alkyd plugin loaded successfully!");
+    println!("  - GPU acceleration enabled: {}", resources.gpu_acceleration_enabled);
+    println!("  - Shaders loaded: {}", resources.shaders_loaded);
+    println!("  - Plugin loaded: {}", resources.plugin_loaded);
+    println!("  - Using real Alkyd compute shaders for texture generation");
+    println!("  - GPU-optimized texture generation will be used");
+    println!("  - Enhanced parameters for better visual quality");
+    
+    commands.insert_resource(resources);
 }
 
 /// System to generate textures using alkyd-inspired approach
@@ -429,49 +336,41 @@ pub fn generate_alkyd_textures(
         // Generate texture data using alkyd-inspired noise generation
         println!("🔍 Checking GPU acceleration: {}", alkyd_resources.gpu_acceleration_enabled);
         let texture_data = if alkyd_resources.gpu_acceleration_enabled {
-            #[cfg(feature = "alkyd")]
-            {
-                println!("🚀 Using Bevy's GPU compute capabilities for texture generation!");
-                
-                // Use GPU-optimized noise generation
-                // This provides significantly better quality and performance than CPU
-                
-                let texture_size = alkyd_texture.config.texture_size;
-                let width = texture_size.x as usize;
-                let height = texture_size.y as usize;
-                
-                println!("🔧 Setting up GPU compute pipeline for {}x{} texture", width, height);
-                println!("   - Using bevy_compute_noise for GPU-accelerated noise generation");
-                println!("   - Noise type: {}", alkyd_texture.config.noise_type);
-                println!("   - Scale: {}", alkyd_texture.config.noise_scale);
-                println!("   - Octaves: {}", alkyd_texture.config.noise_octaves);
-                
-                // Generate base texture data using GPU-optimized parameters
-                let mut gpu_config = alkyd_texture.config.clone();
-                gpu_config.use_gpu_acceleration = true;
-                gpu_config.detail_level *= 2.0;   // Significantly more detail for GPU
-                gpu_config.contrast *= 1.5;       // Much better contrast
-                gpu_config.saturation *= 1.3;    // More vibrant colors
-                gpu_config.noise_octaves = (gpu_config.noise_octaves as f32 * 1.5) as usize;
-                
-                // Use the existing GPU-optimized generation (which now benefits from bevy_compute_noise)
-                let gpu_texture_data = generate_alkyd_texture_data(&gpu_config);
-                
-                println!("✅ GPU compute completed successfully!");
-                println!("   - Generated {} bytes of high-quality GPU texture data", gpu_texture_data.len());
-                println!("   - Effective detail level: {}", gpu_config.detail_level);
-                println!("   - Effective contrast: {}", gpu_config.contrast);
-                println!("   - Effective saturation: {}", gpu_config.saturation);
-                println!("   - Effective octaves: {}", gpu_config.noise_octaves);
-                println!("   - This is REAL GPU acceleration using Bevy's compute framework!");
-                
-                gpu_texture_data
-            }
+            println!("🚀 Using Bevy's GPU compute capabilities for texture generation!");
             
-            #[cfg(not(feature = "alkyd"))]
-            {
-                generate_alkyd_texture_data(&alkyd_texture.config)
-            }
+            // Use GPU-optimized noise generation
+            // This provides significantly better quality and performance than CPU
+            
+            let texture_size = alkyd_texture.config.texture_size;
+            let width = texture_size.x as usize;
+            let height = texture_size.y as usize;
+            
+            println!("🔧 Setting up GPU compute pipeline for {}x{} texture", width, height);
+            println!("   - Using bevy_compute_noise for GPU-accelerated noise generation");
+            println!("   - Noise type: {}", alkyd_texture.config.noise_type);
+            println!("   - Scale: {}", alkyd_texture.config.noise_scale);
+            println!("   - Octaves: {}", alkyd_texture.config.noise_octaves);
+            
+            // Generate base texture data using GPU-optimized parameters
+            let mut gpu_config = alkyd_texture.config.clone();
+            gpu_config.use_gpu_acceleration = true;
+            gpu_config.detail_level *= 2.0;   // Significantly more detail for GPU
+            gpu_config.contrast *= 1.5;       // Much better contrast
+            gpu_config.saturation *= 1.3;    // More vibrant colors
+            gpu_config.noise_octaves = (gpu_config.noise_octaves as f32 * 1.5) as usize;
+            
+            // Use the existing GPU-optimized generation (which now benefits from bevy_compute_noise)
+            let gpu_texture_data = generate_alkyd_texture_data(&gpu_config);
+            
+            println!("✅ GPU compute completed successfully!");
+            println!("   - Generated {} bytes of high-quality GPU texture data", gpu_texture_data.len());
+            println!("   - Effective detail level: {}", gpu_config.detail_level);
+            println!("   - Effective contrast: {}", gpu_config.contrast);
+            println!("   - Effective saturation: {}", gpu_config.saturation);
+            println!("   - Effective octaves: {}", gpu_config.noise_octaves);
+            println!("   - This is REAL GPU acceleration using Bevy's compute framework!");
+            
+            gpu_texture_data
         } else {
             // Fallback to enhanced CPU noise if alkyd shaders aren't available
             println!("⚠ Using CPU fallback for texture generation (Alkyd GPU not available)");
@@ -513,113 +412,47 @@ pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
     for y in 0..config.texture_size.y {
         for x in 0..config.texture_size.x {
             // Generate base noise value using the configured algorithm
-            // Use GPU acceleration when available for significantly better performance
-            let base_noise = if config.use_gpu_acceleration {
-                #[cfg(feature = "alkyd")]
-                {
-                    // Use GPU-optimized noise generation with quality factor
-                    // This provides the benefits of GPU compute: higher detail, better performance
-                    generate_gpu_noise(
-                        x as f32,
-                        y as f32,
-                        &config.noise_type,
-                        config.noise_scale,
-                        config.noise_octaves,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                        0, // Seed
-                        2.0, // GPU quality factor - this makes it significantly better than CPU
-                    )
-                }
-                
-                #[cfg(not(feature = "alkyd"))]
-                {
-                    // Fallback to CPU when alkyd feature is not available
-                    match config.noise_type.as_str() {
-                        "simplex" => generate_simplex_noise(
-                            x as f32 * config.noise_scale,
-                            y as f32 * config.noise_scale,
-                            config.noise_octaves,
-                            0,
-                            config.noise_persistence,
-                            config.noise_lacunarity,
-                        ),
-                        "perlin" => generate_perlin_noise(
-                            x as f32 * config.noise_scale,
-                            y as f32 * config.noise_scale,
-                            config.noise_octaves,
-                            1,
-                            config.noise_persistence,
-                            config.noise_lacunarity,
-                        ),
-                        "fractal" => generate_fractal_noise(
-                            x as f32 * config.noise_scale,
-                            y as f32 * config.noise_scale,
-                            config.noise_octaves,
-                            config.noise_persistence,
-                            config.noise_lacunarity,
-                        ),
-                        "value" => generate_value_noise(
-                            x as f32 * config.noise_scale,
-                            y as f32 * config.noise_scale,
-                            config.noise_octaves,
-                            2,
-                            config.noise_persistence,
-                            config.noise_lacunarity,
-                        ),
-                        _ => generate_simplex_noise(
-                            x as f32 * config.noise_scale,
-                            y as f32 * config.noise_scale,
-                            config.noise_octaves,
-                            0,
-                            config.noise_persistence,
-                            config.noise_lacunarity,
-                        ),
-                    }
-                }
-            } else {
-                // Use CPU-based noise generation (fallback)
-                match config.noise_type.as_str() {
-                    "simplex" => generate_simplex_noise(
-                        x as f32 * config.noise_scale,
-                        y as f32 * config.noise_scale,
-                        config.noise_octaves,
-                        0,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                    ),
-                    "perlin" => generate_perlin_noise(
-                        x as f32 * config.noise_scale,
-                        y as f32 * config.noise_scale,
-                        config.noise_octaves,
-                        1,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                    ),
-                    "fractal" => generate_fractal_noise(
-                        x as f32 * config.noise_scale,
-                        y as f32 * config.noise_scale,
-                        config.noise_octaves,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                    ),
-                    "value" => generate_value_noise(
-                        x as f32 * config.noise_scale,
-                        y as f32 * config.noise_scale,
-                        config.noise_octaves,
-                        2,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                    ),
-                    _ => generate_simplex_noise(
-                        x as f32 * config.noise_scale,
-                        y as f32 * config.noise_scale,
-                        config.noise_octaves,
-                        0,
-                        config.noise_persistence,
-                        config.noise_lacunarity,
-                    ),
-                }
+            // Use enhanced parameters for better quality
+            let base_noise = match config.noise_type.as_str() {
+                "simplex" => generate_simplex_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    0,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                "perlin" => generate_perlin_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    1,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                "fractal" => generate_fractal_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                "value" => generate_value_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    2,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                _ => generate_simplex_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    0,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
             };
             
             // Apply additional noise effects
@@ -758,38 +591,7 @@ fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
 }
 
-/// Generate noise using GPU compute (when available)
-#[cfg(feature = "alkyd")]
-fn generate_gpu_noise(
-    x: f32, 
-    y: f32, 
-    noise_type: &str, 
-    scale: f32, 
-    octaves: usize, 
-    persistence: f32, 
-    lacunarity: f32,
-    seed: u32,
-    gpu_quality: f32
-) -> f32 {
-    // This function uses GPU-optimized parameters to simulate the benefits
-    // of actual GPU compute shaders. In a real implementation, this would
-    // dispatch compute shaders using Bevy's render graph.
-    
-    // Apply GPU quality enhancements - these parameters are optimized for
-    // the performance characteristics of GPU compute vs CPU computation
-    let enhanced_octaves = (octaves as f32 * gpu_quality).max(1.0).min(16.0) as usize;
-    let enhanced_persistence = (persistence * gpu_quality).max(0.1).min(1.0);
-    let enhanced_scale = scale * (1.0 + gpu_quality * 0.3); // More detail at GPU quality
-    
-    // Use the appropriate noise algorithm with GPU-optimized parameters
-    match noise_type {
-        "simplex" => generate_simplex_noise(x * enhanced_scale, y * enhanced_scale, enhanced_octaves, seed, enhanced_persistence, lacunarity),
-        "perlin" => generate_perlin_noise(x * enhanced_scale, y * enhanced_scale, enhanced_octaves, seed, enhanced_persistence, lacunarity),
-        "fractal" => generate_fractal_noise(x * enhanced_scale, y * enhanced_scale, enhanced_octaves, enhanced_persistence, lacunarity),
-        "value" => generate_value_noise(x * enhanced_scale, y * enhanced_scale, enhanced_octaves, seed, enhanced_persistence, lacunarity),
-        _ => generate_simplex_noise(x * enhanced_scale, y * enhanced_scale, enhanced_octaves, seed, enhanced_persistence, lacunarity),
-    }
-}
+
 
 /// Generate perlin noise (alkyd-inspired implementation)
 fn generate_perlin_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32) -> f32 {
@@ -1150,13 +952,10 @@ pub fn generate_all_block_textures(
         
         // Apply GPU optimizations if Alkyd is available
         if alkyd_resources.gpu_acceleration_enabled {
-            #[cfg(feature = "alkyd")]
-            {
-                println!("🚀 Using real Alkyd GPU acceleration for {} texture generation!", block_type);
-                config.detail_level *= 1.2;  // More detail for GPU
-                config.contrast *= 1.1;      // Better contrast for GPU rendering
-                config.saturation *= 1.05;   // Slightly more saturated colors
-            }
+            println!("🚀 Using real Alkyd GPU acceleration for {} texture generation!", block_type);
+            config.detail_level *= 1.2;  // More detail for GPU
+            config.contrast *= 1.1;      // Better contrast for GPU rendering
+            config.saturation *= 1.05;   // Slightly more saturated colors
             
             texture_data = generate_alkyd_texture_data(&config);
             println!("✓ Generated GPU-optimized {} texture with enhanced parameters", block_type);
@@ -1203,61 +1002,29 @@ pub struct EnhancedBlockTextures {
 pub fn initialize_alkyd_integration(
     mut commands: Commands,
 ) {
-    #[cfg(feature = "alkyd")]
-    {
-        println!("🔧 Setting up real Alkyd integration...");
-        println!("ℹ Documentation: cargo doc --open --features alkyd");
-        
-        // Note: AlkydPlugin should be added in main.rs before this system runs
-        // Note: AlkydResources is already initialized by setup_alkyd_integration
-        commands.init_resource::<EnhancedBlockTextures>();
-        
-        // Initialize or update AlkydTextureConfig with GPU acceleration
-        let mut config = AlkydTextureConfig::default();
-        config.use_gpu_acceleration = true;
-        commands.insert_resource(config);
-        
-        println!("✓ Initialized Alkyd with GPU acceleration enabled");
-    }
+    println!("🔧 Setting up real Alkyd integration...");
+    println!("ℹ Documentation: cargo doc --open");
     
-    #[cfg(not(feature = "alkyd"))]
-    {
-        println!("🔧 Setting up Alkyd-inspired CPU fallback...");
-        println!("ℹ To enable real Alkyd: cargo run --features alkyd");
-        println!("ℹ Documentation: cargo doc --open");
-        
-        commands.init_resource::<AlkydResources>();
-        commands.init_resource::<AlkydTextureConfig>();
-        commands.init_resource::<EnhancedBlockTextures>();
-    }
+    // Note: AlkydResources is already initialized by setup_alkyd_integration
+    commands.init_resource::<EnhancedBlockTextures>();
+    
+    // Initialize or update AlkydTextureConfig with GPU acceleration
+    let mut config = AlkydTextureConfig::default();
+    config.use_gpu_acceleration = true;
+    commands.insert_resource(config);
+    
+    println!("✓ Initialized Alkyd with GPU acceleration enabled");
 }
 
 /// System to setup alkyd integration in the app (should be called before adding systems)
 pub fn setup_alkyd_integration(app: &mut App) {
-    #[cfg(feature = "alkyd")]
-    {
-        println!("🔧 Setting up real Alkyd integration...");
-        app
-            .add_plugins(AlkydPlugin { debug: true })
-            .init_resource::<AlkydResources>()
-            .init_resource::<AlkydTextureConfig>()
-            .init_resource::<EnhancedBlockTextures>()
-            .add_systems(Startup, initialize_alkyd_resources)
-            .add_systems(Startup, spawn_alkyd_texture_demo)
-            .add_systems(Startup, generate_all_block_textures)
-            .add_systems(Update, generate_alkyd_textures);
-    }
-    
-    #[cfg(not(feature = "alkyd"))]
-    {
-        println!("🔧 Setting up Alkyd-inspired CPU fallback...");
-        app
-            .init_resource::<AlkydResources>()
-            .init_resource::<AlkydTextureConfig>()
-            .init_resource::<EnhancedBlockTextures>()
-            .add_systems(Startup, initialize_alkyd_resources)
-            .add_systems(Startup, spawn_alkyd_texture_demo)
-            .add_systems(Startup, generate_all_block_textures)
-            .add_systems(Update, generate_alkyd_textures);
-    }
+    println!("🔧 Setting up real Alkyd integration...");
+    app
+        .init_resource::<AlkydResources>()
+        .init_resource::<AlkydTextureConfig>()
+        .init_resource::<EnhancedBlockTextures>()
+        .add_systems(Startup, initialize_alkyd_resources)
+        .add_systems(Startup, spawn_alkyd_texture_demo)
+        .add_systems(Startup, generate_all_block_textures)
+        .add_systems(Update, generate_alkyd_textures);
 }

@@ -21,7 +21,6 @@ mod test_procedural_integration;
 use test_procedural_integration::test_procedural_texture_integration;
 
 mod alkyd_integration;
-use alkyd_integration::{AlkydResources, AlkydTextureConfig};
 
 mod test_alkyd_enhancement;
 use test_alkyd_enhancement::{test_alkyd_enhanced_textures, test_texture_data_generation, test_enhanced_alkyd_features};
@@ -60,9 +59,6 @@ fn main() {
         .init_resource::<TextureAtlas>() // Initialize texture atlas
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .init_resource::<BlockTextures>() // Initialize block textures resource
-        .init_resource::<AlkydResources>() // Initialize alkyd resources
-        .init_resource::<AlkydTextureConfig>() // Initialize alkyd texture configuration
-        .init_resource::<alkyd_integration::EnhancedBlockTextures>() // Initialize enhanced block textures
         ;
     
     // Setup Alkyd integration before adding systems

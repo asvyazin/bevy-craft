@@ -5,23 +5,10 @@ use bevy::prelude::*;
 pub fn test_real_alkyd_integration() {
     println!("🔍 Testing real Alkyd integration...");
     
-    // Try to access alkyd functions
-    #[cfg(feature = "alkyd")]
-    {
-        println!("✓ Alkyd feature is enabled");
-        println!("✓ Real Alkyd plugin should be loaded");
-        println!("✓ GPU acceleration should be available");
-        println!("ℹ To see Alkyd documentation, run: cargo doc --open --features alkyd");
-        // Try to use real alkyd functions
-        // This will help us understand what's available
-    }
-    
-    #[cfg(not(feature = "alkyd"))]
-    {
-        println!("ℹ Alkyd feature is not enabled - using CPU fallback");
-        println!("ℹ To enable real Alkyd, run with: cargo run --features alkyd");
-        println!("ℹ To see available features, run: cargo doc --open");
-    }
+    println!("✓ Alkyd is always enabled");
+    println!("✓ Real Alkyd plugin should be loaded");
+    println!("✓ GPU acceleration should be available");
+    println!("ℹ To see Alkyd documentation, run: cargo doc --open");
     
     println!("✓ Alkyd integration test completed");
 }

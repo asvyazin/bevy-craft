@@ -3,11 +3,6 @@ name = "bevy-craft"
 version = "0.1.0"
 edition = "2024"
 
-[features]
-default = ["alkyd"]
-alkyd = ["dep:alkyd"]
-
 [dependencies]
 bevy = "0.15"
 bevy_compute_noise = "0.4"
-alkyd = { version = "0.3.2", optional = true }

@@ -91,18 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "alkyd"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d033fc12e426294479d6bce92fd22e7e87575e18724def02ae2a454d4f74634"
-dependencies = [
- "bevy",
- "bevy_easy_compute",
- "bitflags 2.10.0",
- "cfg-if",
-]
-
-[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -330,7 +318,6 @@ dependencies = [
 name = "bevy-craft"
 version = "0.1.0"
 dependencies = [
- "alkyd",
  "bevy",
  "bevy_compute_noise",
 ]
@@ -560,20 +547,6 @@ dependencies = [
  "bevy_utils",
  "const-fnv1a-hash",
  "sysinfo",
-]
-
-[[package]]
-name = "bevy_easy_compute"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06995e7b77ae47adf1d51d2d1b7115d6e91ce95bccffa86f305a4520a803a281"
-dependencies = [
- "bevy",
- "bytemuck",
- "naga",
- "naga_oil",
- "parking_lot",
- "wgpu",
 ]
 
 [[package]]

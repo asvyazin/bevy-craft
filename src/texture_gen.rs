@@ -6,7 +6,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::collections::HashMap;
 
-use crate::alkyd_integration::{AlkydResources, AlkydTextureConfig, EnhancedBlockTextures};
+use crate::alkyd_integration::{AlkydTextureConfig, EnhancedBlockTextures};
 
 /// Resource to hold texture generation settings
 #[derive(Resource, Debug)]
@@ -78,48 +78,36 @@ pub struct EntityImageHandle {
 pub fn generate_procedural_textures(
     mut commands: Commands,
     settings: Res<TextureGenSettings>,
-    alkyd_resources: Option<Res<AlkydResources>>,
     enhanced_textures: Option<Res<EnhancedBlockTextures>>,
     mut images: ResMut<Assets<Image>>,
     query: Query<Entity, Added<ProceduralTexture>>,
 ) {
     for entity in &query {
-        // Use alkyd-generated textures if available
-        let texture_data = if let Some(alkyd) = &alkyd_resources {
-            if alkyd.shaders_loaded {
-                // Use alkyd-inspired enhanced algorithms
-                let alkyd_config = AlkydTextureConfig {
-                    texture_size: settings.texture_size,
-                    noise_scale: settings.noise_scale,
-                    noise_octaves: settings.noise_octaves,
-                    use_simplex_noise: true,
-                    base_color: [0.5, 0.5, 0.5],
-                    color_variation: 0.3,
-                    use_gpu_acceleration: true,
-                    enable_edge_detection: false,
-                    enable_color_blending: false,
-                    blend_mode: "normal".to_string(),
-                    noise_type: "simplex".to_string(),
-                    noise_persistence: 0.5,
-                    noise_lacunarity: 2.0,
-                    enable_ridged_noise: false,
-                    ridged_strength: 1.0,
-                    enable_turbulence: false,
-                    turbulence_strength: 0.1,
-                    detail_level: 1.0,
-                    contrast: 1.0,
-                    brightness: 0.0,
-                    saturation: 1.0,
-                };
-                crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
-            } else {
-                // Fallback to simple gradient if alkyd not available
-                generate_fallback_texture_data(&settings)
-            }
-        } else {
-            // Fallback to simple gradient if alkyd not available
-            generate_fallback_texture_data(&settings)
+        // Use alkyd-generated textures
+        let alkyd_config = AlkydTextureConfig {
+            texture_size: settings.texture_size,
+            noise_scale: settings.noise_scale,
+            noise_octaves: settings.noise_octaves,
+            use_simplex_noise: true,
+            base_color: [0.5, 0.5, 0.5],
+            color_variation: 0.3,
+            use_gpu_acceleration: true,
+            enable_edge_detection: false,
+            enable_color_blending: false,
+            blend_mode: "normal".to_string(),
+            noise_type: "simplex".to_string(),
+            noise_persistence: 0.5,
+            noise_lacunarity: 2.0,
+            enable_ridged_noise: false,
+            ridged_strength: 1.0,
+            enable_turbulence: false,
+            turbulence_strength: 0.1,
+            detail_level: 1.0,
+            contrast: 1.0,
+            brightness: 0.0,
+            saturation: 1.0,
         };
+        let texture_data = crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config);
 
         // Create a new image for the procedural texture
         let image = Image::new(
@@ -192,13 +180,11 @@ impl Default for BlockTextures {
 pub fn initialize_block_textures(
     mut commands: Commands,
     settings: Res<TextureGenSettings>,
-    alkyd_resources: Option<Res<AlkydResources>>,
     enhanced_textures: Option<Res<EnhancedBlockTextures>>,
     mut images: ResMut<Assets<Image>>,
+    mut block_textures: ResMut<BlockTextures>,
 ) {
     println!("🎨 Initializing block textures resource using alkyd-generated textures...");
-    
-    let mut block_textures = BlockTextures::default();
     
     // If we have enhanced alkyd textures, use those
     if let Some(enhanced) = &enhanced_textures {
@@ -224,16 +210,8 @@ pub fn initialize_block_textures(
             let block_settings = TextureGenSettings::for_block_type(block_type);
             
             // Generate texture data using alkyd
-            let texture_data = if let Some(alkyd) = &alkyd_resources {
-                if alkyd.shaders_loaded {
-                    let alkyd_config = AlkydTextureConfig::for_block_type(block_type);
-                    crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
-                } else {
-                    generate_fallback_texture_data(&block_settings)
-                }
-            } else {
-                generate_fallback_texture_data(&block_settings)
-            };
+            let alkyd_config = AlkydTextureConfig::for_block_type(block_type);
+            let texture_data = crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config);
             
             // Create image
             let image = Image::new(
@@ -258,7 +236,7 @@ pub fn initialize_block_textures(
     
     // Replace the existing resource with the new one
     let textures_count = block_textures.textures.len();
-    commands.insert_resource(block_textures);
+    // No need to insert block_textures as it's already a resource
     println!("✓ BlockTextures resource initialized with {} textures", textures_count);
 }
 
@@ -266,7 +244,6 @@ pub fn initialize_block_textures(
 pub fn regenerate_dynamic_textures(
     mut commands: Commands,
     mut query: Query<(Entity, &DynamicTexture)>, 
-    alkyd_resources: Option<Res<AlkydResources>>,
     mut images: ResMut<Assets<Image>>,
     mut block_textures: ResMut<BlockTextures>,
 ) {
@@ -275,16 +252,8 @@ pub fn regenerate_dynamic_textures(
             println!("🔄 Regenerating texture for {:?}", dynamic_texture.block_type);
             
             // Generate new texture data with updated settings using alkyd
-            let texture_data = if let Some(alkyd) = &alkyd_resources {
-                if alkyd.shaders_loaded {
-                    let alkyd_config = AlkydTextureConfig::for_block_type(&dynamic_texture.block_type);
-                    crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
-                } else {
-                    generate_fallback_texture_data(&dynamic_texture.settings)
-                }
-            } else {
-                generate_fallback_texture_data(&dynamic_texture.settings)
-            };
+            let alkyd_config = AlkydTextureConfig::for_block_type(&dynamic_texture.block_type);
+            let texture_data = crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config);
             
             // Create new image
             let image = Image::new(
