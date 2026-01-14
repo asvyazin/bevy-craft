@@ -344,6 +344,8 @@ pub fn initialize_alkyd_resources(
     mut commands: Commands,
     #[cfg(not(feature = "alkyd"))] shaders: Res<Assets<Shader>>,
 ) {
+    println!("🔧 Initializing Alkyd resources...");
+    
     #[cfg(feature = "alkyd")]
     {
         // Real Alkyd plugin is loaded - create resource with GPU acceleration enabled
