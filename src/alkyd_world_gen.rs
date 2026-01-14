@@ -33,17 +33,17 @@ impl Default for AlkydWorldGenSettings {
     fn default() -> Self {
         Self {
             base_height: 10.0,
-            height_scale: 80.0,
+            height_scale: 40.0,  // Reduced from 80.0 for less extreme terrain
             frequency: 0.015,
-            octaves: 10,
-            persistence: 0.3,
-            lacunarity: 2.3,
+            octaves: 8,         // Reduced from 10 for smoother terrain
+            persistence: 0.5,   // Increased from 0.3 for smoother transitions
+            lacunarity: 2.0,    // Reduced from 2.3 for less chaotic terrain
             noise_type: "fractal".to_string(),
-            enable_ridged_noise: true,
-            ridged_strength: 0.6,
-            enable_turbulence: true,
-            turbulence_strength: 0.15,
-            detail_level: 1.2,
+            enable_ridged_noise: false,  // Disabled to reduce mountain ridges
+            ridged_strength: 0.3,        // Reduced for when ridged noise is enabled
+            enable_turbulence: false,    // Disabled to reduce chaotic patterns
+            turbulence_strength: 0.1,    // Reduced for when turbulence is enabled
+            detail_level: 1.0,  // Reduced from 1.2 for less extreme detail
             use_gpu_acceleration: true,
             biome_scale: 0.005,
             temperature_scale: 0.01,

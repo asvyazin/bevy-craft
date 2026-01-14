@@ -244,6 +244,7 @@ fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f3
         "forest" => determine_forest_terrain(effective_height, stone_height),
         "mountain" => determine_mountain_terrain(effective_height, stone_height),
         "snowy_mountain" => determine_snowy_mountain_terrain(effective_height, stone_height),
+        "hills" => determine_hills_terrain(effective_height, stone_height),
         "plains" => determine_plains_terrain(effective_height, stone_height),
         "swamp" => determine_swamp_terrain(effective_height, stone_height),
         "tundra" => determine_tundra_terrain(effective_height, stone_height),
@@ -364,6 +365,20 @@ fn determine_beach_terrain(effective_height: i32, stone_height: i32) -> (i32, Bl
     }
 }
 
+/// Determine hills terrain with height variation
+fn determine_hills_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 15 {
+        // Low hills - mostly grass with some stone
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 30 {
+        // Typical hills - grass with more stone exposure
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    } else {
+        // High hills - transition to mountains
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    }
+}
+
 /// Determine biome type based on temperature, moisture, and height
 fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'static str {
     // Enhanced biome classification based on temperature, moisture, and height
@@ -374,12 +389,15 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
         } else {
             "beach"
         }
-    } else if height > 40 {
-        // Very high areas - snowy mountains
+    } else if height > 50 {
+        // Very high areas - snowy mountains (increased threshold)
         "snowy_mountain"
-    } else if height > 30 {
-        // High areas - mountains
+    } else if height > 40 {
+        // High areas - mountains (increased threshold)
         "mountain"
+    } else if height > 25 {
+        // Medium-high areas - hills (new biome type)
+        "hills"
     } else {
         // Normal terrain classification based on temperature and moisture
         if temperature > 0.7 {
@@ -439,6 +457,16 @@ fn add_environmental_features_with_biome(chunk: &mut Chunk, local_x: usize, loca
                 for y in 5..=8 {
                     if y < height {
                         chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+                    }
+                }
+            }
+        },
+        "hills" => {
+            // Hills have some stone outcrops
+            if height > 20 && height < 28 {
+                for y in (height - 3)..height {
+                    if y > 0 && y < height && y % 3 == 0 {
+                        chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
                     }
                 }
             }
