@@ -112,118 +112,187 @@ impl AlkydTextureConfig {
         match block_type {
             "stone" => Self {
                 texture_size: UVec2::new(128, 128),
-                noise_scale: 0.1,
-                noise_octaves: 6,
+                noise_scale: 0.15,  // Increased for more visible patterns
+                noise_octaves: 8,    // More octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.5, 0.5, 0.5], // Gray
-                color_variation: 0.3,
+                base_color: [0.45, 0.45, 0.45], // Slightly darker gray
+                color_variation: 0.4,  // More color variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,
-                enable_color_blending: false,
-                blend_mode: "normal".to_string(),
+                enable_color_blending: true,  // Enable blending
+                blend_mode: "hard_light".to_string(),  // More dramatic blending
                 noise_type: "simplex".to_string(),
-                noise_persistence: 0.4,
-                noise_lacunarity: 2.1,
+                noise_persistence: 0.35,  // Lower persistence for more detail
+                noise_lacunarity: 2.3,    // Higher lacunarity for more variation
                 enable_ridged_noise: true,
-                ridged_strength: 0.8,
+                ridged_strength: 1.2,     // Stronger ridges
                 enable_turbulence: true,
-                turbulence_strength: 0.15,
-                detail_level: 1.2,
-                contrast: 1.1,
-                brightness: 0.05,
-                saturation: 1.0,
+                turbulence_strength: 0.25, // More turbulence
+                detail_level: 1.5,        // More detail
+                contrast: 1.3,            // Higher contrast
+                brightness: 0.0,          // Neutral brightness
+                saturation: 1.1,          // Slightly more saturated
             },
             "dirt" => Self {
                 texture_size: UVec2::new(128, 128),
-                noise_scale: 0.08,
-                noise_octaves: 5,
+                noise_scale: 0.12,  // Increased for more visible patterns
+                noise_octaves: 6,    // More octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.4, 0.3, 0.2], // Brown
-                color_variation: 0.25,
+                base_color: [0.45, 0.35, 0.25], // Richer brown
+                color_variation: 0.35,  // More color variation
                 use_gpu_acceleration: true,
-                enable_edge_detection: false,
+                enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,
-                blend_mode: "soft_light".to_string(),
-                noise_type: "perlin".to_string(),
-                noise_persistence: 0.45,
-                noise_lacunarity: 1.9,
-                enable_ridged_noise: false,
-                ridged_strength: 0.5,
+                blend_mode: "overlay".to_string(),  // More dramatic blending
+                noise_type: "fractal".to_string(),  // Use fractal noise for complexity
+                noise_persistence: 0.4,  // Lower persistence for more detail
+                noise_lacunarity: 2.1,    // Higher lacunarity for more variation
+                enable_ridged_noise: true,  // Enable ridged noise
+                ridged_strength: 0.7,     // Moderate ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.1,
-                detail_level: 1.1,
-                contrast: 1.05,
-                brightness: -0.02,
-                saturation: 1.1,
+                turbulence_strength: 0.15, // More turbulence
+                detail_level: 1.3,        // More detail
+                contrast: 1.2,            // Higher contrast
+                brightness: -0.01,        // Slightly darker
+                saturation: 1.2,          // More saturated
             },
             "grass" => Self {
                 texture_size: UVec2::new(128, 128),
-                noise_scale: 0.07,
-                noise_octaves: 4,
+                noise_scale: 0.1,  // Increased for more visible patterns
+                noise_octaves: 5,  // More octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.2, 0.5, 0.1], // Green
-                color_variation: 0.3,
+                base_color: [0.15, 0.55, 0.1], // Vibrant green
+                color_variation: 0.4,  // More color variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,
-                enable_color_blending: false,
-                blend_mode: "normal".to_string(),
+                enable_color_blending: true,  // Enable blending
+                blend_mode: "soft_light".to_string(),  // Gentle blending for natural look
                 noise_type: "simplex".to_string(),
-                noise_persistence: 0.5,
-                noise_lacunarity: 2.0,
-                enable_ridged_noise: false,
-                ridged_strength: 0.3,
+                noise_persistence: 0.45,  // Lower persistence for more detail
+                noise_lacunarity: 2.2,    // Higher lacunarity for more variation
+                enable_ridged_noise: true,  // Enable ridged noise for texture
+                ridged_strength: 0.5,     // Moderate ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.2,
-                detail_level: 1.3,
-                contrast: 1.15,
-                brightness: 0.1,
-                saturation: 1.2,
+                turbulence_strength: 0.25, // More turbulence for natural variation
+                detail_level: 1.4,        // More detail
+                contrast: 1.25,           // Higher contrast
+                brightness: 0.15,         // Brighter for vibrant look
+                saturation: 1.3,          // More saturated for rich color
             },
             "wood" => Self {
                 texture_size: UVec2::new(128, 128),
-                noise_scale: 0.06,
-                noise_octaves: 3,
+                noise_scale: 0.08,  // Increased for more visible patterns
+                noise_octaves: 4,    // More octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.4, 0.25, 0.1], // Brown
-                color_variation: 0.4,
+                base_color: [0.45, 0.28, 0.15], // Richer brown
+                color_variation: 0.5,  // More color variation
                 use_gpu_acceleration: true,
-                enable_edge_detection: false,
+                enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,
                 blend_mode: "hard_light".to_string(),
                 noise_type: "fractal".to_string(),
-                noise_persistence: 0.6,
-                noise_lacunarity: 2.2,
+                noise_persistence: 0.55,  // Lower persistence for more detail
+                noise_lacunarity: 2.3,    // Higher lacunarity for more variation
                 enable_ridged_noise: true,
-                ridged_strength: 1.2,
+                ridged_strength: 1.5,     // Stronger ridges for wood grain
                 enable_turbulence: true,
-                turbulence_strength: 0.25,
-                detail_level: 1.4,
-                contrast: 1.2,
-                brightness: 0.0,
-                saturation: 1.1,
+                turbulence_strength: 0.3,  // More turbulence for natural variation
+                detail_level: 1.6,        // More detail
+                contrast: 1.3,            // Higher contrast
+                brightness: 0.05,         // Slightly brighter
+                saturation: 1.2,          // More saturated
             },
             "sand" => Self {
                 texture_size: UVec2::new(128, 128),
-                noise_scale: 0.04,
-                noise_octaves: 2,
+                noise_scale: 0.06,  // Increased for more visible patterns
+                noise_octaves: 3,    // More octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.8, 0.7, 0.5], // Beige
-                color_variation: 0.15,
+                base_color: [0.85, 0.75, 0.55], // Warmer beige
+                color_variation: 0.25,  // More color variation
+                use_gpu_acceleration: true,
+                enable_edge_detection: true,  // Enable edge detection
+                enable_color_blending: true,  // Enable blending
+                blend_mode: "screen".to_string(),  // Screen blending for light effect
+                noise_type: "perlin".to_string(),  // Use perlin for more natural sand
+                noise_persistence: 0.6,  // Lower persistence for more detail
+                noise_lacunarity: 1.9,    // Higher lacunarity for more variation
+                enable_ridged_noise: true,  // Enable ridged noise for texture
+                ridged_strength: 0.4,     // Moderate ridge strength
+                enable_turbulence: true,  // Enable turbulence
+                turbulence_strength: 0.1,  // Light turbulence
+                detail_level: 1.1,        // More detail
+                contrast: 1.1,            // Higher contrast
+                brightness: 0.1,          // Brighter for sandy look
+                saturation: 1.0,          // Neutral saturation
+            },
+            "water" => Self {
+                texture_size: UVec2::new(128, 128),
+                noise_scale: 0.08,  // Medium scale for water patterns
+                noise_octaves: 4,    // Multiple octaves for complexity
+                use_simplex_noise: true,
+                base_color: [0.1, 0.3, 0.8], // Blue water
+                color_variation: 0.3,  // Moderate color variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: false,
-                enable_color_blending: false,
-                blend_mode: "normal".to_string(),
-                noise_type: "value".to_string(),
-                noise_persistence: 0.7,
-                noise_lacunarity: 1.8,
+                enable_color_blending: true,  // Enable blending
+                blend_mode: "screen".to_string(),  // Screen blending for light effect
+                noise_type: "simplex".to_string(),
+                noise_persistence: 0.5,  // Medium persistence
+                noise_lacunarity: 2.0,    // Standard lacunarity
                 enable_ridged_noise: false,
                 ridged_strength: 0.2,
-                enable_turbulence: false,
-                turbulence_strength: 0.05,
-                detail_level: 0.9,
-                contrast: 0.95,
-                brightness: 0.05,
-                saturation: 0.9,
+                enable_turbulence: true,  // Enable turbulence for water movement
+                turbulence_strength: 0.2,  // Moderate turbulence
+                detail_level: 1.2,        // More detail
+                contrast: 1.1,            // Slightly higher contrast
+                brightness: 0.05,         // Slightly brighter
+                saturation: 1.2,          // More saturated
+            },
+            "bedrock" => Self {
+                texture_size: UVec2::new(128, 128),
+                noise_scale: 0.1,  // Medium scale for bedrock patterns
+                noise_octaves: 5,    // Multiple octaves for complexity
+                use_simplex_noise: true,
+                base_color: [0.2, 0.2, 0.2], // Dark gray
+                color_variation: 0.2,  // Low color variation
+                use_gpu_acceleration: true,
+                enable_edge_detection: true,  // Enable edge detection
+                enable_color_blending: false,
+                blend_mode: "normal".to_string(),
+                noise_type: "fractal".to_string(),  // Fractal noise for complexity
+                noise_persistence: 0.4,  // Lower persistence for more detail
+                noise_lacunarity: 2.2,    // Higher lacunarity for more variation
+                enable_ridged_noise: true,  // Enable ridged noise
+                ridged_strength: 1.0,     // Strong ridge strength
+                enable_turbulence: true,  // Enable turbulence
+                turbulence_strength: 0.15, // Light turbulence
+                detail_level: 1.3,        // More detail
+                contrast: 1.2,            // Higher contrast
+                brightness: -0.05,        // Slightly darker
+                saturation: 1.0,          // Neutral saturation
+            },
+            "leaves" => Self {
+                texture_size: UVec2::new(128, 128),
+                noise_scale: 0.12,  // Larger scale for leaf patterns
+                noise_octaves: 3,    // Fewer octaves for softer look
+                use_simplex_noise: true,
+                base_color: [0.2, 0.6, 0.2], // Green leaves
+                color_variation: 0.4,  // High color variation for natural look
+                use_gpu_acceleration: true,
+                enable_edge_detection: false,
+                enable_color_blending: true,  // Enable blending
+                blend_mode: "soft_light".to_string(),  // Soft blending for natural look
+                noise_type: "simplex".to_string(),
+                noise_persistence: 0.5,  // Medium persistence
+                noise_lacunarity: 1.8,    // Lower lacunarity for softer patterns
+                enable_ridged_noise: false,
+                ridged_strength: 0.3,
+                enable_turbulence: true,  // Enable turbulence for natural variation
+                turbulence_strength: 0.2,  // Moderate turbulence
+                detail_level: 1.1,        // Moderate detail
+                contrast: 1.1,            // Slightly higher contrast
+                brightness: 0.1,          // Brighter for vibrant look
+                saturation: 1.3,          // More saturated
             },
             _ => Self::default(),
         }

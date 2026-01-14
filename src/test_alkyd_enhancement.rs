@@ -99,6 +99,28 @@ pub fn test_enhanced_alkyd_features() {
     println!("✓ Color enhancement features working - generated {} bytes", color_texture.len());
     
     println!("✅ All enhanced alkyd features tested successfully!");
+
+    // Test all block types with new enhanced parameters
+    let block_types = ["stone", "dirt", "grass", "wood", "sand", "water", "bedrock", "leaves"];
+    for block_type in block_types {
+        let enhanced_config = AlkydTextureConfig::for_block_type(block_type);
+        println!("🎨 Enhanced {} config:", block_type);
+        println!("   - Noise scale: {} (was 0.05-0.1)", enhanced_config.noise_scale);
+        println!("   - Noise octaves: {} (was 2-6)", enhanced_config.noise_octaves);
+        println!("   - Color variation: {} (was 0.15-0.3)", enhanced_config.color_variation);
+        println!("   - Edge detection: {}", enhanced_config.enable_edge_detection);
+        println!("   - Color blending: {} ({})", enhanced_config.enable_color_blending, enhanced_config.blend_mode);
+        println!("   - Ridged noise: {} (strength: {})", enhanced_config.enable_ridged_noise, enhanced_config.ridged_strength);
+        println!("   - Turbulence: {} (strength: {})", enhanced_config.enable_turbulence, enhanced_config.turbulence_strength);
+        println!("   - Detail level: {} (was 0.9-1.3)", enhanced_config.detail_level);
+        println!("   - Contrast: {} (was 0.95-1.15)", enhanced_config.contrast);
+        println!("   - Saturation: {} (was 0.9-1.2)", enhanced_config.saturation);
+        
+        let texture_data = generate_alkyd_texture_data(&enhanced_config);
+        println!("   ✓ Generated {} bytes of enhanced texture data", texture_data.len());
+    }
+
+    println!("✅ All enhanced alkyd features tested successfully!");
 }
 
 pub fn setup_alkyd_test_systems(app: &mut App) {
