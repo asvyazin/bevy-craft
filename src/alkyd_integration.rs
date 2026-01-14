@@ -302,6 +302,7 @@ pub fn initialize_alkyd_resources(
     mut commands: Commands,
 ) {
     println!("🔧 Initializing Alkyd resources...");
+    println!("   This should be the first Alkyd system to run");
     
     // Real Alkyd plugin is loaded - create resource with GPU acceleration enabled
     let resources = AlkydResources {
@@ -943,6 +944,8 @@ pub fn generate_all_block_textures(
     mut enhanced_textures: ResMut<EnhancedBlockTextures>,
 ) {
     println!("🎨 Generating enhanced alkyd textures for all block types...");
+    println!("   This should run after initialize_alkyd_resources");
+    println!("   GPU acceleration enabled: {}", alkyd_resources.gpu_acceleration_enabled);
     
     let block_types = ["stone", "dirt", "grass", "wood", "sand", "water", "bedrock", "leaves"];
     
@@ -960,6 +963,10 @@ pub fn generate_all_block_textures(
             texture_data = generate_alkyd_texture_data(&config);
             println!("✓ Generated GPU-optimized {} texture with enhanced parameters", block_type);
         } else {
+            println!("⚠️  Alkyd GPU acceleration not available for {} - using CPU fallback", block_type);
+            println!("   GPU enabled: {}", alkyd_resources.gpu_acceleration_enabled);
+            println!("   Plugin loaded: {}", alkyd_resources.plugin_loaded);
+            println!("   Shaders loaded: {}", alkyd_resources.shaders_loaded);
             texture_data = generate_fallback_texture_data(&config);
             println!("✓ Generated CPU fallback {} texture", block_type);
         }
