@@ -51,7 +51,9 @@ pub fn generate_chunk_heightmap(
     let mut total_height = 0;
     let mut height_count = 0;
     
-    // Generate heightmap for this chunk using Alkyd GPU-accelerated noise
+    // First pass: Generate raw heights for the entire chunk
+    let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+    
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
             // Convert local coordinates to world coordinates
@@ -59,14 +61,22 @@ pub fn generate_chunk_heightmap(
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             
             // Generate noise value for this position using Alkyd GPU-accelerated noise
-            let height = generate_alkyd_heightmap(
+            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap(
                 world_x as f32,
                 world_z as f32,
                 alkyd_settings,
                 alkyd_resources,
             );
-            
-            let height = height as i32;
+        }
+    }
+    
+    // Second pass: Apply chunk boundary smoothing to reduce seams between chunks
+    let smoothed_heights = apply_chunk_boundary_smoothing(&raw_heights, chunk_x, chunk_z);
+    
+    // Third pass: Generate terrain with smoothed heights
+    for local_x in 0..CHUNK_SIZE {
+        for local_z in 0..CHUNK_SIZE {
+            let height = smoothed_heights[local_x as usize][local_z as usize] as i32;
             
             // Track height statistics
             min_height = min_height.min(height);
@@ -75,6 +85,8 @@ pub fn generate_chunk_heightmap(
             height_count += 1;
             
             // Generate terrain column with biome information
+            let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
+            let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             let (temperature, moisture) = generate_alkyd_biome_info(world_x as f32, world_z as f32, alkyd_settings);
             generate_terrain_column_with_biome(chunk, local_x, local_z, height, temperature, moisture);
         }
@@ -91,6 +103,50 @@ pub fn generate_chunk_heightmap(
     chunk.is_generated = true;
     chunk.needs_mesh_update = true;
     println!("✓ Completed Alkyd terrain generation for chunk ({}, {})", chunk_x, chunk_z);
+}
+
+/// Apply chunk boundary smoothing to reduce seams between chunks
+fn apply_chunk_boundary_smoothing(raw_heights: &[[f32; CHUNK_SIZE as usize]; CHUNK_SIZE as usize], chunk_x: i32, chunk_z: i32) -> [[f32; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] {
+    let mut smoothed_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+    
+    // Copy raw heights first
+    for x in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            smoothed_heights[x as usize][z as usize] = raw_heights[x as usize][z as usize];
+        }
+    }
+    
+    // Apply boundary smoothing - smooth the edges of the chunk to reduce seams
+    const SMOOTHING_RADIUS: usize = 2; // Smooth 2 blocks from each edge
+    
+    for x in 0..CHUNK_SIZE {
+        for z in 0..CHUNK_SIZE {
+            // Check if this is a boundary pixel
+            if x < SMOOTHING_RADIUS || x >= CHUNK_SIZE - SMOOTHING_RADIUS ||
+               z < SMOOTHING_RADIUS || z >= CHUNK_SIZE - SMOOTHING_RADIUS {
+                
+                // Apply smoothing by averaging with neighbors
+                let mut sum = 0.0;
+                let mut count = 0;
+                
+                for dx in -1..=1 {
+                    for dz in -1..=1 {
+                        let nx = (x as i32 + dx).clamp(0, CHUNK_SIZE as i32 - 1) as usize;
+                        let nz = (z as i32 + dz).clamp(0, CHUNK_SIZE as i32 - 1) as usize;
+                        sum += raw_heights[nx][nz];
+                        count += 1;
+                    }
+                }
+                
+                // Blend the smoothed value with the original to preserve some detail
+                let smoothed_value = sum / count as f32;
+                smoothed_heights[x as usize][z as usize] = 
+                    raw_heights[x as usize][z as usize] * 0.7 + smoothed_value * 0.3;
+            }
+        }
+    }
+    
+    smoothed_heights
 }
 
 /// Generate fractal noise (multiple octaves) for more natural terrain
