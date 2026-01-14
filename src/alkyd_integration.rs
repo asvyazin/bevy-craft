@@ -149,7 +149,7 @@ impl AlkydTextureConfig {
                 enable_edge_detection: true,
                 enable_color_blending: true,  // Enable blending
                 blend_mode: "soft_light".to_string(),  // Gentle blending for natural look
-                noise_type: "simplex".to_string(),
+                noise_type: "fractal".to_string(),  // Use fractal for more natural grass patterns
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise for texture
@@ -195,7 +195,7 @@ impl AlkydTextureConfig {
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,  // Enable blending
                 blend_mode: "screen".to_string(),  // Screen blending for light effect
-                noise_type: "simplex".to_string(),  // Use simplex for stability
+                noise_type: "perlin".to_string(),  // Use perlin for more natural sand patterns
                 noise_persistence: 0.55,  // More reasonable persistence
                 noise_lacunarity: 1.9,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise for texture
@@ -241,7 +241,7 @@ impl AlkydTextureConfig {
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: false,
                 blend_mode: "normal".to_string(),
-                noise_type: "simplex".to_string(),  // Use simplex for stability
+                noise_type: "fractal".to_string(),  // Use fractal for more complex bedrock patterns
                 noise_persistence: 0.45,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise
