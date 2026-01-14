@@ -47,8 +47,11 @@ mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
 fn main() {
-    let mut app = App::new()
-        .add_plugins(DefaultPlugins)
+    // Create the app first
+    let mut app = App::new();
+    
+    // Add plugins and initialize resources
+    app.add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
@@ -70,12 +73,9 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
-        .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources
-        .add_systems(Startup, alkyd_integration::generate_all_block_textures) // Generate enhanced alkyd textures
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
-        .add_systems(Startup, alkyd_integration::spawn_alkyd_texture_demo) // Add alkyd texture demo
         .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo (now uses alkyd)
         .add_systems(Startup, test_procedural_texture_integration.after(load_procedural_textures_into_atlas)) // Add procedural texture integration test
         .add_systems(Startup, debug_texture_usage.after(initialize_chunk_mesh_materials)) // Add debug texture usage check
