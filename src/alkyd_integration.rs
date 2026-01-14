@@ -172,7 +172,7 @@ impl AlkydTextureConfig {
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,
                 blend_mode: "hard_light".to_string(),
-                noise_type: "simplex".to_string(),  // Use simplex for stability
+                noise_type: "simplex".to_string(),  // Use simplex for stability (changed from fractal)
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,
