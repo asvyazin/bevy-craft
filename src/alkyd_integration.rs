@@ -1030,12 +1030,40 @@ pub struct EnhancedBlockTextures {
     pub texture_configs: HashMap<String, AlkydTextureConfig>,
 }
 
-/// System to setup alkyd integration in the app
-pub fn setup_alkyd_integration(app: &mut App) {
+/// System to initialize alkyd integration
+pub fn initialize_alkyd_integration(
+    mut commands: Commands,
+) {
     #[cfg(feature = "alkyd")]
     {
         println!("🔧 Setting up real Alkyd integration...");
         println!("ℹ Documentation: cargo doc --open --features alkyd");
+        
+        // Note: AlkydPlugin should be added in main.rs before this system runs
+        commands
+            .init_resource::<AlkydResources>()
+            .init_resource::<AlkydTextureConfig>()
+            .init_resource::<EnhancedBlockTextures>();
+    }
+    
+    #[cfg(not(feature = "alkyd"))]
+    {
+        println!("🔧 Setting up Alkyd-inspired CPU fallback...");
+        println!("ℹ To enable real Alkyd: cargo run --features alkyd");
+        println!("ℹ Documentation: cargo doc --open");
+        
+        commands
+            .init_resource::<AlkydResources>()
+            .init_resource::<AlkydTextureConfig>()
+            .init_resource::<EnhancedBlockTextures>();
+    }
+}
+
+/// System to setup alkyd integration in the app (should be called before adding systems)
+pub fn setup_alkyd_integration(app: &mut App) {
+    #[cfg(feature = "alkyd")]
+    {
+        println!("🔧 Setting up real Alkyd integration...");
         app
             .add_plugins(AlkydPlugin { debug: true })
             .init_resource::<AlkydResources>()
@@ -1050,8 +1078,6 @@ pub fn setup_alkyd_integration(app: &mut App) {
     #[cfg(not(feature = "alkyd"))]
     {
         println!("🔧 Setting up Alkyd-inspired CPU fallback...");
-        println!("ℹ To enable real Alkyd: cargo run --features alkyd");
-        println!("ℹ Documentation: cargo doc --open");
         app
             .init_resource::<AlkydResources>()
             .init_resource::<AlkydTextureConfig>()
