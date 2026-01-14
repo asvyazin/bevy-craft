@@ -47,7 +47,7 @@ mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
 fn main() {
-    App::new()
+    let mut app = App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .init_resource::<ChunkManager>()
@@ -60,11 +60,16 @@ fn main() {
         .init_resource::<AlkydResources>() // Initialize alkyd resources
         .init_resource::<AlkydTextureConfig>() // Initialize alkyd texture configuration
         .init_resource::<alkyd_integration::EnhancedBlockTextures>() // Initialize enhanced block textures
+        ;
+    
+    // Setup Alkyd integration before adding systems
+    alkyd_integration::setup_alkyd_integration(&mut app);
+    
+    app
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
-        .add_systems(Startup, alkyd_integration::setup_alkyd_integration) // Setup alkyd integration first
         .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources
         .add_systems(Startup, alkyd_integration::generate_all_block_textures) // Generate enhanced alkyd textures
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
