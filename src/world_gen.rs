@@ -224,7 +224,7 @@ fn generate_terrain_column_with_biome(chunk: &mut Chunk, local_x: usize, local_z
     add_environmental_features_with_biome(chunk, local_x, local_z, effective_height, temperature, moisture);
 }
 
-/// Determine terrain composition based on biome information
+/// Determine terrain composition based on biome information and height
 fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f32) -> (i32, BlockType, BlockType) {
     // Determine stone height based on terrain height (same logic as before)
     let stone_height = if effective_height < 10 {
@@ -235,50 +235,180 @@ fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f3
         (effective_height as f32 * 0.6) as i32
     };
     
-    // Determine biome based on temperature and moisture
-    let biome_type = determine_biome_type(temperature, moisture);
+    // Determine biome based on temperature, moisture, and height
+    let biome_type = determine_biome_type(temperature, moisture, effective_height);
     
-    // Return appropriate surface and sub-surface blocks based on biome
+    // Return appropriate surface and sub-surface blocks based on biome and height
     match biome_type {
-        "desert" => (stone_height, BlockType::Sand, BlockType::Sand),
-        "forest" => (stone_height, BlockType::Grass, BlockType::Dirt),
-        "mountain" => (stone_height, BlockType::Stone, BlockType::Stone),
-        "plains" => (stone_height, BlockType::Grass, BlockType::Dirt),
-        "swamp" => (stone_height, BlockType::Grass, BlockType::Dirt),
-        "tundra" => (stone_height, BlockType::Grass, BlockType::Dirt),
+        "desert" => determine_desert_terrain(effective_height, stone_height),
+        "forest" => determine_forest_terrain(effective_height, stone_height),
+        "mountain" => determine_mountain_terrain(effective_height, stone_height),
+        "snowy_mountain" => determine_snowy_mountain_terrain(effective_height, stone_height),
+        "plains" => determine_plains_terrain(effective_height, stone_height),
+        "swamp" => determine_swamp_terrain(effective_height, stone_height),
+        "tundra" => determine_tundra_terrain(effective_height, stone_height),
+        "beach" => determine_beach_terrain(effective_height, stone_height),
         _ => (stone_height, BlockType::Grass, BlockType::Dirt), // Default
     }
 }
 
-/// Determine biome type based on temperature and moisture
-fn determine_biome_type(temperature: f32, moisture: f32) -> &'static str {
-    // Simple biome classification based on temperature and moisture
-    if temperature > 0.7 {
-        if moisture < 0.3 {
-            "desert"
-        } else {
-            "plains"
-        }
-    } else if temperature > 0.5 {
-        if moisture > 0.6 {
-            "forest"
-        } else {
-            "plains"
-        }
-    } else if temperature > 0.3 {
+/// Determine desert terrain with height variation
+fn determine_desert_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 5 {
+        // Low desert areas might have some grass near water sources
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 15 {
+        // Typical desert - all sand
+        (stone_height, BlockType::Sand, BlockType::Sand)
+    } else {
+        // High desert areas might have more stone exposure
+        (stone_height, BlockType::Sand, BlockType::Stone)
+    }
+}
+
+/// Determine forest terrain with height variation
+fn determine_forest_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 10 {
+        // Low forest areas - more dirt exposed
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 25 {
+        // Typical forest - grass with dirt
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else {
+        // High forest/mountain areas - more stone exposure
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    }
+}
+
+/// Determine mountain terrain with height variation
+fn determine_mountain_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 20 {
+        // Lower mountain areas - some grass
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    } else if effective_height < 40 {
+        // Mid mountain areas - mostly stone
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    } else {
+        // High mountain areas - all stone
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    }
+}
+
+/// Determine snowy mountain terrain with height variation
+fn determine_snowy_mountain_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 25 {
+        // Lower snowy areas - some grass
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    } else if effective_height < 45 {
+        // Mid snowy areas - stone with snow
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    } else {
+        // High snowy areas - all stone (snow would be a separate layer)
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    }
+}
+
+/// Determine plains terrain with height variation
+fn determine_plains_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 8 {
+        // Low plains - might have some sand near water
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 18 {
+        // Typical plains - grass with dirt
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else {
+        // High plains - more stone exposure
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    }
+}
+
+/// Determine swamp terrain with height variation
+fn determine_swamp_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 6 {
+        // Low swamp areas - might be waterlogged
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 15 {
+        // Typical swamp - grass with more moisture
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else {
+        // High swamp areas - transition to forest
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    }
+}
+
+/// Determine tundra terrain with height variation
+fn determine_tundra_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 10 {
+        // Low tundra - some grass
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    } else if effective_height < 25 {
+        // Typical tundra - grass with stone
+        (stone_height, BlockType::Grass, BlockType::Stone)
+    } else {
+        // High tundra - mostly stone
+        (stone_height, BlockType::Stone, BlockType::Stone)
+    }
+}
+
+/// Determine beach terrain with height variation
+fn determine_beach_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+    if effective_height < 4 {
+        // Very low beach - might be underwater
+        (stone_height, BlockType::Sand, BlockType::Sand)
+    } else if effective_height < 10 {
+        // Typical beach - all sand
+        (stone_height, BlockType::Sand, BlockType::Sand)
+    } else {
+        // High beach - transition to grass
+        (stone_height, BlockType::Grass, BlockType::Dirt)
+    }
+}
+
+/// Determine biome type based on temperature, moisture, and height
+fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'static str {
+    // Enhanced biome classification based on temperature, moisture, and height
+    if height < 5 {
+        // Low areas near water level - beaches or swamps
         if moisture > 0.5 {
             "swamp"
         } else {
-            "mountain"
+            "beach"
         }
+    } else if height > 40 {
+        // Very high areas - snowy mountains
+        "snowy_mountain"
+    } else if height > 30 {
+        // High areas - mountains
+        "mountain"
     } else {
-        "tundra"
+        // Normal terrain classification based on temperature and moisture
+        if temperature > 0.7 {
+            if moisture < 0.3 {
+                "desert"
+            } else {
+                "plains"
+            }
+        } else if temperature > 0.5 {
+            if moisture > 0.6 {
+                "forest"
+            } else {
+                "plains"
+            }
+        } else if temperature > 0.3 {
+            if moisture > 0.5 {
+                "swamp"
+            } else {
+                "mountain"
+            }
+        } else {
+            "tundra"
+        }
     }
 }
 
 /// Add environmental features with biome information
 fn add_environmental_features_with_biome(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32, temperature: f32, moisture: f32) {
-    let biome_type = determine_biome_type(temperature, moisture);
+    let biome_type = determine_biome_type(temperature, moisture, height);
     
     // Add sand for beach-like areas (low terrain near "water level")
     if height > 5 && height < 12 {
