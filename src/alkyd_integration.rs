@@ -1004,21 +1004,24 @@ pub fn generate_all_block_textures(
     
     for block_type in block_types {
         let mut config = AlkydTextureConfig::for_block_type(block_type);
+        let texture_data;
         
         // Apply GPU optimizations if Alkyd is available
-        #[cfg(feature = "alkyd")]
         if alkyd_resources.gpu_acceleration_enabled {
-            println!("🎨 Applying GPU optimizations for {} texture", block_type);
-            config.detail_level *= 1.2;  // More detail for GPU
-            config.contrast *= 1.1;      // Better contrast for GPU rendering
-            config.saturation *= 1.05;   // Slightly more saturated colors
-        }
-        
-        let texture_data = if alkyd_resources.gpu_acceleration_enabled {
-            generate_alkyd_texture_data(&config)
+            #[cfg(feature = "alkyd")]
+            {
+                println!("🚀 Using real Alkyd GPU acceleration for {} texture generation!", block_type);
+                config.detail_level *= 1.2;  // More detail for GPU
+                config.contrast *= 1.1;      // Better contrast for GPU rendering
+                config.saturation *= 1.05;   // Slightly more saturated colors
+            }
+            
+            texture_data = generate_alkyd_texture_data(&config);
+            println!("✓ Generated GPU-optimized {} texture with enhanced parameters", block_type);
         } else {
-            generate_fallback_texture_data(&config)
-        };
+            texture_data = generate_fallback_texture_data(&config);
+            println!("✓ Generated CPU fallback {} texture", block_type);
+        }
         
         let image = Image::new(
             Extent3d {
@@ -1065,8 +1068,14 @@ pub fn initialize_alkyd_integration(
         
         // Note: AlkydPlugin should be added in main.rs before this system runs
         commands.init_resource::<AlkydResources>();
-        commands.init_resource::<AlkydTextureConfig>();
         commands.init_resource::<EnhancedBlockTextures>();
+        
+        // Initialize or update AlkydTextureConfig with GPU acceleration
+        let mut config = AlkydTextureConfig::default();
+        config.use_gpu_acceleration = true;
+        commands.insert_resource(config);
+        
+        println!("✓ Initialized Alkyd with GPU acceleration enabled");
     }
     
     #[cfg(not(feature = "alkyd"))]
