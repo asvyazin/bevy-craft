@@ -1040,10 +1040,9 @@ pub fn initialize_alkyd_integration(
         println!("ℹ Documentation: cargo doc --open --features alkyd");
         
         // Note: AlkydPlugin should be added in main.rs before this system runs
-        commands
-            .init_resource::<AlkydResources>()
-            .init_resource::<AlkydTextureConfig>()
-            .init_resource::<EnhancedBlockTextures>();
+        commands.init_resource::<AlkydResources>();
+        commands.init_resource::<AlkydTextureConfig>();
+        commands.init_resource::<EnhancedBlockTextures>();
     }
     
     #[cfg(not(feature = "alkyd"))]
@@ -1052,10 +1051,9 @@ pub fn initialize_alkyd_integration(
         println!("ℹ To enable real Alkyd: cargo run --features alkyd");
         println!("ℹ Documentation: cargo doc --open");
         
-        commands
-            .init_resource::<AlkydResources>()
-            .init_resource::<AlkydTextureConfig>()
-            .init_resource::<EnhancedBlockTextures>();
+        commands.init_resource::<AlkydResources>();
+        commands.init_resource::<AlkydTextureConfig>();
+        commands.init_resource::<EnhancedBlockTextures>();
     }
 }
 
