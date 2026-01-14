@@ -1035,6 +1035,7 @@ pub fn setup_alkyd_integration(app: &mut App) {
     #[cfg(feature = "alkyd")]
     {
         println!("🔧 Setting up real Alkyd integration...");
+        println!("ℹ Documentation: cargo doc --open --features alkyd");
         app
             .add_plugins(AlkydPlugin { debug: true })
             .init_resource::<AlkydResources>()
@@ -1049,6 +1050,8 @@ pub fn setup_alkyd_integration(app: &mut App) {
     #[cfg(not(feature = "alkyd"))]
     {
         println!("🔧 Setting up Alkyd-inspired CPU fallback...");
+        println!("ℹ To enable real Alkyd: cargo run --features alkyd");
+        println!("ℹ Documentation: cargo doc --open");
         app
             .init_resource::<AlkydResources>()
             .init_resource::<AlkydTextureConfig>()
