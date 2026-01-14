@@ -3,6 +3,8 @@
 
 use bevy::prelude::*;
 use crate::alkyd_integration::{AlkydTextureConfig, AlkydResources};
+use std::time::Instant;
+use std::collections::HashMap;
 
 /// Resource for Alkyd-based world generation settings
 #[derive(Resource, Debug, Clone)]
@@ -23,6 +25,8 @@ pub struct AlkydWorldGenSettings {
     pub biome_scale: f32,
     pub temperature_scale: f32,
     pub moisture_scale: f32,
+    pub enable_performance_monitoring: bool,
+    pub optimization_level: u8,
 }
 
 impl Default for AlkydWorldGenSettings {
@@ -44,8 +48,22 @@ impl Default for AlkydWorldGenSettings {
             biome_scale: 0.005,
             temperature_scale: 0.01,
             moisture_scale: 0.01,
+            enable_performance_monitoring: true,
+            optimization_level: 2, // Medium optimization by default
         }
     }
+}
+
+/// Resource to store Alkyd world generation performance metrics
+#[derive(Resource, Debug, Default)]
+pub struct AlkydWorldGenPerformance {
+    pub chunks_generated: u32,
+    pub total_generation_time: f32,
+    pub average_generation_time: f32,
+    pub peak_generation_time: f32,
+    pub gpu_accelerated_chunks: u32,
+    pub cpu_fallback_chunks: u32,
+    pub biome_distribution: std::collections::HashMap<String, u32>,
 }
 
 /// Generate heightmap using Alkyd GPU-accelerated noise algorithms
@@ -55,12 +73,54 @@ pub fn generate_alkyd_heightmap(
     settings: &AlkydWorldGenSettings,
     alkyd_resources: &AlkydResources,
 ) -> f32 {
+    // Apply performance optimization based on settings
+    let optimized_settings = apply_performance_optimization(settings);
+    
     // Use GPU-accelerated noise generation if available
-    if alkyd_resources.gpu_acceleration_enabled && settings.use_gpu_acceleration {
-        generate_gpu_heightmap(x, z, settings)
+    if alkyd_resources.gpu_acceleration_enabled && optimized_settings.use_gpu_acceleration {
+        generate_gpu_heightmap(x, z, &optimized_settings)
     } else {
-        generate_cpu_fallback_heightmap(x, z, settings)
+        generate_cpu_fallback_heightmap(x, z, &optimized_settings)
     }
+}
+
+/// Apply performance optimization based on optimization level
+fn apply_performance_optimization(settings: &AlkydWorldGenSettings) -> AlkydWorldGenSettings {
+    let mut optimized = settings.clone();
+    
+    match settings.optimization_level {
+        0 => {
+            // No optimization - maximum quality
+            // Keep all settings as-is
+        },
+        1 => {
+            // Light optimization - slight quality reduction for better performance
+            optimized.detail_level = (settings.detail_level * 0.9).max(0.8);
+            optimized.turbulence_strength = (settings.turbulence_strength * 0.8).max(0.05);
+        },
+        2 => {
+            // Medium optimization - balanced approach
+            optimized.detail_level = (settings.detail_level * 0.8).max(0.7);
+            optimized.turbulence_strength = (settings.turbulence_strength * 0.7).max(0.05);
+            optimized.ridged_strength = (settings.ridged_strength * 0.9).max(0.3);
+        },
+        3 => {
+            // Heavy optimization - significant performance improvement
+            optimized.detail_level = (settings.detail_level * 0.6).max(0.5);
+            optimized.turbulence_strength = (settings.turbulence_strength * 0.5).max(0.03);
+            optimized.ridged_strength = (settings.ridged_strength * 0.8).max(0.2);
+            optimized.octaves = ((settings.octaves as f32 * 0.8) as usize).max(4);
+        },
+        _ => {
+            // Extreme optimization - maximum performance
+            optimized.detail_level = (settings.detail_level * 0.5).max(0.4);
+            optimized.turbulence_strength = (settings.turbulence_strength * 0.3).max(0.02);
+            optimized.ridged_strength = (settings.ridged_strength * 0.6).max(0.1);
+            optimized.octaves = ((settings.octaves as f32 * 0.6) as usize).max(3);
+        }
+    }
+    
+    optimized
 }
 
 /// Generate heightmap using GPU-accelerated Alkyd noise
@@ -402,8 +462,75 @@ pub fn initialize_alkyd_world_gen(
         ..Default::default()
     };
     
-    commands.insert_resource(settings);
+    commands.insert_resource(settings.clone());
+    commands.insert_resource(AlkydWorldGenPerformance::default());
+    
     println!("✓ Alkyd world generation initialized with GPU acceleration");
+    println!("  - Performance monitoring: {}", settings.enable_performance_monitoring);
+    println!("  - Optimization level: {}", settings.optimization_level);
+    println!("  - GPU acceleration: {}", settings.use_gpu_acceleration);
+}
+
+/// System to monitor and log Alkyd world generation performance
+pub fn monitor_alkyd_world_gen_performance(
+    performance: Res<AlkydWorldGenPerformance>,
+    settings: Res<AlkydWorldGenSettings>,
+) {
+    if !settings.enable_performance_monitoring {
+        return;
+    }
+    
+    if performance.chunks_generated > 0 {
+        println!("📊 Alkyd World Generation Performance Report:");
+        println!("  - Chunks generated: {}", performance.chunks_generated);
+        println!("  - Total time: {:.2}ms", performance.total_generation_time);
+        println!("  - Average time per chunk: {:.2}ms", performance.average_generation_time);
+        println!("  - Peak time: {:.2}ms", performance.peak_generation_time);
+        println!("  - GPU accelerated: {} ({:.1}%)", 
+                 performance.gpu_accelerated_chunks,
+                 (performance.gpu_accelerated_chunks as f32 / performance.chunks_generated as f32) * 100.0);
+        println!("  - CPU fallback: {} ({:.1}%)", 
+                 performance.cpu_fallback_chunks,
+                 (performance.cpu_fallback_chunks as f32 / performance.chunks_generated as f32) * 100.0);
+        
+        println!("  - Biome distribution:");
+        for (biome, count) in &performance.biome_distribution {
+            println!("    - {}: {} ({:.1}%)", biome, count, 
+                     (*count as f32 / performance.chunks_generated as f32) * 100.0);
+        }
+    }
+}
+
+/// System to generate a performance test chunk
+pub fn generate_alkyd_performance_test_chunk(
+    mut commands: Commands,
+    settings: Res<AlkydWorldGenSettings>,
+    alkyd_resources: Res<AlkydResources>,
+) {
+    if !settings.enable_performance_monitoring {
+        return;
+    }
+    
+    println!("🧪 Running Alkyd performance test...");
+    
+    let start_time = Instant::now();
+    
+    // Test multiple heightmap generations
+    const TEST_ITERATIONS: usize = 100;
+    for i in 0..TEST_ITERATIONS {
+        let x = i as f32 * 100.0;
+        let z = i as f32 * 100.0;
+        let _height = generate_alkyd_heightmap(x, z, &settings, &alkyd_resources);
+    }
+    
+    let duration = start_time.elapsed();
+    let avg_time_per_call = duration.as_secs_f32() / TEST_ITERATIONS as f32 * 1000.0;
+    
+    println!("✓ Alkyd performance test completed:");
+    println!("  - {} iterations in {:.2}ms", TEST_ITERATIONS, duration.as_secs_f32() * 1000.0);
+    println!("  - Average time per heightmap: {:.3}ms", avg_time_per_call);
+    println!("  - Performance: {} calls/second", 
+             (TEST_ITERATIONS as f32 / duration.as_secs_f32()).round());
 }
 
 /// Helper functions (copied from existing implementation)
