@@ -26,6 +26,9 @@ use alkyd_integration::{AlkydResources, AlkydTextureConfig};
 mod test_alkyd_enhancement;
 use test_alkyd_enhancement::{test_alkyd_enhanced_textures, test_texture_data_generation, test_enhanced_alkyd_features};
 
+mod test_alkyd_real;
+use test_alkyd_real::setup_real_alkyd_tests;
+
 mod debug_texture_usage;
 use debug_texture_usage::debug_texture_usage;
 
@@ -48,7 +51,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
-        .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add alkyd plugin for procedural texture generation (version compatibility issues)
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
@@ -63,9 +65,8 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, noise_demo::demo_noise_generation)
         .add_systems(Startup, initialize_texture_atlas)
-        .add_systems(Startup, alkyd_integration::initialize_alkyd_resources) // Initialize alkyd resources first
+        .add_systems(Startup, alkyd_integration::setup_alkyd_integration) // Setup alkyd integration first
         .add_systems(Startup, alkyd_integration::generate_all_block_textures) // Generate enhanced alkyd textures
-        .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
@@ -76,6 +77,7 @@ fn main() {
         .add_systems(Startup, test_texture_data_generation) // Add texture data generation test
         .add_systems(Startup, test_enhanced_alkyd_features) // Add enhanced alkyd features test
         .add_systems(Startup, test_alkyd_enhanced_textures.after(alkyd_integration::generate_all_block_textures)) // Add alkyd texture verification
+        .add_systems(Startup, setup_real_alkyd_tests) // Add real alkyd integration test
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
         .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
