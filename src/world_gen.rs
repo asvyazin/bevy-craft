@@ -51,36 +51,48 @@ pub fn generate_chunk_heightmap(
     let mut total_height = 0;
     let mut height_count = 0;
     
-    // Generate heights with full continuity and boundary smoothing in a single pass
+    // Generate heights using multi-chunk aware noise generation for guaranteed continuity
     let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
     
-    for local_x in 0..CHUNK_SIZE {
-        for local_z in 0..CHUNK_SIZE {
-            // Convert local coordinates to world coordinates
-            let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
-            let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
+    // Generate noise for a larger area that includes neighboring chunks to ensure continuity
+    // This creates a 3x3 chunk area centered on the current chunk
+    const EXPANDED_AREA_SIZE: usize = CHUNK_SIZE as usize * 3;
+    let mut expanded_heights = [[0.0; EXPANDED_AREA_SIZE]; EXPANDED_AREA_SIZE];
+    
+    // Calculate the world position of the center of the expanded area
+    let center_chunk_x = chunk_x * CHUNK_SIZE as i32 + CHUNK_SIZE as i32 / 2;
+    let center_chunk_z = chunk_z * CHUNK_SIZE as i32 + CHUNK_SIZE as i32 / 2;
+    
+    // Generate noise for the entire expanded area
+    for exp_x in 0..EXPANDED_AREA_SIZE {
+        for exp_z in 0..EXPANDED_AREA_SIZE {
+            // Convert expanded coordinates to world coordinates
+            let world_x = center_chunk_x - (CHUNK_SIZE as i32) + exp_x as i32;
+            let world_z = center_chunk_z - (CHUNK_SIZE as i32) + exp_z as i32;
             
-            // Generate noise value for this position using Alkyd GPU-accelerated noise with full continuity
-            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap_with_full_continuity(
+            // Generate noise value for this position
+            expanded_heights[exp_x][exp_z] = generate_alkyd_heightmap(
                 world_x as f32,
                 world_z as f32,
-                chunk_x,
-                chunk_z,
-                local_x as usize,
-                local_z as usize,
                 alkyd_settings,
                 alkyd_resources,
             );
         }
     }
     
-    // Second pass: Apply chunk boundary smoothing to reduce seams between chunks
-    let smoothed_heights = apply_chunk_boundary_smoothing(&raw_heights, chunk_x, chunk_z);
-    
-    // Third pass: Generate terrain with smoothed heights
+    // Extract the current chunk from the center of the expanded area
+    let chunk_offset = CHUNK_SIZE as usize;
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
-            let height = smoothed_heights[local_x as usize][local_z as usize] as i32;
+            raw_heights[local_x as usize][local_z as usize] = 
+                expanded_heights[chunk_offset + local_x as usize][chunk_offset + local_z as usize];
+        }
+    }
+    
+    // Generate terrain with the extracted chunk heights
+    for local_x in 0..CHUNK_SIZE {
+        for local_z in 0..CHUNK_SIZE {
+            let height = raw_heights[local_x as usize][local_z as usize] as i32;
             
             // Track height statistics
             min_height = min_height.min(height);
