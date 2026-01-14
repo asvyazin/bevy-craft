@@ -100,6 +100,16 @@ pub fn generate_procedural_textures(
                     enable_color_blending: false,
                     blend_mode: "normal".to_string(),
                     noise_type: "simplex".to_string(),
+                    noise_persistence: 0.5,
+                    noise_lacunarity: 2.0,
+                    enable_ridged_noise: false,
+                    ridged_strength: 1.0,
+                    enable_turbulence: false,
+                    turbulence_strength: 0.1,
+                    detail_level: 1.0,
+                    contrast: 1.0,
+                    brightness: 0.0,
+                    saturation: 1.0,
                 };
                 crate::alkyd_integration::generate_alkyd_texture_data(&alkyd_config)
             } else {
