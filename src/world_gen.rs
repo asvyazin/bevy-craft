@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use crate::block::BlockType;
-use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_heightmap_with_continuity, generate_alkyd_biome_info};
+use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_heightmap_with_continuity, generate_alkyd_heightmap_with_full_continuity, generate_alkyd_biome_info};
 use crate::alkyd_integration::AlkydResources;
 
 /// World generation settings
@@ -51,7 +51,7 @@ pub fn generate_chunk_heightmap(
     let mut total_height = 0;
     let mut height_count = 0;
     
-    // First pass: Generate raw heights for the entire chunk with continuity awareness
+    // Generate heights with full continuity and boundary smoothing in a single pass
     let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
     
     for local_x in 0..CHUNK_SIZE {
@@ -60,12 +60,14 @@ pub fn generate_chunk_heightmap(
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             
-            // Generate noise value for this position using Alkyd GPU-accelerated noise with continuity
-            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap_with_continuity(
+            // Generate noise value for this position using Alkyd GPU-accelerated noise with full continuity
+            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap_with_full_continuity(
                 world_x as f32,
                 world_z as f32,
                 chunk_x,
                 chunk_z,
+                local_x as usize,
+                local_z as usize,
                 alkyd_settings,
                 alkyd_resources,
             );

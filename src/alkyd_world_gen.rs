@@ -3,6 +3,7 @@
 
 use bevy::prelude::*;
 use crate::alkyd_integration::{AlkydTextureConfig, AlkydResources};
+use crate::chunk::CHUNK_SIZE;
 use std::time::Instant;
 
 /// Resource for Alkyd-based world generation settings
@@ -98,6 +99,50 @@ pub fn generate_alkyd_heightmap_with_continuity(
     
     // Generate heightmap using the adjusted coordinates
     generate_alkyd_heightmap(adjusted_x, adjusted_z, settings, alkyd_resources)
+}
+
+/// Generate heightmap with enhanced chunk continuity and boundary smoothing
+pub fn generate_alkyd_heightmap_with_full_continuity(
+    x: f32,
+    z: f32,
+    chunk_x: i32,
+    chunk_z: i32,
+    local_x: usize,
+    local_z: usize,
+    settings: &AlkydWorldGenSettings,
+    alkyd_resources: &AlkydResources,
+) -> f32 {
+    // Apply chunk-aware coordinate adjustment for better continuity
+    let adjusted_x = apply_chunk_continuity_adjustment(x, chunk_x);
+    let adjusted_z = apply_chunk_continuity_adjustment(z, chunk_z);
+    
+    // Generate base heightmap using the adjusted coordinates
+    let mut height = generate_alkyd_heightmap(adjusted_x, adjusted_z, settings, alkyd_resources);
+    
+    // Apply additional boundary smoothing for edge pixels
+    if local_x < 3 || local_x >= CHUNK_SIZE - 3 || local_z < 3 || local_z >= CHUNK_SIZE - 3 {
+        // For boundary pixels, apply additional smoothing by sampling nearby points
+        let mut sum = height;
+        let mut count = 1;
+        
+        // Sample a few nearby points for better continuity
+        for dx in &[-1.0, 0.0, 1.0] {
+            for dz in &[-1.0, 0.0, 1.0] {
+                if *dx != 0.0 || *dz != 0.0 {
+                    let sample_x = adjusted_x + dx * 0.1;
+                    let sample_z = adjusted_z + dz * 0.1;
+                    let sample_height = generate_alkyd_heightmap(sample_x, sample_z, settings, alkyd_resources);
+                    sum += sample_height;
+                    count += 1;
+                }
+            }
+        }
+        
+        // Blend the averaged value with the original
+        height = height * 0.6 + (sum / count as f32) * 0.4;
+    }
+    
+    height
 }
 
 /// Apply chunk continuity adjustment to coordinates
