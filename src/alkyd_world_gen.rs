@@ -83,6 +83,32 @@ pub fn generate_alkyd_heightmap(
     }
 }
 
+/// Generate heightmap with chunk-aware continuity for better seam elimination
+pub fn generate_alkyd_heightmap_with_continuity(
+    x: f32,
+    z: f32,
+    chunk_x: i32,
+    chunk_z: i32,
+    settings: &AlkydWorldGenSettings,
+    alkyd_resources: &AlkydResources,
+) -> f32 {
+    // Apply chunk-aware coordinate adjustment for better continuity
+    let adjusted_x = apply_chunk_continuity_adjustment(x, chunk_x);
+    let adjusted_z = apply_chunk_continuity_adjustment(z, chunk_z);
+    
+    // Generate heightmap using the adjusted coordinates
+    generate_alkyd_heightmap(adjusted_x, adjusted_z, settings, alkyd_resources)
+}
+
+/// Apply chunk continuity adjustment to coordinates
+fn apply_chunk_continuity_adjustment(coord: f32, chunk_coord: i32) -> f32 {
+    // Add small offset based on chunk position to ensure continuity
+    // This helps reduce seams by making sure noise patterns align better
+    // Use a more significant offset that's still small enough to not disrupt the overall pattern
+    let chunk_offset = chunk_coord as f32 * 0.01; // Increased from 0.001 to 0.01 for better effect
+    coord + chunk_offset
+}
+
 /// Apply performance optimization based on optimization level
 fn apply_performance_optimization(settings: &AlkydWorldGenSettings) -> AlkydWorldGenSettings {
     let mut optimized = settings.clone();

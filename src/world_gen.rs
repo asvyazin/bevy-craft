@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use crate::block::BlockType;
-use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_biome_info};
+use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_heightmap_with_continuity, generate_alkyd_biome_info};
 use crate::alkyd_integration::AlkydResources;
 
 /// World generation settings
@@ -51,7 +51,7 @@ pub fn generate_chunk_heightmap(
     let mut total_height = 0;
     let mut height_count = 0;
     
-    // First pass: Generate raw heights for the entire chunk
+    // First pass: Generate raw heights for the entire chunk with continuity awareness
     let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
     
     for local_x in 0..CHUNK_SIZE {
@@ -60,10 +60,12 @@ pub fn generate_chunk_heightmap(
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             
-            // Generate noise value for this position using Alkyd GPU-accelerated noise
-            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap(
+            // Generate noise value for this position using Alkyd GPU-accelerated noise with continuity
+            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap_with_continuity(
                 world_x as f32,
                 world_z as f32,
+                chunk_x,
+                chunk_z,
                 alkyd_settings,
                 alkyd_resources,
             );
@@ -117,7 +119,8 @@ fn apply_chunk_boundary_smoothing(raw_heights: &[[f32; CHUNK_SIZE as usize]; CHU
     }
     
     // Apply boundary smoothing - smooth the edges of the chunk to reduce seams
-    const SMOOTHING_RADIUS: usize = 2; // Smooth 2 blocks from each edge
+    const SMOOTHING_RADIUS: usize = 3; // Increased from 2 to 3 blocks from each edge
+    const SMOOTHING_STRENGTH: f32 = 0.5; // Increased from 0.3 to 0.5 for stronger smoothing
     
     for x in 0..CHUNK_SIZE {
         for z in 0..CHUNK_SIZE {
@@ -125,10 +128,11 @@ fn apply_chunk_boundary_smoothing(raw_heights: &[[f32; CHUNK_SIZE as usize]; CHU
             if x < SMOOTHING_RADIUS || x >= CHUNK_SIZE - SMOOTHING_RADIUS ||
                z < SMOOTHING_RADIUS || z >= CHUNK_SIZE - SMOOTHING_RADIUS {
                 
-                // Apply smoothing by averaging with neighbors
+                // Apply stronger smoothing by averaging with more neighbors
                 let mut sum = 0.0;
                 let mut count = 0;
                 
+                // Use 3x3 neighborhood for better smoothing
                 for dx in -1..=1 {
                     for dz in -1..=1 {
                         let nx = (x as i32 + dx).clamp(0, CHUNK_SIZE as i32 - 1) as usize;
@@ -141,7 +145,7 @@ fn apply_chunk_boundary_smoothing(raw_heights: &[[f32; CHUNK_SIZE as usize]; CHU
                 // Blend the smoothed value with the original to preserve some detail
                 let smoothed_value = sum / count as f32;
                 smoothed_heights[x as usize][z as usize] = 
-                    raw_heights[x as usize][z as usize] * 0.7 + smoothed_value * 0.3;
+                    raw_heights[x as usize][z as usize] * (1.0 - SMOOTHING_STRENGTH) + smoothed_value * SMOOTHING_STRENGTH;
             }
         }
     }
