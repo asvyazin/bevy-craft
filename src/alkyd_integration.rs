@@ -97,54 +97,54 @@ impl AlkydTextureConfig {
                 noise_scale: 0.1,  // More reasonable scale
                 noise_octaves: 4,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.5, 0.5, 0.5], // Lighter gray for better visibility
-                color_variation: 0.3,  // Reduced variation
+                base_color: [0.6, 0.6, 0.6], // Much lighter gray for better visibility
+                color_variation: 0.25,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,
                 enable_color_blending: true,  // Enable blending
-                blend_mode: "hard_light".to_string(),  // More dramatic blending
+                blend_mode: "soft_light".to_string(),  // Gentler blending for better visibility
                 noise_type: "simplex".to_string(),
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,
-                ridged_strength: 0.8,     // Reduced ridge strength
+                ridged_strength: 0.6,     // Reduced ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.15, // Reduced turbulence
-                detail_level: 1.2,        // Reduced detail level
-                contrast: 1.1,            // Reduced contrast
-                brightness: 0.05,         // Slightly brighter
-                saturation: 1.05,         // Slightly more saturated
+                turbulence_strength: 0.1, // Reduced turbulence
+                detail_level: 1.1,        // Reduced detail level
+                contrast: 1.05,           // Much reduced contrast
+                brightness: 0.1,          // Much brighter
+                saturation: 1.0,          // Neutral saturation
             },
             "dirt" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.08,  // More reasonable scale
                 noise_octaves: 4,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.5, 0.4, 0.3], // Lighter brown for better visibility
-                color_variation: 0.25,  // Reduced variation
+                base_color: [0.6, 0.45, 0.35], // Much lighter brown for better visibility
+                color_variation: 0.2,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,
-                blend_mode: "overlay".to_string(),  // More dramatic blending
+                blend_mode: "soft_light".to_string(),  // Gentler blending for better visibility
                 noise_type: "simplex".to_string(),  // Use simplex noise for stability
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise
-                ridged_strength: 0.5,     // Reduced ridge strength
+                ridged_strength: 0.4,     // Reduced ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.1, // Reduced turbulence
-                detail_level: 1.1,        // Reduced detail
-                contrast: 1.1,            // Reduced contrast
-                brightness: 0.0,          // Neutral brightness
-                saturation: 1.1,          // Slightly more saturated
+                turbulence_strength: 0.08, // Reduced turbulence
+                detail_level: 1.05,        // Reduced detail
+                contrast: 1.05,            // Much reduced contrast
+                brightness: 0.05,          // Brighter
+                saturation: 1.05,          // Slightly more saturated
             },
             "grass" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.08,  // More reasonable scale
                 noise_octaves: 4,   // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.2, 0.6, 0.15], // Vibrant green, slightly lighter
-                color_variation: 0.3,  // Reduced variation
+                base_color: [0.3, 0.7, 0.25], // Much brighter green for better visibility
+                color_variation: 0.25,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,
                 enable_color_blending: true,  // Enable blending
@@ -153,44 +153,44 @@ impl AlkydTextureConfig {
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise for texture
-                ridged_strength: 0.4,     // Reduced ridge strength
+                ridged_strength: 0.3,     // Reduced ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.15, // Reduced turbulence
-                detail_level: 1.2,        // Reduced detail
-                contrast: 1.15,           // Reduced contrast
-                brightness: 0.1,          // Brighter for vibrant look
-                saturation: 1.15,         // Reduced saturation
+                turbulence_strength: 0.1, // Reduced turbulence
+                detail_level: 1.1,        // Reduced detail
+                contrast: 1.1,           // Much reduced contrast
+                brightness: 0.15,         // Much brighter for vibrant look
+                saturation: 1.1,         // Reduced saturation
             },
             "wood" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.06,  // More reasonable scale
                 noise_octaves: 4,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.5, 0.35, 0.2], // Lighter brown for better visibility
-                color_variation: 0.35,  // Reduced variation
+                base_color: [0.6, 0.45, 0.3], // Much lighter brown for better visibility
+                color_variation: 0.3,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,
-                blend_mode: "hard_light".to_string(),
+                blend_mode: "soft_light".to_string(),  // Gentler blending for better visibility
                 noise_type: "simplex".to_string(),  // Use simplex for stability (changed from fractal)
                 noise_persistence: 0.5,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,
-                ridged_strength: 1.0,     // Reduced ridge strength
+                ridged_strength: 0.8,     // Reduced ridge strength
                 enable_turbulence: true,
-                turbulence_strength: 0.2,  // Reduced turbulence
-                detail_level: 1.3,        // Reduced detail
-                contrast: 1.2,            // Reduced contrast
-                brightness: 0.05,         // Slightly brighter
-                saturation: 1.1,          // Reduced saturation
+                turbulence_strength: 0.15,  // Reduced turbulence
+                detail_level: 1.2,        // Reduced detail
+                contrast: 1.1,            // Much reduced contrast
+                brightness: 0.1,          // Much brighter
+                saturation: 1.05,          // Slightly more saturated
             },
             "sand" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.05,  // More reasonable scale
                 noise_octaves: 3,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.85, 0.78, 0.6], // Lighter beige for better visibility
-                color_variation: 0.2,  // Reduced variation
+                base_color: [0.9, 0.85, 0.75], // Much lighter beige for better visibility
+                color_variation: 0.15,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: true,  // Enable blending
@@ -199,21 +199,21 @@ impl AlkydTextureConfig {
                 noise_persistence: 0.55,  // More reasonable persistence
                 noise_lacunarity: 1.9,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise for texture
-                ridged_strength: 0.3,     // Reduced ridge strength
+                ridged_strength: 0.2,     // Reduced ridge strength
                 enable_turbulence: true,  // Enable turbulence
-                turbulence_strength: 0.08,  // Reduced turbulence
-                detail_level: 1.05,        // Reduced detail
-                contrast: 1.05,            // Reduced contrast
-                brightness: 0.08,          // Brighter for sandy look
-                saturation: 0.95,          // Slightly more saturated
+                turbulence_strength: 0.06,  // Reduced turbulence
+                detail_level: 1.0,        // Reduced detail
+                contrast: 1.0,            // Neutral contrast
+                brightness: 0.1,          // Much brighter for sandy look
+                saturation: 0.9,          // Slightly less saturated for natural look
             },
             "water" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.08,  // Medium scale for water patterns
                 noise_octaves: 4,    // Multiple octaves for complexity
                 use_simplex_noise: true,
-                base_color: [0.1, 0.3, 0.8], // Blue water
-                color_variation: 0.3,  // Moderate color variation
+                base_color: [0.3, 0.5, 0.9], // Much brighter blue water
+                color_variation: 0.25,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: false,
                 enable_color_blending: true,  // Enable blending
@@ -224,19 +224,19 @@ impl AlkydTextureConfig {
                 enable_ridged_noise: false,
                 ridged_strength: 0.2,
                 enable_turbulence: true,  // Enable turbulence for water movement
-                turbulence_strength: 0.2,  // Moderate turbulence
-                detail_level: 1.2,        // More detail
-                contrast: 1.1,            // Slightly higher contrast
-                brightness: 0.05,         // Slightly brighter
-                saturation: 1.2,          // More saturated
+                turbulence_strength: 0.15,  // Reduced turbulence
+                detail_level: 1.1,        // Reduced detail
+                contrast: 1.05,            // Much reduced contrast
+                brightness: 0.1,          // Much brighter
+                saturation: 1.1,          // Reduced saturation
             },
             "bedrock" => Self {
                 texture_size: UVec2::new(128, 128),
                 noise_scale: 0.08,  // More reasonable scale
                 noise_octaves: 4,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.25, 0.25, 0.25], // Lighter gray for better visibility
-                color_variation: 0.15,  // Reduced variation
+                base_color: [0.35, 0.35, 0.35], // Much lighter gray for better visibility
+                color_variation: 0.1,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: true,  // Enable edge detection
                 enable_color_blending: false,
@@ -245,12 +245,12 @@ impl AlkydTextureConfig {
                 noise_persistence: 0.45,  // More reasonable persistence
                 noise_lacunarity: 2.0,    // More reasonable lacunarity
                 enable_ridged_noise: true,  // Enable ridged noise
-                ridged_strength: 0.8,     // Reduced ridge strength
+                ridged_strength: 0.6,     // Reduced ridge strength
                 enable_turbulence: true,  // Enable turbulence
-                turbulence_strength: 0.1, // Reduced turbulence
-                detail_level: 1.15,        // Reduced detail
-                contrast: 1.1,            // Reduced contrast
-                brightness: -0.03,        // Slightly darker
+                turbulence_strength: 0.08, // Reduced turbulence
+                detail_level: 1.1,        // Reduced detail
+                contrast: 1.05,            // Much reduced contrast
+                brightness: 0.0,          // Neutral brightness
                 saturation: 1.0,          // Neutral saturation
             },
             "leaves" => Self {
@@ -258,8 +258,8 @@ impl AlkydTextureConfig {
                 noise_scale: 0.1,  // More reasonable scale
                 noise_octaves: 3,    // Reduced for stability
                 use_simplex_noise: true,
-                base_color: [0.25, 0.65, 0.25], // Lighter green for better visibility
-                color_variation: 0.3,  // Reduced variation
+                base_color: [0.35, 0.75, 0.35], // Much lighter green for better visibility
+                color_variation: 0.25,  // Reduced variation
                 use_gpu_acceleration: true,
                 enable_edge_detection: false,
                 enable_color_blending: true,  // Enable blending
@@ -270,11 +270,11 @@ impl AlkydTextureConfig {
                 enable_ridged_noise: false,
                 ridged_strength: 0.2,
                 enable_turbulence: true,  // Enable turbulence for natural variation
-                turbulence_strength: 0.15,  // Reduced turbulence
-                detail_level: 1.05,        // Reduced detail
-                contrast: 1.05,            // Reduced contrast
-                brightness: 0.08,          // Brighter for vibrant look
-                saturation: 1.15,          // Reduced saturation
+                turbulence_strength: 0.1,  // Reduced turbulence
+                detail_level: 1.0,        // Reduced detail
+                contrast: 1.0,            // Neutral contrast
+                brightness: 0.15,          // Much brighter for vibrant look
+                saturation: 1.1,          // Reduced saturation
             },
             _ => Self::default(),
         }
