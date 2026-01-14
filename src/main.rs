@@ -15,7 +15,7 @@ mod texture_atlas;
 use texture_atlas::{TextureAtlas, initialize_texture_atlas, load_procedural_textures_into_atlas};
 
 mod texture_gen;
-use texture_gen::{TextureGenSettings, generate_procedural_textures, spawn_procedural_texture_demo, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
+use texture_gen::{TextureGenSettings, generate_procedural_textures, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
 
 mod alkyd_integration;
 
@@ -62,7 +62,6 @@ fn main() {
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
-        .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo (now uses alkyd)
         .add_systems(Startup, debug_texture_usage.after(initialize_chunk_mesh_materials)) // Add debug texture usage check
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
