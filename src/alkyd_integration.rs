@@ -590,7 +590,12 @@ fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence
         frequency *= lacunarity;
     }
     
-    (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
+    // Normalize to [0, 1] with NaN protection
+    if max_value.abs() < 1e-6 {
+        0.5 // Return neutral value if max_value is too small
+    } else {
+        ((value / max_value) + 1.0) / 2.0
+    }
 }
 
 
@@ -685,12 +690,14 @@ fn apply_saturation(color: &[u8; 4], saturation: f32) -> [u8; 4] {
 
 /// Generate fractal noise (combined noise types)
 fn generate_fractal_noise(x: f32, y: f32, octaves: usize, persistence: f32, lacunarity: f32) -> f32 {
-    let perlin = generate_perlin_noise(x, y, octaves, 0, persistence, lacunarity);
+    // Use simplex noise as base for stability, add small amounts of other noises
     let simplex = generate_simplex_noise(x, y, octaves, 1, persistence, lacunarity);
-    let value = generate_value_noise(x, y, octaves, 2, persistence, lacunarity);
+    let perlin = generate_perlin_noise(x, y, octaves.min(4), 0, persistence.clamp(0.4, 0.6), lacunarity.clamp(1.8, 2.2));
+    let value = generate_value_noise(x, y, octaves.min(4), 2, persistence.clamp(0.4, 0.6), lacunarity.clamp(1.8, 2.2));
     
     // Combine different noise types for more complex patterns
-    (perlin * 0.4 + simplex * 0.4 + value * 0.2) / 1.0
+    // Use simplex as base (60%) and add smaller amounts of other noises
+    (simplex * 0.6 + perlin * 0.25 + value * 0.15).clamp(0.0, 1.0)
 }
 
 /// Generate ridged noise (for more detailed textures)
@@ -787,7 +794,12 @@ fn generate_value_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: 
         frequency *= lacunarity;
     }
     
-    (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
+    // Normalize to [0, 1] with NaN protection
+    if max_value.abs() < 1e-6 {
+        0.5 // Return neutral value if max_value is too small
+    } else {
+        ((value / max_value) + 1.0) / 2.0
+    }
 }
 
 /// Apply edge detection effect (simplified sobel filter)
