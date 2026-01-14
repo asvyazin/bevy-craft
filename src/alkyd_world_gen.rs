@@ -4,7 +4,6 @@
 use bevy::prelude::*;
 use crate::alkyd_integration::{AlkydTextureConfig, AlkydResources};
 use std::time::Instant;
-use std::collections::HashMap;
 
 /// Resource for Alkyd-based world generation settings
 #[derive(Resource, Debug, Clone)]
