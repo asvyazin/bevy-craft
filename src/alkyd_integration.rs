@@ -1024,7 +1024,7 @@ pub fn setup_alkyd_integration(app: &mut App) {
         .init_resource::<AlkydTextureConfig>()
         .init_resource::<EnhancedBlockTextures>()
         .add_systems(Startup, initialize_alkyd_resources)
-        .add_systems(Startup, spawn_alkyd_texture_demo)
-        .add_systems(Startup, generate_all_block_textures)
+        .add_systems(Startup, generate_all_block_textures.after(initialize_alkyd_resources))
+        .add_systems(Startup, spawn_alkyd_texture_demo.after(generate_all_block_textures))
         .add_systems(Update, generate_alkyd_textures);
 }
