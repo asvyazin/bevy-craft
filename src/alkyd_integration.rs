@@ -491,8 +491,19 @@ pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
             noise_value = noise_value.powf(config.detail_level);
             
             // Apply contrast, brightness, and saturation adjustments
+            let original_noise = noise_value;
             noise_value = (noise_value - 0.5) * config.contrast + 0.5; // Contrast
             noise_value = (noise_value + config.brightness).clamp(0.0, 1.0); // Brightness
+            
+            // Debug output for texture generation (only for first pixel of each texture)
+            if x == 0 && y == 0 {
+                println!("   Texture generation debug:");
+                println!("     Original noise: {}", original_noise);
+                println!("     After contrast ({}): {}", config.contrast, noise_value);
+                println!("     After brightness ({}): {}", config.brightness, noise_value);
+                println!("     Base color: {:?}", config.base_color);
+                println!("     Color variation: {}", config.color_variation);
+            }
             
             // Apply color based on configuration
             let mut color = apply_color_scheme(noise_value, config);
