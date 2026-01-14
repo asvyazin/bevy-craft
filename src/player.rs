@@ -57,17 +57,13 @@ pub fn spawn_player(
     // Create player mesh
     let player_mesh = meshes.add(Mesh::from(Cuboid { half_size: Vec3::new(0.3, 0.8, 0.3) }));
     let player_material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.1, 0.5, 0.9),
+        base_color: Color::srgb(0.1, 0.5, 0.9),
         ..default()
     });
 
     // Spawn the player
     commands.spawn(Player::new(Vec3::new(0.0, 3.0, 0.0)))
-        .insert(PbrBundle {
-            mesh: player_mesh,
-            material: player_material,
-            ..default()
-        });
+        .insert((MeshMaterial3d(player_material), Mesh3d(player_mesh)));
 }
 
 /// System for handling player movement with keyboard controls
@@ -130,7 +126,7 @@ pub fn player_movement_system(
 
         // Apply gravity
         if !player.is_grounded {
-            player.velocity.y -= player.gravity * time.delta_seconds();
+            player.velocity.y -= player.gravity * time.delta_secs();
         } else {
             // When grounded, ensure we don't have any downward velocity
             // that could cause penetration into the ground
@@ -145,7 +141,7 @@ pub fn player_movement_system(
         }
 
         // Apply velocity to position (collision system will handle actual positioning)
-        transform.translation += player.velocity * time.delta_seconds();
+        transform.translation += player.velocity * time.delta_secs();
 
         // Simple ground detection is now handled by collision system
         // The collision system will prevent the player from falling through the ground

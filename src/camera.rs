@@ -70,10 +70,8 @@ pub fn camera_rotation_system(
 /// System to spawn the game camera
 pub fn spawn_game_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 1.7, 0.0),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 1.7, 0.0),
         GameCamera::default(),
     ));
 }
@@ -86,6 +84,6 @@ pub fn cursor_control_system(
     
     // Always grab and hide cursor for automatic camera control
     // This ensures the cursor is always locked and hidden, providing automatic camera control
-    window.cursor.visible = false;
-    window.cursor.grab_mode = CursorGrabMode::Locked;
+    window.cursor_options.visible = false;
+    window.cursor_options.grab_mode = CursorGrabMode::Locked;
 }

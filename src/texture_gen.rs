@@ -97,6 +97,12 @@ impl TextureGenSettings {
 #[derive(Component)]
 pub struct ProceduralTexture;
 
+/// Component to store an image handle on an entity
+#[derive(Component)]
+pub struct EntityImageHandle {
+    pub handle: Handle<Image>,
+}
+
 /// System to generate procedural textures using alkyd
 pub fn generate_procedural_textures(
     mut commands: Commands,
@@ -150,7 +156,9 @@ pub fn generate_procedural_textures(
         let image_handle = images.add(image);
         
         // Add the image to the entity
-        commands.entity(entity).insert(image_handle);
+        commands.entity(entity).insert(EntityImageHandle {
+            handle: image_handle.clone(),
+        });
         
         println!("🎨 Generated procedural texture for entity {:?}", entity);
     }
@@ -667,7 +675,9 @@ pub fn regenerate_dynamic_textures(
             block_textures.textures.insert(dynamic_texture.block_type.clone(), new_image_handle.clone());
             
             // Update the entity with the new texture
-            commands.entity(entity).insert(new_image_handle);
+            commands.entity(entity).insert(EntityImageHandle {
+                handle: new_image_handle,
+            });
             
             // Mark as no longer needing regeneration
             commands.entity(entity).remove::<DynamicTexture>();

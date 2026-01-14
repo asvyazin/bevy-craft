@@ -6,6 +6,12 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
+/// Component to store an image handle on an entity
+#[derive(Component)]
+pub struct EntityImageHandle {
+    pub handle: Handle<Image>,
+}
+
 // Conditional compilation for alkyd features
 // Enable this when version compatibility is resolved
 // #[cfg(feature = "alkyd")]
@@ -239,7 +245,9 @@ pub fn generate_alkyd_textures(
         
         // Add image to assets and assign to entity
         let image_handle = images.add(image);
-        commands.entity(entity).insert(image_handle);
+        commands.entity(entity).insert(EntityImageHandle {
+            handle: image_handle,
+        });
         
         // Remove the AlkydTexture component to prevent re-generation
         commands.entity(entity).remove::<AlkydTexture>();

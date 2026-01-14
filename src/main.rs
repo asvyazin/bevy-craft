@@ -47,8 +47,8 @@ use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(ComputeNoisePlugin::<Perlin2d>::default()) // Add Perlin noise plugin for world generation
-        // .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add alkyd plugin for procedural texture generation (version compatibility issues)
+        .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
+        .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add alkyd plugin for procedural texture generation (version compatibility issues)
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
@@ -101,15 +101,11 @@ fn setup(
     // Camera is now spawned by the spawn_game_camera system
 
     // Add light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
             ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        }, Transform::from_xyz(4.0, 8.0, 4.0)));
 
     // Generate some chunks for demonstration
     generate_demo_chunks(&mut commands, &mut chunk_manager);
@@ -206,7 +202,7 @@ fn generate_chunk_meshes(
 /// System to render chunk meshes
 fn render_chunk_meshes(
     mut commands: Commands,
-    chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk), Without<Handle<Mesh>>>, 
+    chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
 ) {
     for (entity, chunk_mesh, chunk) in &chunk_meshes {
         // Use a default material (grass) if no specific materials are available
@@ -215,12 +211,9 @@ fn render_chunk_meshes(
             .cloned()
             .unwrap_or_else(|| Handle::default());
             
-        commands.entity(entity).insert(PbrBundle {
-            mesh: chunk_mesh.mesh_handle.clone(),
-            material: material_handle,
-            transform: Transform::from_translation(chunk.position.min_block_position().as_vec3()),
-            ..default()
-        });
+        commands.entity(entity).insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
+                                        MeshMaterial3d(material_handle),
+                                        Transform::from_translation(chunk.position.min_block_position().as_vec3())));
     }
 }
 
@@ -249,16 +242,12 @@ fn spawn_player_safe(
     // Create player mesh
     let player_mesh = meshes.add(Mesh::from(Cuboid { half_size: Vec3::new(0.3, 0.8, 0.3) }));
     let player_material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.1, 0.5, 0.9),
+        base_color: Color::srgb(0.1, 0.5, 0.9),
         ..default()
     });
 
     // Spawn the player with collider
     commands.spawn(player::Player::new(safe_spawn_position))
-        .insert(PbrBundle {
-            mesh: player_mesh,
-            material: player_material,
-            ..default()
-        })
+        .insert((Mesh3d(player_mesh), MeshMaterial3d(player_material)))
         .insert(Collider::player());
 }
