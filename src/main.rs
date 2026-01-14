@@ -35,6 +35,9 @@ use block_interaction::block_targeting_feedback_system;
 mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
+mod sky;
+use sky::spawn_skybox;
+
 fn main() {
     // Create the app first
     let mut app = App::new();
@@ -61,6 +64,7 @@ fn main() {
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
+        .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
