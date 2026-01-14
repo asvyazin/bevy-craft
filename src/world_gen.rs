@@ -7,7 +7,6 @@ use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use crate::block::BlockType;
 use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_biome_info};
 use crate::alkyd_integration::AlkydResources;
-use crate::world_noise_cache::WorldNoiseCache;
 
 /// World generation settings
 #[derive(Resource, Debug)]
@@ -35,13 +34,12 @@ impl Default for WorldGenSettings {
     }
 }
 
-/// Generate heightmap for a chunk using Alkyd GPU-accelerated noise with caching
+/// Generate heightmap for a chunk using Alkyd GPU-accelerated noise
 pub fn generate_chunk_heightmap(
     chunk: &mut Chunk,
     settings: &WorldGenSettings,
     alkyd_settings: &AlkydWorldGenSettings,
     alkyd_resources: &AlkydResources,
-    noise_cache: &mut WorldNoiseCache,
 ) {
     let chunk_x = chunk.position.x;
     let chunk_z = chunk.position.z;
@@ -53,12 +51,24 @@ pub fn generate_chunk_heightmap(
     let mut total_height = 0;
     let mut height_count = 0;
     
-    // Generate heights using cached noise for guaranteed continuity between chunks
-    let raw_heights = noise_cache.get_chunk_noise(
-        chunk_x,
-        chunk_z,
-        &|x, z| generate_alkyd_heightmap(x, z, alkyd_settings, alkyd_resources)
-    );
+    // Generate heights using simple, deterministic approach with world coordinates
+    let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+    
+    for local_x in 0..CHUNK_SIZE {
+        for local_z in 0..CHUNK_SIZE {
+            // Use world coordinates directly - this is the most reliable approach
+            let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
+            let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
+            
+            // Generate noise using world coordinates - should be deterministic
+            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap(
+                world_x as f32,
+                world_z as f32,
+                alkyd_settings,
+                alkyd_resources,
+            );
+        }
+    }
     
     // Generate terrain with the extracted chunk heights
     for local_x in 0..CHUNK_SIZE {
@@ -559,13 +569,12 @@ fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize,
     }
 }
 
-/// System to generate chunks that need generation using Alkyd GPU-accelerated noise with caching
+/// System to generate chunks that need generation using Alkyd GPU-accelerated noise
 pub fn generate_chunks_system(
     mut chunks: Query<&mut Chunk>,
     settings: Res<WorldGenSettings>,
     alkyd_settings: Res<AlkydWorldGenSettings>,
     alkyd_resources: Res<AlkydResources>,
-    mut noise_cache: ResMut<WorldNoiseCache>,
 ) {
     // Limit the number of chunks generated per frame to prevent performance issues
     let mut chunks_generated = 0;
@@ -573,7 +582,7 @@ pub fn generate_chunks_system(
     
     for mut chunk in &mut chunks {
         if !chunk.is_generated {
-            generate_chunk_heightmap(&mut chunk, &settings, &alkyd_settings, &alkyd_resources, &mut noise_cache);
+            generate_chunk_heightmap(&mut chunk, &settings, &alkyd_settings, &alkyd_resources);
             chunks_generated += 1;
             
             // Stop if we've generated enough chunks for this frame

@@ -19,7 +19,6 @@ use texture_gen::{TextureGenSettings, generate_procedural_textures, initialize_b
 
 mod alkyd_integration;
 mod alkyd_world_gen;
-mod world_noise_cache;
 
 
 
@@ -27,7 +26,6 @@ mod world_gen;
 mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
 use alkyd_world_gen::{AlkydWorldGenSettings, initialize_alkyd_world_gen};
-use world_noise_cache::{WorldNoiseCache, initialize_world_noise_cache, cleanup_world_noise_cache};
 use player::PlayerMovementSettings;
 
 mod camera;
@@ -52,7 +50,6 @@ fn main() {
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<AlkydWorldGenSettings>() // Initialize Alkyd world generation settings
-        .init_resource::<WorldNoiseCache>()       // Initialize world noise cache
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
@@ -67,7 +64,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, initialize_alkyd_world_gen) // Initialize Alkyd world generation
-        .add_systems(Startup, initialize_world_noise_cache) // Initialize world noise cache
         .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
@@ -79,7 +75,6 @@ fn main() {
         .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
-        .add_systems(Update, cleanup_world_noise_cache) // Clean up unused noise cache entries
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
