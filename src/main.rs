@@ -47,7 +47,8 @@ mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
 fn main() {
-    let mut app = App::new()
+    let mut app = App::new();
+    app = app
         .add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .init_resource::<ChunkManager>()
