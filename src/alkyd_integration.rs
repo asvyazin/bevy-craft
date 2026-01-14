@@ -66,6 +66,16 @@ pub struct AlkydTextureConfig {
     pub enable_color_blending: bool,
     pub blend_mode: String,
     pub noise_type: String,
+    pub noise_persistence: f32,
+    pub noise_lacunarity: f32,
+    pub enable_ridged_noise: bool,
+    pub ridged_strength: f32,
+    pub enable_turbulence: bool,
+    pub turbulence_strength: f32,
+    pub detail_level: f32,
+    pub contrast: f32,
+    pub brightness: f32,
+    pub saturation: f32,
 }
 
 impl Default for AlkydTextureConfig {
@@ -82,6 +92,16 @@ impl Default for AlkydTextureConfig {
             enable_color_blending: false,
             blend_mode: "normal".to_string(),
             noise_type: "simplex".to_string(),
+            noise_persistence: 0.5,
+            noise_lacunarity: 2.0,
+            enable_ridged_noise: false,
+            ridged_strength: 1.0,
+            enable_turbulence: false,
+            turbulence_strength: 0.1,
+            detail_level: 1.0,
+            contrast: 1.0,
+            brightness: 0.0,
+            saturation: 1.0,
         }
     }
 }
@@ -102,6 +122,16 @@ impl AlkydTextureConfig {
                 enable_color_blending: false,
                 blend_mode: "normal".to_string(),
                 noise_type: "simplex".to_string(),
+                noise_persistence: 0.4,
+                noise_lacunarity: 2.1,
+                enable_ridged_noise: true,
+                ridged_strength: 0.8,
+                enable_turbulence: true,
+                turbulence_strength: 0.15,
+                detail_level: 1.2,
+                contrast: 1.1,
+                brightness: 0.05,
+                saturation: 1.0,
             },
             "dirt" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -113,8 +143,18 @@ impl AlkydTextureConfig {
                 use_gpu_acceleration: true,
                 enable_edge_detection: false,
                 enable_color_blending: true,
-                blend_mode: "multiply".to_string(),
+                blend_mode: "soft_light".to_string(),
                 noise_type: "perlin".to_string(),
+                noise_persistence: 0.45,
+                noise_lacunarity: 1.9,
+                enable_ridged_noise: false,
+                ridged_strength: 0.5,
+                enable_turbulence: true,
+                turbulence_strength: 0.1,
+                detail_level: 1.1,
+                contrast: 1.05,
+                brightness: -0.02,
+                saturation: 1.1,
             },
             "grass" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -128,6 +168,16 @@ impl AlkydTextureConfig {
                 enable_color_blending: false,
                 blend_mode: "normal".to_string(),
                 noise_type: "simplex".to_string(),
+                noise_persistence: 0.5,
+                noise_lacunarity: 2.0,
+                enable_ridged_noise: false,
+                ridged_strength: 0.3,
+                enable_turbulence: true,
+                turbulence_strength: 0.2,
+                detail_level: 1.3,
+                contrast: 1.15,
+                brightness: 0.1,
+                saturation: 1.2,
             },
             "wood" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -139,8 +189,18 @@ impl AlkydTextureConfig {
                 use_gpu_acceleration: true,
                 enable_edge_detection: false,
                 enable_color_blending: true,
-                blend_mode: "overlay".to_string(),
+                blend_mode: "hard_light".to_string(),
                 noise_type: "fractal".to_string(),
+                noise_persistence: 0.6,
+                noise_lacunarity: 2.2,
+                enable_ridged_noise: true,
+                ridged_strength: 1.2,
+                enable_turbulence: true,
+                turbulence_strength: 0.25,
+                detail_level: 1.4,
+                contrast: 1.2,
+                brightness: 0.0,
+                saturation: 1.1,
             },
             "sand" => Self {
                 texture_size: UVec2::new(128, 128),
@@ -154,6 +214,16 @@ impl AlkydTextureConfig {
                 enable_color_blending: false,
                 blend_mode: "normal".to_string(),
                 noise_type: "value".to_string(),
+                noise_persistence: 0.7,
+                noise_lacunarity: 1.8,
+                enable_ridged_noise: false,
+                ridged_strength: 0.2,
+                enable_turbulence: false,
+                turbulence_strength: 0.05,
+                detail_level: 0.9,
+                contrast: 0.95,
+                brightness: 0.05,
+                saturation: 0.9,
             },
             _ => Self::default(),
         }
@@ -263,38 +333,86 @@ pub fn generate_alkyd_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
     
     for y in 0..config.texture_size.y {
         for x in 0..config.texture_size.x {
-            // Generate noise value using the configured algorithm
-            let noise_value = match config.noise_type.as_str() {
+            // Generate base noise value using the configured algorithm
+            let base_noise = match config.noise_type.as_str() {
                 "simplex" => generate_simplex_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
                     0, // Seed for simplex noise
+                    config.noise_persistence,
+                    config.noise_lacunarity,
                 ),
                 "perlin" => generate_perlin_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
                     1, // Seed for perlin noise
+                    config.noise_persistence,
+                    config.noise_lacunarity,
                 ),
                 "fractal" => generate_fractal_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
                 ),
                 "value" => generate_value_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
                     2, // Seed for value noise
+                    config.noise_persistence,
+                    config.noise_lacunarity,
                 ),
                 _ => generate_simplex_noise(
                     x as f32 * config.noise_scale,
                     y as f32 * config.noise_scale,
                     config.noise_octaves,
                     0, // Default seed
+                    config.noise_persistence,
+                    config.noise_lacunarity,
                 ),
             };
+            
+            // Apply additional noise effects
+            let mut noise_value = base_noise;
+            
+            // Add ridged noise if enabled
+            if config.enable_ridged_noise {
+                let ridged = generate_ridged_noise(
+                    x as f32 * config.noise_scale * 1.5,
+                    y as f32 * config.noise_scale * 1.5,
+                    config.noise_octaves,
+                    3,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                    config.ridged_strength,
+                );
+                noise_value = (noise_value * (1.0 - config.ridged_strength)) + (ridged * config.ridged_strength);
+            }
+            
+            // Add turbulence if enabled
+            if config.enable_turbulence {
+                let turbulence = generate_turbulence_noise(
+                    x as f32 * config.noise_scale * 2.0,
+                    y as f32 * config.noise_scale * 2.0,
+                    config.noise_octaves,
+                    4,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                    config.turbulence_strength,
+                );
+                noise_value = (noise_value * (1.0 - config.turbulence_strength)) + (turbulence * config.turbulence_strength);
+            }
+            
+            // Apply detail level
+            noise_value = noise_value.powf(config.detail_level);
+            
+            // Apply contrast, brightness, and saturation adjustments
+            noise_value = (noise_value - 0.5) * config.contrast + 0.5; // Contrast
+            noise_value = (noise_value + config.brightness).clamp(0.0, 1.0); // Brightness
             
             // Apply color based on configuration
             let mut color = apply_color_scheme(noise_value, config);
@@ -339,15 +457,16 @@ pub fn generate_fallback_texture_data(config: &AlkydTextureConfig) -> Vec<u8> {
 }
 
 /// Generate simplex noise (alkyd-inspired implementation)
-fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
+fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32) -> f32 {
     let mut value = 0.0;
     let mut amplitude = 1.0;
+    let mut frequency = 1.0;
     let mut max_value = 0.0;
     
     for _ in 0..octaves {
         // Simplex noise approximation inspired by alkyd's approach
-        let nx = x;
-        let ny = y;
+        let nx = x * frequency;
+        let ny = y * frequency;
         
         // Grid coordinates
         let i = nx.floor() as i32;
@@ -357,46 +476,86 @@ fn generate_simplex_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
         let fx = nx - i as f32;
         let fy = ny - j as f32;
         
-        // Hash-based noise with better distribution
-        let n = hash_noise(i, j, seed);
-        let mut noise = n * 2.0 - 1.0;
+        // Improved gradient calculation for better visual quality
+        let u = fade(fx);
+        let v = fade(fy);
         
-        // Add some variation based on position
-        noise += (fx * fy).sin() * 0.2;
+        // Hash-based gradient vectors for each corner
+        let grad00 = hash_noise(i, j, seed);
+        let grad10 = hash_noise(i + 1, j, seed + 1);
+        let grad01 = hash_noise(i, j + 1, seed + 2);
+        let grad11 = hash_noise(i + 1, j + 1, seed + 3);
+        
+        // Convert hash values to gradient vectors
+        let grad00_vec = (grad00 * 2.0 - 1.0, grad00 * 2.0 - 1.0);
+        let grad10_vec = (grad10 * 2.0 - 1.0, grad10 * 2.0 - 1.0);
+        let grad01_vec = (grad01 * 2.0 - 1.0, grad01 * 2.0 - 1.0);
+        let grad11_vec = (grad11 * 2.0 - 1.0, grad11 * 2.0 - 1.0);
+        
+        // Calculate dot products for each corner
+        let n00 = grad00_vec.0 * fx + grad00_vec.1 * fy;
+        let n10 = grad10_vec.0 * (fx - 1.0) + grad10_vec.1 * fy;
+        let n01 = grad01_vec.0 * fx + grad01_vec.1 * (fy - 1.0);
+        let n11 = grad11_vec.0 * (fx - 1.0) + grad11_vec.1 * (fy - 1.0);
+        
+        // Interpolate between corner values
+        let nx0 = lerp(n00, n10, u);
+        let nx1 = lerp(n01, n11, u);
+        let noise = lerp(nx0, nx1, v);
         
         value += noise * amplitude;
         max_value += amplitude;
-        amplitude *= 0.5;
+        amplitude *= persistence;
+        frequency *= lacunarity;
     }
     
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
 }
 
 /// Generate perlin noise (alkyd-inspired implementation)
-fn generate_perlin_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
+fn generate_perlin_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32) -> f32 {
     let mut value = 0.0;
     let mut amplitude = 1.0;
+    let mut frequency = 1.0;
     let mut max_value = 0.0;
     
     for _ in 0..octaves {
-        let xi = x.floor() as i32;
-        let yi = y.floor() as i32;
-        let xf = x - xi as f32;
-        let yf = y - yi as f32;
+        let xi = (x * frequency).floor() as i32;
+        let yi = (y * frequency).floor() as i32;
+        let xf = x * frequency - xi as f32;
+        let yf = y * frequency - yi as f32;
         
-        // Improved perlin noise with better gradient vectors
-        let n = hash_noise(xi, yi, seed);
-        let mut noise = n * 2.0 - 1.0;
-        
-        // Add smooth interpolation
+        // Improved perlin noise with proper gradient vectors
         let u = fade(xf);
         let v = fade(yf);
-        noise = lerp(noise, hash_noise(xi + 1, yi, seed + 1) * 2.0 - 1.0, u);
-        noise = lerp(noise, hash_noise(xi, yi + 1, seed + 2) * 2.0 - 1.0, v);
+        
+        // Get gradient vectors for each corner
+        let grad00 = hash_noise(xi, yi, seed);
+        let grad10 = hash_noise(xi + 1, yi, seed + 1);
+        let grad01 = hash_noise(xi, yi + 1, seed + 2);
+        let grad11 = hash_noise(xi + 1, yi + 1, seed + 3);
+        
+        // Convert to proper gradient vectors
+        let grad00_vec = (grad00 * 2.0 - 1.0, grad00 * 2.0 - 1.0);
+        let grad10_vec = (grad10 * 2.0 - 1.0, grad10 * 2.0 - 1.0);
+        let grad01_vec = (grad01 * 2.0 - 1.0, grad01 * 2.0 - 1.0);
+        let grad11_vec = (grad11 * 2.0 - 1.0, grad11 * 2.0 - 1.0);
+        
+        // Calculate dot products
+        let n00 = grad00_vec.0 * xf + grad00_vec.1 * yf;
+        let n10 = grad10_vec.0 * (xf - 1.0) + grad10_vec.1 * yf;
+        let n01 = grad01_vec.0 * xf + grad01_vec.1 * (yf - 1.0);
+        let n11 = grad11_vec.0 * (xf - 1.0) + grad11_vec.1 * (yf - 1.0);
+        
+        // Interpolate
+        let nx0 = lerp(n00, n10, u);
+        let nx1 = lerp(n01, n11, u);
+        let noise = lerp(nx0, nx1, v);
         
         value += noise * amplitude;
         max_value += amplitude;
-        amplitude *= 0.5;
+        amplitude *= persistence;
+        frequency *= lacunarity;
     }
     
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
@@ -409,48 +568,166 @@ fn apply_color_scheme(noise_value: f32, config: &AlkydTextureConfig) -> [u8; 4] 
     let g = ((config.base_color[1] + (noise_value - 0.5) * config.color_variation).clamp(0.0, 1.0) * 255.0) as u8;
     let b = ((config.base_color[2] + (noise_value - 0.5) * config.color_variation).clamp(0.0, 1.0) * 255.0) as u8;
     
-    [r, g, b, 255]
+    // Apply saturation adjustment
+    let mut color = [r, g, b, 255];
+    
+    if config.saturation != 1.0 {
+        color = apply_saturation(&color, config.saturation);
+    }
+    
+    color
+}
+
+/// Apply saturation adjustment to color
+fn apply_saturation(color: &[u8; 4], saturation: f32) -> [u8; 4] {
+    let r = color[0] as f32 / 255.0;
+    let g = color[1] as f32 / 255.0;
+    let b = color[2] as f32 / 255.0;
+    
+    // Convert to grayscale
+    let gray = r * 0.299 + g * 0.587 + b * 0.114;
+    
+    // Apply saturation: 0 = grayscale, 1 = original, >1 = more saturated
+    let r = lerp(gray, r, saturation);
+    let g = lerp(gray, g, saturation);
+    let b = lerp(gray, b, saturation);
+    
+    [
+        (r * 255.0).clamp(0.0, 255.0) as u8,
+        (g * 255.0).clamp(0.0, 255.0) as u8,
+        (b * 255.0).clamp(0.0, 255.0) as u8,
+        color[3]
+    ]
 }
 
 /// Generate fractal noise (combined noise types)
-fn generate_fractal_noise(x: f32, y: f32, octaves: usize) -> f32 {
-    let perlin = generate_perlin_noise(x, y, octaves, 0);
-    let simplex = generate_simplex_noise(x, y, octaves, 1);
-    let value = generate_value_noise(x, y, octaves, 2);
+fn generate_fractal_noise(x: f32, y: f32, octaves: usize, persistence: f32, lacunarity: f32) -> f32 {
+    let perlin = generate_perlin_noise(x, y, octaves, 0, persistence, lacunarity);
+    let simplex = generate_simplex_noise(x, y, octaves, 1, persistence, lacunarity);
+    let value = generate_value_noise(x, y, octaves, 2, persistence, lacunarity);
     
     // Combine different noise types for more complex patterns
     (perlin * 0.4 + simplex * 0.4 + value * 0.2) / 1.0
 }
 
-/// Generate value noise (grid-based)
-fn generate_value_noise(x: f32, y: f32, octaves: usize, seed: u32) -> f32 {
+/// Generate ridged noise (for more detailed textures)
+fn generate_ridged_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32, strength: f32) -> f32 {
     let mut value = 0.0;
     let mut amplitude = 1.0;
+    let mut frequency = 1.0;
     let mut max_value = 0.0;
     
     for _ in 0..octaves {
-        let xi = x.floor() as i32;
-        let yi = y.floor() as i32;
+        let nx = x * frequency;
+        let ny = y * frequency;
+        let xi = nx.floor() as i32;
+        let yi = ny.floor() as i32;
+        let xf = nx - xi as f32;
+        let yf = ny - yi as f32;
         
-        // Get grid cell value
-        let noise = hash_noise(xi, yi, seed) * 2.0 - 1.0;
+        // Get noise value
+        let n = hash_noise(xi, yi, seed);
+        let noise = n * 2.0 - 1.0;
+        
+        // Ridged noise formula: abs(noise) with inverted valleys
+        let ridged = (1.0 - noise.abs()).abs();
+        let ridged = ridged * ridged; // Square for sharper ridges
+        
+        value += ridged * amplitude;
+        max_value += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+    
+    // Apply strength and normalize
+    let normalized = value / max_value;
+    (normalized * strength).clamp(0.0, 1.0)
+}
+
+/// Generate turbulence noise (for swirling patterns)
+fn generate_turbulence_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32, strength: f32) -> f32 {
+    let mut value = 0.0;
+    let mut amplitude = 1.0;
+    let mut frequency = 1.0;
+    
+    for _ in 0..octaves {
+        let nx = x * frequency;
+        let ny = y * frequency;
+        let xi = nx.floor() as i32;
+        let yi = ny.floor() as i32;
+        
+        // Get noise value
+        let n = hash_noise(xi, yi, seed);
+        let noise = n * 2.0 - 1.0;
+        
+        // Turbulence uses absolute value of noise
+        value += noise.abs() * amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+    
+    // Apply strength and normalize
+    (value * strength).clamp(0.0, 1.0)
+}
+
+/// Generate value noise (grid-based)
+fn generate_value_noise(x: f32, y: f32, octaves: usize, seed: u32, persistence: f32, lacunarity: f32) -> f32 {
+    let mut value = 0.0;
+    let mut amplitude = 1.0;
+    let mut frequency = 1.0;
+    let mut max_value = 0.0;
+    
+    for _ in 0..octaves {
+        let xi = (x * frequency).floor() as i32;
+        let yi = (y * frequency).floor() as i32;
+        
+        // Get grid cell value with smooth interpolation
+        let xf = x * frequency - xi as f32;
+        let yf = y * frequency - yi as f32;
+        let u = fade(xf);
+        let v = fade(yf);
+        
+        // Get values for each corner
+        let n00 = hash_noise(xi, yi, seed);
+        let n10 = hash_noise(xi + 1, yi, seed + 1);
+        let n01 = hash_noise(xi, yi + 1, seed + 2);
+        let n11 = hash_noise(xi + 1, yi + 1, seed + 3);
+        
+        // Interpolate
+        let nx0 = lerp(n00, n10, u);
+        let nx1 = lerp(n01, n11, u);
+        let noise = lerp(nx0, nx1, v) * 2.0 - 1.0;
         
         value += noise * amplitude;
         max_value += amplitude;
-        amplitude *= 0.5;
+        amplitude *= persistence;
+        frequency *= lacunarity;
     }
     
     (value / max_value + 1.0) / 2.0 // Normalize to [0, 1]
 }
 
 /// Apply edge detection effect (simplified sobel filter)
-fn apply_edge_detection_effect(color: &[u8; 4], x: u32, y: u32, _config: &AlkydTextureConfig) -> [u8; 4] {
-    // Simple edge detection based on position
-    let edge_intensity = if x % 8 == 0 || y % 8 == 0 { 0.2 } else { 0.0 };
+fn apply_edge_detection_effect(color: &[u8; 4], x: u32, y: u32, config: &AlkydTextureConfig) -> [u8; 4] {
+    // More sophisticated edge detection based on noise patterns
+    // This creates more natural-looking edges and details
     
-    let r = (color[0] as f32 * (1.0 - edge_intensity)) as u8;
-    let g = (color[1] as f32 * (1.0 - edge_intensity)) as u8;
-    let b = (color[2] as f32 * (1.0 - edge_intensity)) as u8;
+    let nx = x as f32 / config.texture_size.x as f32;
+    let ny = y as f32 / config.texture_size.y as f32;
+    
+    // Calculate edge intensity based on position and noise
+    let edge_pattern = ((nx * 10.0).sin() * (ny * 15.0).cos()).abs();
+    let edge_intensity = edge_pattern.powf(0.5) * 0.3;
+    
+    // Add some variation based on detail level
+    let detail_edge = (nx * ny * 20.0).sin().abs() * config.detail_level * 0.1;
+    
+    let total_edge = (edge_intensity + detail_edge).clamp(0.0, 0.5);
+    
+    // Apply edge effect - darken edges for more definition
+    let r = (color[0] as f32 * (1.0 - total_edge)) as u8;
+    let g = (color[1] as f32 * (1.0 - total_edge)) as u8;
+    let b = (color[2] as f32 * (1.0 - total_edge)) as u8;
     
     [r, g, b, color[3]]
 }
@@ -477,6 +754,50 @@ fn apply_blend_mode(color: &[u8; 4], noise_value: f32, blend_mode: &str) -> [u8;
             let r = if r < 0.5 { r * noise_value * 2.0 } else { 1.0 - (1.0 - r) * (1.0 - noise_value) * 2.0 };
             let g = if g < 0.5 { g * noise_value * 2.0 } else { 1.0 - (1.0 - g) * (1.0 - noise_value) * 2.0 };
             let b = if b < 0.5 { b * noise_value * 2.0 } else { 1.0 - (1.0 - b) * (1.0 - noise_value) * 2.0 };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "screen" => {
+            let r = 1.0 - (1.0 - r) * (1.0 - noise_value);
+            let g = 1.0 - (1.0 - g) * (1.0 - noise_value);
+            let b = 1.0 - (1.0 - b) * (1.0 - noise_value);
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "hard_light" => {
+            let r = if noise_value < 0.5 { r * noise_value * 2.0 } else { 1.0 - (1.0 - r) * (1.0 - noise_value) * 2.0 };
+            let g = if noise_value < 0.5 { g * noise_value * 2.0 } else { 1.0 - (1.0 - g) * (1.0 - noise_value) * 2.0 };
+            let b = if noise_value < 0.5 { b * noise_value * 2.0 } else { 1.0 - (1.0 - b) * (1.0 - noise_value) * 2.0 };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "soft_light" => {
+            let r = if noise_value < 0.5 { r - (1.0 - 2.0 * noise_value) * r * (1.0 - r) } else { r + (2.0 * noise_value - 1.0) * (r * (1.0 - r).sqrt()) };
+            let g = if noise_value < 0.5 { g - (1.0 - 2.0 * noise_value) * g * (1.0 - g) } else { g + (2.0 * noise_value - 1.0) * (g * (1.0 - g).sqrt()) };
+            let b = if noise_value < 0.5 { b - (1.0 - 2.0 * noise_value) * b * (1.0 - b) } else { b + (2.0 * noise_value - 1.0) * (b * (1.0 - b).sqrt()) };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "color_dodge" => {
+            let r = if noise_value == 1.0 { 1.0 } else { (r / (1.0 - noise_value)).min(1.0) };
+            let g = if noise_value == 1.0 { 1.0 } else { (g / (1.0 - noise_value)).min(1.0) };
+            let b = if noise_value == 1.0 { 1.0 } else { (b / (1.0 - noise_value)).min(1.0) };
             [
                 (r * 255.0).clamp(0.0, 255.0) as u8,
                 (g * 255.0).clamp(0.0, 255.0) as u8,

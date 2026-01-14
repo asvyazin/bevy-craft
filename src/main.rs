@@ -24,7 +24,7 @@ mod alkyd_integration;
 use alkyd_integration::{AlkydResources, AlkydTextureConfig};
 
 mod test_alkyd_enhancement;
-use test_alkyd_enhancement::{test_alkyd_enhanced_textures, test_texture_data_generation};
+use test_alkyd_enhancement::{test_alkyd_enhanced_textures, test_texture_data_generation, test_enhanced_alkyd_features};
 
 mod debug_texture_usage;
 use debug_texture_usage::debug_texture_usage;
@@ -73,7 +73,8 @@ fn main() {
         .add_systems(Startup, spawn_procedural_texture_demo) // Add procedural texture demo (now uses alkyd)
         .add_systems(Startup, test_procedural_texture_integration.after(load_procedural_textures_into_atlas)) // Add procedural texture integration test
         .add_systems(Startup, debug_texture_usage.after(initialize_chunk_mesh_materials)) // Add debug texture usage check
-        .add_systems(Startup, test_texture_data_generation) // Add alkyd enhancement test
+        .add_systems(Startup, test_texture_data_generation) // Add texture data generation test
+        .add_systems(Startup, test_enhanced_alkyd_features) // Add enhanced alkyd features test
         .add_systems(Startup, test_alkyd_enhanced_textures.after(alkyd_integration::generate_all_block_textures)) // Add alkyd texture verification
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration

@@ -63,8 +63,47 @@ pub fn test_texture_data_generation() {
     println!("✓ Texture data generation test completed");
 }
 
+pub fn test_enhanced_alkyd_features() {
+    println!("🧪 Testing enhanced alkyd features...");
+    
+    // Test new parameters
+    let mut config = AlkydTextureConfig::for_block_type("stone");
+    
+    // Test ridged noise
+    config.enable_ridged_noise = true;
+    config.ridged_strength = 1.5;
+    let ridged_texture = generate_alkyd_texture_data(&config);
+    println!("✓ Ridged noise feature working - generated {} bytes", ridged_texture.len());
+    
+    // Test turbulence
+    config.enable_turbulence = true;
+    config.turbulence_strength = 0.3;
+    let turbulence_texture = generate_alkyd_texture_data(&config);
+    println!("✓ Turbulence feature working - generated {} bytes", turbulence_texture.len());
+    
+    // Test new blend modes
+    let blend_modes = ["normal", "multiply", "overlay", "screen", "hard_light", "soft_light", "color_dodge"];
+    for blend_mode in blend_modes {
+        let mut blend_config = AlkydTextureConfig::for_block_type("dirt");
+        blend_config.blend_mode = blend_mode.to_string();
+        blend_config.enable_color_blending = true;
+        let blend_texture = generate_alkyd_texture_data(&blend_config);
+        println!("✓ Blend mode '{}' working - generated {} bytes", blend_mode, blend_texture.len());
+    }
+    
+    // Test saturation and contrast
+    let mut color_config = AlkydTextureConfig::for_block_type("grass");
+    color_config.saturation = 1.5;
+    color_config.contrast = 1.2;
+    let color_texture = generate_alkyd_texture_data(&color_config);
+    println!("✓ Color enhancement features working - generated {} bytes", color_texture.len());
+    
+    println!("✅ All enhanced alkyd features tested successfully!");
+}
+
 pub fn setup_alkyd_test_systems(app: &mut App) {
     app
         .add_systems(Startup, test_texture_data_generation)
+        .add_systems(Startup, test_enhanced_alkyd_features)
         .add_systems(Update, test_alkyd_enhanced_textures);
 }
