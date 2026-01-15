@@ -72,6 +72,9 @@ impl BiomeTextureConfig {
                 base_color: [0.2, 0.8, 0.2], // Base grass green
                 color_variation: 0.3,
                 use_gpu_acceleration: true,
+                enable_edge_detection: true,
+                enable_color_blending: true,
+                blend_mode: "soft_light".to_string(),
                 ..Default::default()
             },
             BlockType::Dirt => AlkydTextureConfig {
@@ -82,6 +85,9 @@ impl BiomeTextureConfig {
                 base_color: [0.5, 0.3, 0.2], // Base dirt brown
                 color_variation: 0.2,
                 use_gpu_acceleration: true,
+                enable_edge_detection: true,
+                enable_color_blending: true,
+                blend_mode: "multiply".to_string(),
                 ..Default::default()
             },
             BlockType::Stone => AlkydTextureConfig {
@@ -92,6 +98,9 @@ impl BiomeTextureConfig {
                 base_color: [0.7, 0.7, 0.7], // Base stone gray
                 color_variation: 0.15,
                 use_gpu_acceleration: true,
+                enable_ridged_noise: true,
+                ridged_strength: 0.6,
+                enable_edge_detection: true,
                 ..Default::default()
             },
             BlockType::Sand => AlkydTextureConfig {
@@ -102,6 +111,21 @@ impl BiomeTextureConfig {
                 base_color: [0.9, 0.8, 0.5], // Base sand color
                 color_variation: 0.1,
                 use_gpu_acceleration: true,
+                enable_turbulence: true,
+                turbulence_strength: 0.08,
+                ..Default::default()
+            },
+            BlockType::Wood => AlkydTextureConfig {
+                texture_size: UVec2::new(128, 128),
+                noise_scale: 0.06,
+                noise_octaves: 4,
+                use_simplex_noise: true,
+                base_color: [0.6, 0.45, 0.3], // Base wood brown
+                color_variation: 0.3,
+                use_gpu_acceleration: true,
+                enable_edge_detection: true,
+                enable_color_blending: true,
+                blend_mode: "hard_light".to_string(),
                 ..Default::default()
             },
             _ => AlkydTextureConfig::default(),
@@ -130,6 +154,10 @@ impl BiomeTextureConfig {
             "swamp" => (0.3, 0.8, 0.4),     // High moisture effect
             "tundra" => (0.2, 0.5, 0.6),    // Low temp, moderate height
             "beach" => (0.5, 0.7, 0.3),     // Moderate moisture
+            "savanna" => (0.7, 0.4, 0.5),   // High temp, moderate moisture
+            "taiga" => (0.3, 0.6, 0.5),     // Low temp, moderate moisture
+            "jungle" => (0.6, 0.9, 0.4),    // High temp and moisture
+            "badlands" => (0.9, 0.2, 0.6),  // Very high temp, low moisture
             _ => (0.5, 0.5, 0.5),            // Default balanced
         }
     }

@@ -495,6 +495,8 @@ fn get_block_face_uv(
             );
             
             if texture_atlas.get_biome_texture(block_type, &biome_params, enhanced_textures).is_some() {
+                println!("🎨 Using biome-specific texture for {:?} at biome {} (temp: {:.2}, moist: {:.2}, height: {})",
+                         block_type, biome_data.biome_type, biome_data.temperature, biome_data.moisture, y);
                 // For biome-specific procedural textures, use the entire texture space
                 return (0.0, 0.0, 1.0, 1.0);
             }
@@ -502,6 +504,7 @@ fn get_block_face_uv(
         
         // Fallback to regular procedural textures
         if texture_atlas.get_procedural_texture(block_type).is_some() {
+            println!("🎨 Using regular procedural texture for {:?}", block_type);
             // For procedural textures, use the entire texture space
             return (0.0, 0.0, 1.0, 1.0);
         }

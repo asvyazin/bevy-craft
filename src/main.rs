@@ -83,6 +83,7 @@ fn main() {
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
         .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
+        .add_systems(Update, alkyd_integration::generate_missing_biome_textures) // Add on-demand biome texture generation
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system

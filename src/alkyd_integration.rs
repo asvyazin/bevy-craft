@@ -7,7 +7,8 @@ use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
 use crate::block::BlockType;
-use crate::biome_textures::{BiomeTextureParams, BiomeTextureConfig};
+use crate::biome_textures::BiomeTextureParams;
+use crate::chunk::Chunk;
 
 // Alkyd integration (always enabled)
 
@@ -404,6 +405,131 @@ pub fn generate_alkyd_textures(
         commands.entity(entity).remove::<AlkydTexture>();
         
         println!("✓ Generated alkyd texture for {:?}", alkyd_texture.block_type);
+    }
+}
+
+/// System to generate missing biome textures on-demand
+pub fn generate_missing_biome_textures(
+    mut commands: Commands,
+    alkyd_resources: Res<AlkydResources>,
+    mut images: ResMut<Assets<Image>>,
+    mut enhanced_textures: ResMut<EnhancedBlockTextures>,
+    chunks: Query<&Chunk>,
+) {
+    println!("🔄 Checking for missing biome textures...");
+    
+    let mut missing_textures_count = 0;
+    
+    // Collect all biome parameters from chunks that need textures
+    let mut needed_biome_params = Vec::new();
+    
+    for chunk in &chunks {
+        for local_x in 0..crate::chunk::CHUNK_SIZE {
+            for local_z in 0..crate::chunk::CHUNK_SIZE {
+                if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
+                    // Check key block types that should have biome textures
+                    let block_types = [BlockType::Grass, BlockType::Dirt, BlockType::Stone, BlockType::Sand];
+                    
+                    for block_type in block_types {
+                        // Use a representative height for this biome (average terrain height)
+                        let representative_height = match biome_data.biome_type.as_str() {
+                            "desert" => 15,
+                            "forest" => 25,
+                            "mountain" | "snowy_mountain" => 45,
+                            "hills" => 20,
+                            "plains" => 12,
+                            "swamp" => 8,
+                            "tundra" => 18,
+                            "beach" => 5,
+                            _ => 15,
+                        };
+                        
+                        let biome_params = crate::biome_textures::BiomeTextureParams::new(
+                            biome_data.temperature,
+                            biome_data.moisture,
+                            representative_height,
+                            &biome_data.biome_type,
+                        );
+                        
+                        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
+                        
+                        // Check if this biome texture is missing
+                        if !enhanced_textures.biome_textures.contains_key(&texture_key) {
+                            needed_biome_params.push((block_type, biome_params));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Generate missing biome textures
+    for (block_type, biome_params) in needed_biome_params {
+        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
+        
+        // Skip if already generated (might have been added by another thread)
+        if enhanced_textures.biome_textures.contains_key(&texture_key) {
+            continue;
+        }
+        
+        println!("🎨 Generating missing biome texture for {}: {}", block_type.name(), texture_key);
+        
+        // Create biome texture config
+        let biome_config = crate::biome_textures::BiomeTextureConfig::for_block_type(block_type, &biome_params);
+        
+        // Apply biome parameters to get final config
+        let final_config = crate::biome_textures::apply_biome_parameters_to_config(
+            &biome_config.base_config,
+            &biome_params,
+            &biome_config,
+        );
+        
+        let texture_data;
+        
+        // Apply GPU optimizations if Alkyd is available
+        if alkyd_resources.gpu_acceleration_enabled {
+            println!("🚀 Using real Alkyd GPU acceleration for on-demand biome {} {} texture generation!", 
+                     biome_params.biome_type, block_type.name());
+            
+            // Use enhanced GPU parameters for better quality
+            let mut gpu_config = final_config.clone();
+            gpu_config.detail_level *= 1.5;
+            gpu_config.contrast *= 1.2;
+            gpu_config.saturation *= 1.1;
+            
+            texture_data = generate_alkyd_texture_data(&gpu_config);
+            println!("✓ Generated on-demand GPU-optimized biome {} {} texture", biome_params.biome_type, block_type.name());
+        } else {
+            texture_data = generate_fallback_texture_data(&final_config);
+            println!("✓ Generated on-demand CPU fallback biome {} {} texture", biome_params.biome_type, block_type.name());
+        }
+        
+        let image = Image::new(
+            Extent3d {
+                width: final_config.texture_size.x,
+                height: final_config.texture_size.y,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            texture_data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        );
+        
+        let image_handle = images.add(image);
+        
+        // Store the biome texture and config
+        enhanced_textures.biome_textures.insert(texture_key.clone(), image_handle.clone());
+        enhanced_textures.biome_texture_configs.insert(texture_key.clone(), final_config);
+        
+        missing_textures_count += 1;
+        println!("✓ Generated missing biome texture: {} -> {:?}", texture_key, image_handle);
+    }
+    
+    if missing_textures_count > 0 {
+        println!("✓ Generated {} missing biome textures on-demand", missing_textures_count);
+    } else {
+        println!("✓ All required biome textures are already available");
     }
 }
 
@@ -1017,29 +1143,39 @@ pub fn generate_biome_textures(
 ) {
     println!("🌿 Generating biome-based parameterized textures...");
     
-    // Define some representative biome parameters for texture generation
+    // Define comprehensive biome parameters for texture generation
     let biome_params_list = vec![
-        // Desert biome
+        // Desert biome - hot and dry
         crate::biome_textures::BiomeTextureParams::new(0.9, 0.2, 15, "desert"),
-        // Forest biome
+        // Forest biome - moderate temperature, high moisture
         crate::biome_textures::BiomeTextureParams::new(0.6, 0.8, 25, "forest"),
-        // Mountain biome
+        // Mountain biome - cool, moderate moisture
         crate::biome_textures::BiomeTextureParams::new(0.4, 0.5, 45, "mountain"),
-        // Snowy mountain biome
+        // Snowy mountain biome - cold, moderate moisture
         crate::biome_textures::BiomeTextureParams::new(0.2, 0.4, 60, "snowy_mountain"),
-        // Plains biome
+        // Plains biome - moderate temperature and moisture
         crate::biome_textures::BiomeTextureParams::new(0.7, 0.6, 12, "plains"),
-        // Swamp biome
+        // Swamp biome - moderate temperature, very high moisture
         crate::biome_textures::BiomeTextureParams::new(0.5, 0.9, 8, "swamp"),
+        // Tundra biome - cold, moderate moisture
+        crate::biome_textures::BiomeTextureParams::new(0.3, 0.5, 18, "tundra"),
+        // Beach biome - moderate temperature, high moisture
+        crate::biome_textures::BiomeTextureParams::new(0.65, 0.75, 5, "beach"),
     ];
     
     // Generate textures for key block types with biome variations
-    let block_types = [BlockType::Grass, BlockType::Dirt, BlockType::Stone, BlockType::Sand];
+    let block_types = [BlockType::Grass, BlockType::Dirt, BlockType::Stone, BlockType::Sand, BlockType::Wood];
     
     for block_type in block_types {
         for biome_params in &biome_params_list {
             // Generate a unique key for this biome+block combination
             let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+            
+            // Skip if this biome texture already exists
+            if enhanced_textures.biome_textures.contains_key(&texture_key) {
+                println!("ℹ Biome texture already exists for {}: {}", block_type.name(), texture_key);
+                continue;
+            }
             
             // Create biome texture config
             let biome_config = crate::biome_textures::BiomeTextureConfig::for_block_type(block_type, biome_params);
@@ -1058,8 +1194,15 @@ pub fn generate_biome_textures(
                 println!("🚀 Using real Alkyd GPU acceleration for biome {} {} texture generation!", 
                          biome_params.biome_type, block_type.name());
                 
-                texture_data = generate_alkyd_texture_data(&final_config);
-                println!("✓ Generated GPU-optimized biome {} {} texture", biome_params.biome_type, block_type.name());
+                // Use enhanced GPU parameters for better quality
+                let mut gpu_config = final_config.clone();
+                gpu_config.detail_level *= 1.5;
+                gpu_config.contrast *= 1.2;
+                gpu_config.saturation *= 1.1;
+                
+                texture_data = generate_alkyd_texture_data(&gpu_config);
+                println!("✓ Generated GPU-optimized biome {} {} texture with enhanced parameters", 
+                         biome_params.biome_type, block_type.name());
             } else {
                 texture_data = generate_fallback_texture_data(&final_config);
                 println!("✓ Generated CPU fallback biome {} {} texture", biome_params.biome_type, block_type.name());
