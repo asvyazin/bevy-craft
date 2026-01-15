@@ -21,6 +21,7 @@ mod alkyd_integration;
 mod alkyd_world_gen;
 mod alkyd_gpu_shaders;
 mod alkyd_buffer_management;
+mod test_sophisticated_algorithms;
 
 mod biome_textures;
 mod biome_texture_cache;
@@ -80,6 +81,7 @@ fn main() {
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
+        .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration

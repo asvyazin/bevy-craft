@@ -833,3 +833,584 @@ pub fn setup_alkyd_gpu_integration(app: &mut App) {
         .add_systems(Startup, generate_all_block_gpu_textures.after(initialize_alkyd_gpu_resources))
         .add_systems(Update, generate_alkyd_gpu_textures);
 }
+
+// ============================================================================
+// SOPHISTICATED ALKYD ALGORITHMS FOR BETTER VISUAL QUALITY
+// ============================================================================
+
+/// Apply sophisticated Alkyd blend modes for complex texture effects
+/// These blend modes are inspired by Alkyd's advanced shader capabilities
+pub fn apply_alkyd_blend_mode(color: &[u8; 4], noise_value: f32, blend_mode: &str, texture_data: &[Vec<u8>], x: u32, y: u32, config: &AlkydGpuTextureConfig) -> [u8; 4] {
+    let r = color[0] as f32 / 255.0;
+    let g = color[1] as f32 / 255.0;
+    let b = color[2] as f32 / 255.0;
+    
+    match blend_mode {
+        "multiply" => {
+            // Multiply blend mode - darkens the image
+            let r = r * noise_value;
+            let g = g * noise_value;
+            let b = b * noise_value;
+            [
+                ((r * 255.0).clamp(0.0, 255.0)) as u8,
+                ((g * 255.0).clamp(0.0, 255.0)) as u8,
+                ((b * 255.0).clamp(0.0, 255.0)) as u8,
+                color[3]
+            ]
+        },
+        "overlay" => {
+            // Overlay blend mode - combines multiply and screen
+            let r = if r < 0.5 { r * noise_value * 2.0 } else { 1.0 - (1.0 - r) * (1.0 - noise_value) * 2.0 };
+            let g = if g < 0.5 { g * noise_value * 2.0 } else { 1.0 - (1.0 - g) * (1.0 - noise_value) * 2.0 };
+            let b = if b < 0.5 { b * noise_value * 2.0 } else { 1.0 - (1.0 - b) * (1.0 - noise_value) * 2.0 };
+            [
+                ((r * 255.0).clamp(0.0, 255.0)) as u8,
+                ((g * 255.0).clamp(0.0, 255.0)) as u8,
+                ((b * 255.0).clamp(0.0, 255.0)) as u8,
+                color[3]
+            ]
+        },
+        "screen" => {
+            // Screen blend mode - lightens the image
+            let r = 1.0 - (1.0 - r) * (1.0 - noise_value);
+            let g = 1.0 - (1.0 - g) * (1.0 - noise_value);
+            let b = 1.0 - (1.0 - b) * (1.0 - noise_value);
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "hard_light" => {
+            // Hard light blend mode - creates strong contrast
+            let r = if noise_value < 0.5 { r * noise_value * 2.0 } else { 1.0 - (1.0 - r) * (1.0 - noise_value) * 2.0 };
+            let g = if noise_value < 0.5 { g * noise_value * 2.0 } else { 1.0 - (1.0 - g) * (1.0 - noise_value) * 2.0 };
+            let b = if noise_value < 0.5 { b * noise_value * 2.0 } else { 1.0 - (1.0 - b) * (1.0 - noise_value) * 2.0 };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "soft_light" => {
+            // Soft light blend mode - creates subtle lighting effects
+            let r = if noise_value < 0.5 { r - (1.0 - 2.0 * noise_value) * r * (1.0 - r) } else { r + (2.0 * noise_value - 1.0) * (r * (1.0 - r).sqrt()) };
+            let g = if noise_value < 0.5 { g - (1.0 - 2.0 * noise_value) * g * (1.0 - g) } else { g + (2.0 * noise_value - 1.0) * (g * (1.0 - g).sqrt()) };
+            let b = if noise_value < 0.5 { b - (1.0 - 2.0 * noise_value) * b * (1.0 - b) } else { b + (2.0 * noise_value - 1.0) * (b * (1.0 - b).sqrt()) };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "color_dodge" => {
+            // Color dodge blend mode - brightens the image significantly
+            let r = if noise_value == 1.0 { 1.0 } else { (r / (1.0 - noise_value)).min(1.0) };
+            let g = if noise_value == 1.0 { 1.0 } else { (g / (1.0 - noise_value)).min(1.0) };
+            let b = if noise_value == 1.0 { 1.0 } else { (b / (1.0 - noise_value)).min(1.0) };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "color_burn" => {
+            // Color burn blend mode - darkens the image significantly
+            let r = if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - r) / noise_value.min(1.0) };
+            let g = if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - g) / noise_value.min(1.0) };
+            let b = if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - b) / noise_value.min(1.0) };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "linear_dodge" => {
+            // Linear dodge (add) blend mode - adds color values
+            let r = (r + noise_value).min(1.0);
+            let g = (g + noise_value).min(1.0);
+            let b = (b + noise_value).min(1.0);
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "linear_burn" => {
+            // Linear burn blend mode - subtracts color values
+            let r = (r + noise_value - 1.0).max(0.0);
+            let g = (g + noise_value - 1.0).max(0.0);
+            let b = (b + noise_value - 1.0).max(0.0);
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "vivid_light" => {
+            // Vivid light blend mode - combines color burn and color dodge
+            let r = if noise_value < 0.5 { 
+                if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - r) / (2.0 * noise_value) }
+            } else {
+                if noise_value == 1.0 { 1.0 } else { r / (2.0 * (1.0 - noise_value)) }
+            };
+            let g = if noise_value < 0.5 { 
+                if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - g) / (2.0 * noise_value) }
+            } else {
+                if noise_value == 1.0 { 1.0 } else { g / (2.0 * (1.0 - noise_value)) }
+            };
+            let b = if noise_value < 0.5 { 
+                if noise_value == 0.0 { 0.0 } else { 1.0 - (1.0 - b) / (2.0 * noise_value) }
+            } else {
+                if noise_value == 1.0 { 1.0 } else { b / (2.0 * (1.0 - noise_value)) }
+            };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "pin_light" => {
+            // Pin light blend mode - replaces pixels based on noise value
+            let r = if noise_value < 0.5 { 
+                r.min(2.0 * noise_value)
+            } else {
+                r.max(2.0 * noise_value - 1.0)
+            };
+            let g = if noise_value < 0.5 { 
+                g.min(2.0 * noise_value)
+            } else {
+                g.max(2.0 * noise_value - 1.0)
+            };
+            let b = if noise_value < 0.5 { 
+                b.min(2.0 * noise_value)
+            } else {
+                b.max(2.0 * noise_value - 1.0)
+            };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "hard_mix" => {
+            // Hard mix blend mode - creates high contrast posterization effect
+            let r = if (r + noise_value) < 1.0 { 0.0 } else { 1.0 };
+            let g = if (g + noise_value) < 1.0 { 0.0 } else { 1.0 };
+            let b = if (b + noise_value) < 1.0 { 0.0 } else { 1.0 };
+            [
+                ((r * 255.0) as f32).clamp(0.0, 255.0) as u8,
+                ((g * 255.0) as f32).clamp(0.0, 255.0) as u8,
+                ((b * 255.0) as f32).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "difference" => {
+            // Difference blend mode - subtracts colors
+            let r = (r - noise_value).abs();
+            let g = (g - noise_value).abs();
+            let b = (b - noise_value).abs();
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "exclusion" => {
+            // Exclusion blend mode - similar to difference but lower contrast
+            let r = r + noise_value - 2.0 * r * noise_value;
+            let g = g + noise_value - 2.0 * g * noise_value;
+            let b = b + noise_value - 2.0 * b * noise_value;
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "subtract" => {
+            // Subtract blend mode - subtracts noise from color
+            let r = (r - noise_value).max(0.0);
+            let g = (g - noise_value).max(0.0);
+            let b = (b - noise_value).max(0.0);
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "divide" => {
+            // Divide blend mode - divides color by noise
+            let r = if noise_value == 0.0 { 0.0 } else { (r / noise_value).min(1.0) };
+            let g = if noise_value == 0.0 { 0.0 } else { (g / noise_value).min(1.0) };
+            let b = if noise_value == 0.0 { 0.0 } else { (b / noise_value).min(1.0) };
+            [
+                (r * 255.0).clamp(0.0, 255.0) as u8,
+                (g * 255.0).clamp(0.0, 255.0) as u8,
+                (b * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        _ => *color // Normal mode - no change
+    }
+}
+
+/// Apply Sobel edge detection for texture enhancement
+/// This is a sophisticated algorithm inspired by Alkyd's edge detection capabilities
+pub fn apply_sobel_edge_detection(color: &[u8; 4], x: u32, y: u32, config: &AlkydGpuTextureConfig, texture_data: &[u8], width: u32, height: u32) -> [u8; 4] {
+    // Convert texture_data to a 2D array for easier access
+    let mut pixel_data = vec![vec![[0u8; 4]; width as usize]; height as usize];
+    
+    // Fill the pixel data from the texture_data
+    for py in 0..height {
+        for px in 0..width {
+            let index = (py as usize * width as usize + px as usize) * 4;
+            if index + 3 < texture_data.len() {
+                pixel_data[py as usize][px as usize] = [
+                    texture_data[index],
+                    texture_data[index + 1],
+                    texture_data[index + 2],
+                    texture_data[index + 3]
+                ];
+            }
+        }
+    }
+    
+    // Sobel edge detection kernels
+    let sobel_x = [[-1.0, 0.0, 1.0], [-2.0, 0.0, 2.0], [-1.0, 0.0, 1.0]];
+    let sobel_y = [[-1.0, -2.0, -1.0], [0.0, 0.0, 0.0], [1.0, 2.0, 1.0]];
+    
+    // Convert color to grayscale for edge detection
+    let gray = (color[0] as f32 * 0.299 + color[1] as f32 * 0.587 + color[2] as f32 * 0.114) / 255.0;
+    
+    // Apply Sobel edge detection
+    let mut gx = 0.0;
+    let mut gy = 0.0;
+    
+    for ky in 0..3 {
+        for kx in 0..3 {
+            let px = x as i32 + kx - 1;
+            let py = y as i32 + ky - 1;
+            
+            // Check bounds
+            if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
+                let neighbor_gray = (pixel_data[py as usize][px as usize][0] as f32 * 0.299 + 
+                                    pixel_data[py as usize][px as usize][1] as f32 * 0.587 + 
+                                    pixel_data[py as usize][px as usize][2] as f32 * 0.114) / 255.0;
+                
+                gx += sobel_x[ky as usize][kx as usize] * neighbor_gray;
+                gy += sobel_y[ky as usize][kx as usize] * neighbor_gray;
+            }
+        }
+    }
+    
+    // Calculate edge magnitude
+    let edge_magnitude = (gx * gx + gy * gy).sqrt();
+    let edge_intensity = edge_magnitude.min(1.0);
+    
+    // Apply edge enhancement to the original color
+    let edge_factor = edge_intensity * config.detail_level * 0.5;
+    
+    let r = (color[0] as f32 * (1.0 + edge_factor)).min(255.0);
+    let g = (color[1] as f32 * (1.0 + edge_factor)).min(255.0);
+    let b = (color[2] as f32 * (1.0 + edge_factor)).min(255.0);
+    
+    [
+        r as u8,
+        g as u8,
+        b as u8,
+        color[3]
+    ]
+}
+
+/// Convert color between different color spaces (inspired by Alkyd's color space converters)
+/// This provides better color handling for advanced visual effects
+pub fn convert_color_space(color: &[u8; 4], from_space: &str, to_space: &str) -> [u8; 4] {
+    let r = color[0] as f32 / 255.0;
+    let g = color[1] as f32 / 255.0;
+    let b = color[2] as f32 / 255.0;
+    
+    // Convert from source color space to linear RGB
+    let (mut r_linear, mut g_linear, mut b_linear) = match from_space {
+        "srgb" => {
+            // Convert from sRGB to linear RGB
+            let r_lin = if r <= 0.04045 { r / 12.92 } else { ((r + 0.055) / 1.055).powf(2.4) };
+            let g_lin = if g <= 0.04045 { g / 12.92 } else { ((g + 0.055) / 1.055).powf(2.4) };
+            let b_lin = if b <= 0.04045 { b / 12.92 } else { ((b + 0.055) / 1.055).powf(2.4) };
+            (r_lin, g_lin, b_lin)
+        },
+        "linear" => (r, g, b),
+        "hsv" => {
+            // Convert from HSV to linear RGB
+            let h = r * 360.0;
+            let s = g;
+            let v = b;
+            
+            let c = v * s;
+            let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+            let m = v - c;
+            
+            let (r_lin, g_lin, b_lin) = if h < 60.0 {
+                (c, x, 0.0)
+            } else if h < 120.0 {
+                (x, c, 0.0)
+            } else if h < 180.0 {
+                (0.0, c, x)
+            } else if h < 240.0 {
+                (0.0, x, c)
+            } else if h < 300.0 {
+                (x, 0.0, c)
+            } else {
+                (c, 0.0, x)
+            };
+            
+            (r_lin + m, g_lin + m, b_lin + m)
+        },
+        "hsl" => {
+            // Convert from HSL to linear RGB
+            let h = r * 360.0;
+            let s = g;
+            let l = b;
+            
+            let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+            let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+            let m = l - c / 2.0;
+            
+            let (r_lin, g_lin, b_lin) = if h < 60.0 {
+                (c, x, 0.0)
+            } else if h < 120.0 {
+                (x, c, 0.0)
+            } else if h < 180.0 {
+                (0.0, c, x)
+            } else if h < 240.0 {
+                (0.0, x, c)
+            } else if h < 300.0 {
+                (x, 0.0, c)
+            } else {
+                (c, 0.0, x)
+            };
+            
+            (r_lin + m, g_lin + m, b_lin + m)
+        },
+        _ => (r, g, b) // Assume linear if unknown
+    };
+    
+    // Convert from linear RGB to target color space
+    let result = match to_space {
+        "srgb" => {
+            // Convert from linear RGB to sRGB
+            let r_srgb = if r_linear <= 0.0031308 { r_linear * 12.92 } else { 1.055 * r_linear.powf(1.0/2.4) - 0.055 };
+            let g_srgb = if g_linear <= 0.0031308 { g_linear * 12.92 } else { 1.055 * g_linear.powf(1.0/2.4) - 0.055 };
+            let b_srgb = if b_linear <= 0.0031308 { b_linear * 12.92 } else { 1.055 * b_linear.powf(1.0/2.4) - 0.055 };
+            [
+                (r_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                (g_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                (b_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "linear" => {
+            [
+                (r_linear * 255.0).clamp(0.0, 255.0) as u8,
+                (g_linear * 255.0).clamp(0.0, 255.0) as u8,
+                (b_linear * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "hsv" => {
+            // Convert from linear RGB to HSV
+            let max = r_linear.max(g_linear).max(b_linear);
+            let min = r_linear.min(g_linear).min(b_linear);
+            let delta = max - min;
+            
+            let h = if delta == 0.0 {
+                0.0
+            } else if max == r_linear {
+                60.0 * (((g_linear - b_linear) / delta) % 6.0)
+            } else if max == g_linear {
+                60.0 * (((b_linear - r_linear) / delta) + 2.0)
+            } else {
+                60.0 * (((r_linear - g_linear) / delta) + 4.0)
+            };
+            
+            let s = if max == 0.0 { 0.0 } else { delta / max };
+            let v = max;
+            
+            [
+                ((h / 360.0) * 255.0).clamp(0.0, 255.0) as u8,
+                (s * 255.0).clamp(0.0, 255.0) as u8,
+                (v * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        "hsl" => {
+            // Convert from linear RGB to HSL
+            let max = r_linear.max(g_linear).max(b_linear);
+            let min = r_linear.min(g_linear).min(b_linear);
+            let delta = max - min;
+            
+            let h = if delta == 0.0 {
+                0.0
+            } else if max == r_linear {
+                60.0 * (((g_linear - b_linear) / delta) % 6.0)
+            } else if max == g_linear {
+                60.0 * (((b_linear - r_linear) / delta) + 2.0)
+            } else {
+                60.0 * (((r_linear - g_linear) / delta) + 4.0)
+            };
+            
+            let l = (max + min) / 2.0;
+            let s = if delta == 0.0 { 0.0 } else { delta / (1.0 - (2.0 * l - 1.0).abs()) };
+            
+            [
+                ((h / 360.0) * 255.0).clamp(0.0, 255.0) as u8,
+                (s * 255.0).clamp(0.0, 255.0) as u8,
+                (l * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        },
+        _ => {
+            // Default to sRGB output
+            let r_srgb = if r_linear <= 0.0031308 { r_linear * 12.92 } else { 1.055 * r_linear.powf(1.0/2.4) - 0.055 };
+            let g_srgb = if g_linear <= 0.0031308 { g_linear * 12.92 } else { 1.055 * g_linear.powf(1.0/2.4) - 0.055 };
+            let b_srgb = if b_linear <= 0.0031308 { b_linear * 12.92 } else { 1.055 * b_linear.powf(1.0/2.4) - 0.055 };
+            [
+                (r_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                (g_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                (b_srgb * 255.0).clamp(0.0, 255.0) as u8,
+                color[3]
+            ]
+        }
+    };
+    
+    result
+}
+
+/// Enhanced texture generation with sophisticated algorithms
+pub fn generate_enhanced_alkyd_texture_data(config: &AlkydGpuTextureConfig) -> Vec<u8> {
+    let expected_size = (config.texture_size.x * config.texture_size.y * 4) as usize;
+    let mut texture_data = Vec::with_capacity(expected_size);
+    
+    // Create a temporary buffer to store pixel data for edge detection
+    let mut pixel_buffer = vec![vec![[0u8; 4]; config.texture_size.x as usize]; config.texture_size.y as usize];
+    
+    // First pass: generate base texture data
+    for y in 0..config.texture_size.y {
+        for x in 0..config.texture_size.x {
+            // Generate base noise value using the configured algorithm
+            let base_noise = match config.noise_type.as_str() {
+                "simplex" => generate_gpu_simplex_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                "perlin" => generate_gpu_perlin_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                "fractal" => generate_gpu_fractal_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+                _ => generate_gpu_simplex_noise(
+                    x as f32 * config.noise_scale,
+                    y as f32 * config.noise_scale,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                ),
+            };
+            
+            // Apply additional noise effects
+            let mut noise_value = base_noise;
+            
+            // Add ridged noise if enabled
+            if config.enable_ridged_noise {
+                let ridged = generate_gpu_ridged_noise(
+                    x as f32 * config.noise_scale * 1.5,
+                    y as f32 * config.noise_scale * 1.5,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                    config.ridged_strength,
+                );
+                noise_value = (noise_value * (1.0 - config.ridged_strength)) + (ridged * config.ridged_strength);
+            }
+            
+            // Add turbulence if enabled
+            if config.enable_turbulence {
+                let turbulence = generate_gpu_turbulence_noise(
+                    x as f32 * config.noise_scale * 2.0,
+                    y as f32 * config.noise_scale * 2.0,
+                    config.noise_octaves,
+                    config.noise_persistence,
+                    config.noise_lacunarity,
+                    config.turbulence_strength,
+                );
+                noise_value = (noise_value * (1.0 - config.turbulence_strength)) + (turbulence * config.turbulence_strength);
+            }
+            
+            // Apply detail level
+            noise_value = noise_value.powf(config.detail_level);
+            
+            // Apply contrast, brightness, and saturation adjustments
+            noise_value = (noise_value - 0.5) * config.contrast + 0.5; // Contrast
+            noise_value = (noise_value + config.brightness).clamp(0.0, 1.0); // Brightness
+            
+            // Apply color based on configuration
+            let mut color = apply_gpu_color_scheme(noise_value, config);
+            
+            // Store in pixel buffer for edge detection
+            pixel_buffer[y as usize][x as usize] = color;
+            
+            // Add to texture data
+            texture_data.extend_from_slice(&color);
+        }
+    }
+    
+    // Second pass: apply sophisticated algorithms
+    let mut enhanced_texture_data = Vec::with_capacity(expected_size);
+    
+    for y in 0..config.texture_size.y {
+        for x in 0..config.texture_size.x {
+            let color = pixel_buffer[y as usize][x as usize];
+            let noise_value = (color[0] as f32 + color[1] as f32 + color[2] as f32) / (3.0 * 255.0);
+            
+            // Apply color space conversion for better color handling
+            let mut enhanced_color = convert_color_space(&color, "srgb", "linear");
+            
+            // Apply sophisticated blend modes
+            enhanced_color = apply_alkyd_blend_mode(&enhanced_color, noise_value, "soft_light", &[], x, y, config);
+            
+            // Apply Sobel edge detection for texture enhancement
+            enhanced_color = apply_sobel_edge_detection(&enhanced_color, x, y, config, &[], config.texture_size.x, config.texture_size.y);
+            
+            // Convert back to sRGB for final output
+            enhanced_color = convert_color_space(&enhanced_color, "linear", "srgb");
+            
+            enhanced_texture_data.extend_from_slice(&enhanced_color);
+        }
+    }
+    
+    assert_eq!(enhanced_texture_data.len(), expected_size, "Enhanced texture data size mismatch");
+    enhanced_texture_data
+}

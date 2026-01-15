@@ -161,6 +161,9 @@ The current implementation provides a solid foundation for Alkyd GPU integration
 - **Biome-Specific Textures**: Generate textures based on biome and height parameters
 - **Procedural Animation**: Add subtle animation to textures using GPU shaders
 - **Normal/Height Maps**: Generate additional texture maps for advanced rendering
+- **Sophisticated Blend Modes**: Advanced Alkyd-inspired blend modes (multiply, overlay, screen, hard_light, soft_light, color_dodge, color_burn, linear_dodge, linear_burn, vivid_light, pin_light, hard_mix, difference, exclusion, subtract, divide)
+- **Sobel Edge Detection**: GPU-optimized edge detection for enhanced texture details
+- **Color Space Conversion**: Professional color space handling (sRGB, linear, HSV, HSL) for better visual quality
 
 ### 4. Integration Improvements
 - **Shader Hot Reloading**: Support for live shader editing and reloading
