@@ -20,6 +20,7 @@ use crate::block::BlockType;
 use crate::chunk::{Chunk, ChunkData, ChunkPosition, ChunkManager};
 use crate::texture_atlas::{TextureAtlas, BlockFace};
 use crate::alkyd_integration::EnhancedBlockTextures;
+use crate::biome_texture_cache::SharedBiomeTextureCache;
 
 /// Component that stores the mesh data for a chunk
 #[derive(Component, Debug)]
@@ -139,17 +140,43 @@ impl ChunkMeshMaterials {
         block_type: BlockType,
         biome_params: &crate::biome_textures::BiomeTextureParams,
         enhanced_textures: &Res<EnhancedBlockTextures>,
+        biome_cache: &Res<SharedBiomeTextureCache>,
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) -> Option<Handle<StandardMaterial>> {
         // Generate a unique key for this biome+block combination
         let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        println!("🔑 Requesting texture for key: {}", texture_key);
         
         // Check if we already have a material for this biome+block combination
         if let Some(existing_material) = self.materials.get(&block_type) {
             return Some(existing_material.clone());
         }
         
-        // Try to get biome-specific texture
+        // Try to get biome-specific texture from cache first
+        let mut cache = biome_cache.cache.lock().unwrap();
+        
+        // Use the full get_or_generate method which includes similarity matching
+        let texture_handle = cache.get_or_generate(&block_type, biome_params, |params| {
+            // If cache miss and no similar texture found, fall back to enhanced textures
+            if let Some(biome_texture) = enhanced_textures.biome_textures.get(&texture_key) {
+                println!("🎨 Using enhanced texture for {:?} at biome {}", block_type, biome_params.biome_type);
+                return (biome_texture.clone(), crate::alkyd_integration::AlkydTextureConfig::default());
+            }
+            
+            // If no texture available at all, use default material
+            println!("⚠️  No texture available for {:?} at biome {}", block_type, biome_params.biome_type);
+            (Handle::default(), crate::alkyd_integration::AlkydTextureConfig::default())
+        });
+        
+        let biome_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            base_color_texture: Some(texture_handle.clone()),
+            ..default()
+        });
+        println!("📊 Created biome-specific material for {:?} at biome {} with key {}", block_type, biome_params.biome_type, texture_key);
+        return Some(biome_material);
+        
+        // Try to get biome-specific texture from legacy enhanced textures
         if let Some(biome_texture) = enhanced_textures.biome_textures.get(&texture_key) {
             let biome_material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,

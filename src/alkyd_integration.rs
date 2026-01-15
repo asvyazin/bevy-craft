@@ -1247,6 +1247,9 @@ pub fn generate_biome_textures_with_cache(
             if let Some(entry) = cache.get_texture(&texture_key) {
                 enhanced_textures.biome_textures.insert(texture_key.clone(), entry.texture_handle.clone());
                 enhanced_textures.biome_texture_configs.insert(texture_key.clone(), entry.config.clone());
+                println!("📁 Added to cache: {} -> {:?}", texture_key, entry.texture_handle);
+            } else {
+                println!("❌ Failed to add to cache: {}", texture_key);
             }
         }
     }

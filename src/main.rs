@@ -165,6 +165,7 @@ fn generate_chunk_meshes(
     chunk_manager: Res<ChunkManager>,
     texture_atlas: Res<TextureAtlas>,
     enhanced_textures: Res<EnhancedBlockTextures>,
+    biome_cache: Res<crate::biome_texture_cache::SharedBiomeTextureCache>,
 ) {
     for (chunk_entity, chunk) in &chunks {
         if chunk.is_generated && chunk.needs_mesh_update {
@@ -209,31 +210,56 @@ fn generate_chunk_meshes(
             
             // Add biome-specific materials if available
             if texture_atlas.has_procedural_textures() {
+                use std::collections::HashMap;
+                let mut biome_material_cache: HashMap<String, Handle<StandardMaterial>> = HashMap::new();
+                
                 for local_x in 0..crate::chunk::CHUNK_SIZE {
                     for local_z in 0..crate::chunk::CHUNK_SIZE {
                         if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
-                            for y in 0..crate::chunk::CHUNK_HEIGHT {
-                                if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
-                                    if block_type != BlockType::Air {
-                                        let biome_params = crate::biome_textures::BiomeTextureParams::new(
-                                            biome_data.temperature,
-                                            biome_data.moisture,
-                                            y as i32,
-                                            &biome_data.biome_type,
-                                        );
-                                        
-                                        // Try to get biome-specific material
-                                        if let Some(biome_material) = mesh_materials.get_biome_material(
-                                            block_type, 
-                                            &biome_params,
-                                            &enhanced_textures,
-                                            &mut materials
-                                        ) {
-                                            // Store biome-specific material
-                                            chunk_mesh.material_handles.insert(block_type, biome_material);
-                                            println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
-                                        }
-                                    }
+                            // Generate biome parameters once per biome column (not per block)
+                            // Use representative height based on biome type to match startup cache keys
+                            let representative_height = match biome_data.biome_type.as_str() {
+                                "desert" => 15,
+                                "forest" => 25,
+                                "mountain" | "snowy_mountain" => 45,
+                                "hills" => 20,
+                                "plains" => 12,
+                                "swamp" => 8,
+                                "tundra" => 18,
+                                "beach" => 5,
+                                _ => 15,
+                            };
+                            
+                            let biome_params = crate::biome_textures::BiomeTextureParams::new(
+                                biome_data.temperature,
+                                biome_data.moisture,
+                                representative_height,
+                                &biome_data.biome_type,
+                            );
+                            
+                            // Check all block types that should have biome textures
+                            let biome_block_types = [BlockType::Grass, BlockType::Dirt, BlockType::Stone, BlockType::Sand];
+                            
+                            for block_type in biome_block_types {
+                                let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
+                                
+                                // Check if we already have this biome material cached for this chunk
+                                if biome_material_cache.contains_key(&texture_key) {
+                                    continue;
+                                }
+                                
+                                // Try to get biome-specific material
+                                if let Some(biome_material) = mesh_materials.get_biome_material(
+                                    block_type, 
+                                    &biome_params,
+                                    &enhanced_textures,
+                                    &biome_cache,
+                                    &mut materials
+                                ) {
+                                    // Store biome-specific material in chunk cache
+                                    biome_material_cache.insert(texture_key, biome_material.clone());
+                                    chunk_mesh.material_handles.insert(block_type, biome_material);
+                                    println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
                                 }
                             }
                         }

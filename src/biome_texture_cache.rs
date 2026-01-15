@@ -114,6 +114,9 @@ impl BiomeTextureCache {
         // Check for similar textures that can be reused
         if self.config.enable_similarity_reuse {
             if let Some(similar_texture) = self.find_similar_texture(block_type, biome_params) {
+                self.stats.cache_hits += 1;  // Count similarity match as cache hit
+                self.stats.cache_misses -= 1; // Adjust cache miss count
+                
                 if self.config.log_cache_operations {
                     println!("🔄 Reusing similar biome texture for: {}", texture_key);
                 }
