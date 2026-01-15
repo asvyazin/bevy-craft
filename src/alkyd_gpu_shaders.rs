@@ -1,5 +1,19 @@
 // Alkyd GPU Compute Shaders Module
-// This module provides actual GPU compute shaders using Alkyd for texture generation
+// 
+// This module provides the infrastructure for GPU compute shaders using Alkyd and bevy_easy_compute.
+// 
+// CURRENT STATUS (as of bevy-craft-pyn implementation):
+// ✅ Infrastructure: Compute workers are defined and registered
+// ✅ Integration: bevy_easy_compute plugins are set up
+// ✅ Foundation: Ready for actual GPU processing
+// 
+// TODO (tracked in bevy-craft-6jz):
+// ❌ Actual dispatching: Compute workers need to be dispatched from texture generation systems
+// ❌ Buffer management: Proper GPU buffer handling needs to be implemented
+// ❌ Data flow: Texture data needs to be properly passed to/from GPU
+// 
+// The current implementation provides the foundation and will enable real GPU acceleration
+// once the texture generation systems are refactored to work with Bevy's ECS architecture.
 
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -392,14 +406,16 @@ pub fn initialize_alkyd_gpu_resources(
             converters_worker: None, // Workers are managed by plugins
         };
         
-        println!("✓ Real Alkyd GPU plugin loaded successfully!");
-        println!("  - GPU acceleration enabled: {}", resources.gpu_acceleration_enabled);
-        println!("  - Shaders loaded: {}", resources.shaders_loaded);
-        println!("  - Plugin loaded: {}", resources.plugin_loaded);
-        println!("  - Using actual Alkyd compute shaders for texture generation");
-        println!("  - GPU-optimized texture generation will be used");
-        println!("  - Enhanced parameters for better visual quality");
-        println!("  - Compute workers are automatically managed by bevy_easy_compute plugins");
+        println!("✓ Alkyd GPU infrastructure loaded successfully!");
+        println!("  - GPU acceleration infrastructure: enabled");
+        println!("  - Compute workers: registered and available");
+        println!("  - Alkyd shaders: loaded and ready");
+        println!("  - Foundation for GPU processing: complete");
+        println!("  - Compute workers managed by bevy_easy_compute plugins");
+        println!("");
+        println!("ℹ Note: Actual GPU processing will be implemented in bevy-craft-6jz");
+        println!("ℹ Current benefits: GPU-optimized algorithms + Alkyd shaders");
+        println!("ℹ Future benefits: Full GPU compute shader execution");
         
         commands.insert_resource(resources);
     } else {
@@ -434,7 +450,23 @@ pub fn initialize_alkyd_gpu_resources(
     }
 }
 
-/// System to generate textures using actual Alkyd GPU compute shaders
+/// System to generate textures using Alkyd GPU infrastructure
+/// 
+/// NOTE: This system currently uses GPU-optimized CPU algorithms and benefits from
+/// Alkyd shaders loaded by the AlkydPlugin. The actual GPU compute worker dispatching
+/// is not yet implemented and is tracked in issue bevy-craft-6jz.
+/// 
+/// Current benefits:
+/// - GPU-optimized noise algorithms via bevy_compute_noise
+/// - Alkyd shader integration for enhanced visual quality
+/// - Foundation for future GPU compute processing
+/// 
+/// Future work (bevy-craft-6jz):
+/// - Dispatch SobelComputeWorker for edge detection
+/// - Dispatch BlendModesComputeWorker for color blending
+/// - Dispatch ConvertersComputeWorker for color space conversion
+/// - Implement proper GPU buffer management
+/// - Refactor texture generation to work with Bevy ECS architecture
 pub fn generate_alkyd_gpu_textures(
     mut commands: Commands,
     alkyd_gpu: Res<AlkydGpuShaders>,
@@ -973,12 +1005,20 @@ pub fn generate_all_block_gpu_textures(
 }
 
 /// System to setup Alkyd GPU integration in the app
+/// 
+/// NOTE: This implementation provides the infrastructure for GPU compute workers
+/// but does not yet perform actual GPU processing. The compute workers are registered
+/// and available, but the texture generation systems need to be refactored to
+/// properly dispatch them. See issue bevy-craft-6jz for full implementation.
 pub fn setup_alkyd_gpu_integration(app: &mut App) {
-    println!("🔧 Setting up real Alkyd GPU integration...");
+    println!("🔧 Setting up Alkyd GPU integration infrastructure...");
+    println!("ℹ This provides the foundation for real GPU compute workers");
+    println!("ℹ Full GPU processing implementation is tracked in bevy-craft-6jz");
+    
     app
         .init_resource::<AlkydGpuShaders>()
         .init_resource::<AlkydGpuTextureConfig>()
-        // Add compute worker plugins for real GPU processing
+        // Add compute worker plugins for future GPU processing
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<SobelComputeWorker>::default())
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<BlendModesComputeWorker>::default())
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<ConvertersComputeWorker>::default())
