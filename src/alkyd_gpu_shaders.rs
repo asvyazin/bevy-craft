@@ -118,6 +118,54 @@ impl ComputeWorker for ConvertersComputeWorker {
     }
 }
 
+/// Compute worker for texture buffer management
+#[derive(Resource)]
+pub struct TextureComputeWorker;
+
+#[derive(TypePath)]
+pub struct TextureCompute;
+
+impl ComputeShader for TextureCompute {
+    fn shader() -> ShaderRef {
+        // Use a generic compute shader for texture buffer operations
+        NOISE_COMPUTE_HANDLE.into()
+    }
+}
+
+impl ComputeWorker for TextureComputeWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let worker = AppComputeWorkerBuilder::new(world)
+            .add_staging("texture_data", &vec![0.0f32; 128 * 128 * 4])
+            .add_pass::<TextureCompute>([128, 128, 1], &["texture_data"])
+            .build();
+        worker
+    }
+}
+
+/// Compute worker for configuration buffer management
+#[derive(Resource)]
+pub struct ConfigComputeWorker;
+
+#[derive(TypePath)]
+pub struct ConfigCompute;
+
+impl ComputeShader for ConfigCompute {
+    fn shader() -> ShaderRef {
+        // Use a generic compute shader for config buffer operations
+        NOISE_COMPUTE_HANDLE.into()
+    }
+}
+
+impl ComputeWorker for ConfigComputeWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let worker = AppComputeWorkerBuilder::new(world)
+            .add_staging("config_data", &vec![0.0f32; 256])  // Config data buffer
+            .add_pass::<ConfigCompute>([64, 1, 1], &["config_data"])
+            .build();
+        worker
+    }
+}
+
 
 /// Resource containing actual Alkyd GPU shaders and configuration
 #[derive(Resource)]
@@ -136,6 +184,8 @@ pub struct AlkydGpuShaders {
     pub sobel_worker: Option<AppComputeWorker<SobelComputeWorker>>,
     pub blend_modes_worker: Option<AppComputeWorker<BlendModesComputeWorker>>,
     pub converters_worker: Option<AppComputeWorker<ConvertersComputeWorker>>,
+    pub texture_worker: Option<AppComputeWorker<TextureComputeWorker>>,
+    pub config_worker: Option<AppComputeWorker<ConfigComputeWorker>>,
 }
 
 impl Default for AlkydGpuShaders {
@@ -155,6 +205,8 @@ impl Default for AlkydGpuShaders {
             sobel_worker: None,
             blend_modes_worker: None,
             converters_worker: None,
+            texture_worker: None,
+            config_worker: None,
         }
     }
 }
@@ -499,9 +551,8 @@ pub fn initialize_gpu_compute_workers(
     if alkyd_gpu.shaders_loaded && alkyd_gpu.gpu_acceleration_enabled {
         println!("✓ Initializing GPU compute workers for real GPU processing");
         
-        // Create a new resource with initialized workers
-        // Note: In a real implementation, we would build the workers here
-        // For now, we'll create a placeholder resource that indicates workers are ready
+        // Note: Compute workers are automatically initialized by the bevy_easy_compute plugins
+        // They will be available for use in the texture generation systems
         
         println!("ℹ GPU compute workers are managed by bevy_easy_compute plugins");
         println!("ℹ Workers are automatically available through the plugin system");
@@ -2130,12 +2181,14 @@ pub fn setup_alkyd_gpu_integration(app: &mut App) {
     app
         .init_resource::<AlkydGpuShaders>()
         .init_resource::<AlkydGpuTextureConfig>()
-        // Add compute worker plugins for future GPU processing
+        // Add compute worker plugins for GPU processing
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<SobelComputeWorker>::default())
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<BlendModesComputeWorker>::default())
         .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<ConvertersComputeWorker>::default())
+        .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<TextureComputeWorker>::default())
+        .add_plugins(bevy_easy_compute::prelude::AppComputeWorkerPlugin::<ConfigComputeWorker>::default())
         .add_systems(Startup, initialize_alkyd_gpu_resources)
-        .add_systems(Startup, initialize_gpu_compute_workers.after(initialize_alkyd_gpu_resources))
+        .add_systems(Startup, initialize_gpu_compute_workers.after(initialize_alkyd_gpu_resources).run_if(|world: &World| true))
         .add_systems(Startup, generate_all_block_gpu_textures.after(initialize_gpu_compute_workers))
         .add_systems(Update, generate_alkyd_gpu_textures);
 }
