@@ -119,7 +119,8 @@ impl BiomeTextureCache {
                 
                 // Reduce logging spam - only log similarity reuse in debug mode
                 if self.config.log_cache_operations && self.config.enable_lru_eviction {
-                    println!("🔄 Reusing similar biome texture for: {}", texture_key);
+                    // Debug logging disabled for production performance
+                    // println!("🔄 Reusing similar biome texture for: {}", texture_key);
                 }
                 
                 // Update LRU for the similar texture

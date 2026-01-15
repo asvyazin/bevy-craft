@@ -476,7 +476,8 @@ pub fn generate_missing_biome_textures_with_cache(
             continue;
         }
         
-        println!("🎨 Generating missing biome texture for {}: {}", block_type.name(), texture_key);
+        // Debug logging disabled for production performance
+        // println!("🎨 Generating missing biome texture for {}: {}", block_type.name(), texture_key);
         
         // Use the cache to get or generate the texture
         let texture_handle = cache.get_or_generate(&block_type, &biome_params, |params| {
@@ -538,7 +539,9 @@ pub fn generate_missing_biome_textures_with_cache(
     }
     
     // Print cache statistics
-    cache.print_stats();
+    // Debug logging disabled for production performance
+    // // Debug logging disabled for production performance
+    // cache.print_stats();
     
     if missing_textures_count > 0 {
         println!("✓ Generated {} missing biome textures on-demand", missing_textures_count);
@@ -1255,7 +1258,8 @@ pub fn generate_biome_textures_with_cache(
     }
     
     // Print cache statistics
-    cache.print_stats();
+    // Debug logging disabled for production performance
+    // cache.print_stats();
     
     println!("✓ Generated {} biome-based textures", enhanced_textures.biome_textures.len());
 }

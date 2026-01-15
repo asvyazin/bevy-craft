@@ -220,13 +220,9 @@ fn generate_chunk_meshes(
                     for local_z in 0..crate::chunk::CHUNK_SIZE {
                         if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
                             // Create a unique biome identifier to avoid processing the same biome multiple times
-                            // Round temperature and moisture to reduce unique biome variations
-                            let rounded_temp = (biome_data.temperature * 10.0).round() / 10.0;
-                            let rounded_moisture = (biome_data.moisture * 10.0).round() / 10.0;
-                            let biome_identifier = format!("{}-{:.1}-{:.1}", 
-                                biome_data.biome_type, 
-                                rounded_temp, 
-                                rounded_moisture);
+                            // Use biome type only to drastically reduce unique biome variations
+                            // This ensures we only generate one set of textures per biome type
+                            let biome_identifier = format!("{}", biome_data.biome_type);
                             
                             // Skip if we've already processed this biome in this chunk
                             if processed_biomes.contains_key(&biome_identifier) {
