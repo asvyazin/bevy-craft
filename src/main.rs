@@ -22,12 +22,13 @@ mod alkyd_world_gen;
 mod alkyd_gpu_shaders;
 mod alkyd_buffer_management;
 
-
+mod biome_textures;
 
 mod world_gen;
 mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
 use alkyd_world_gen::{AlkydWorldGenSettings, initialize_alkyd_world_gen};
+use crate::alkyd_integration::EnhancedBlockTextures;
 use player::PlayerMovementSettings;
 
 mod camera;
@@ -158,6 +159,7 @@ fn generate_chunk_meshes(
     all_chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
     texture_atlas: Res<TextureAtlas>,
+    enhanced_textures: Res<EnhancedBlockTextures>,
 ) {
     for (chunk_entity, chunk) in &chunks {
         if chunk.is_generated && chunk.needs_mesh_update {
@@ -170,6 +172,8 @@ fn generate_chunk_meshes(
                 &chunk_manager,
                 &all_chunks,
                 &texture_atlas,
+                chunk,
+                &enhanced_textures,
             );
             let mesh_handle = meshes.add(mesh);
             

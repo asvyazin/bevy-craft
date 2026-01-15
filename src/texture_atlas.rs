@@ -249,6 +249,20 @@ impl TextureAtlas {
         self.procedural_textures.get(&block_type)
     }
     
+    /// Get biome-specific texture handle for a block type, if available
+    pub fn get_biome_texture(
+        &self,
+        block_type: BlockType,
+        biome_params: &crate::biome_textures::BiomeTextureParams,
+        enhanced_textures: &Res<EnhancedBlockTextures>,
+    ) -> Option<Handle<Image>> {
+        // Generate the texture key for this biome+block combination
+        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        
+        // Try to find the biome-specific texture
+        enhanced_textures.biome_textures.get(&texture_key).cloned()
+    }
+    
     /// Check if procedural textures are available
     pub fn has_procedural_textures(&self) -> bool {
         self.has_procedural_textures

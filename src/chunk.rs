@@ -113,11 +113,56 @@ impl ChunkData {
     }
 }
 
+/// Biome data for a single position in the chunk
+#[derive(Debug, Clone, Default)]
+pub struct BiomeData {
+    pub temperature: f32,
+    pub moisture: f32,
+    pub biome_type: String,
+}
+
+/// Chunk biome data storage
+#[derive(Debug, Default)]
+pub struct ChunkBiomeData {
+    pub data: Vec<BiomeData>,
+}
+
+impl ChunkBiomeData {
+    pub fn new() -> Self {
+        Self {
+            data: vec![BiomeData::default(); CHUNK_AREA],
+        }
+    }
+    
+    /// Set biome data for a specific (x, z) position in the chunk
+    pub fn set_biome_data(&mut self, local_x: usize, local_z: usize, temperature: f32, moisture: f32, biome_type: &str) {
+        let index = local_z * CHUNK_SIZE + local_x;
+        if index < self.data.len() {
+            self.data[index] = BiomeData {
+                temperature,
+                moisture,
+                biome_type: biome_type.to_string(),
+            };
+        }
+    }
+    
+    /// Get biome data for a specific (x, z) position in the chunk
+    pub fn get_biome_data(&self, local_x: usize, local_z: usize) -> Option<BiomeData> {
+        let index = local_z * CHUNK_SIZE + local_x;
+        if index < self.data.len() {
+            Some(self.data[index].clone())
+        } else {
+            None
+        }
+    }
+}
+
 /// Chunk component that will be attached to chunk entities
 #[derive(Component, Debug)]
 pub struct Chunk {
     pub position: ChunkPosition,
     pub data: ChunkData,
+    pub biome_data: ChunkBiomeData,
     pub is_generated: bool,
     pub needs_mesh_update: bool,
 }
@@ -127,6 +172,7 @@ impl Chunk {
         Self {
             position,
             data: ChunkData::new(),
+            biome_data: ChunkBiomeData::new(),
             is_generated: false,
             needs_mesh_update: true,
         }

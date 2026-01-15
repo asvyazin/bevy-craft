@@ -105,6 +105,13 @@ pub fn generate_chunk_heightmap(
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             let (temperature, moisture) = generate_alkyd_biome_info(world_x as f32, world_z as f32, alkyd_settings);
+            
+            // Determine biome type for this position
+            let biome_type = determine_biome_type(temperature, moisture, height);
+            
+            // Store biome data in chunk
+            chunk.biome_data.set_biome_data(local_x, local_z, temperature, moisture, biome_type);
+            
             generate_terrain_column_with_biome(chunk, local_x, local_z, height, temperature, moisture);
         }
     }
