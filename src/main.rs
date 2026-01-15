@@ -19,6 +19,8 @@ use texture_gen::{TextureGenSettings, generate_procedural_textures, initialize_b
 
 mod alkyd_integration;
 mod alkyd_world_gen;
+mod alkyd_gpu_shaders;
+mod alkyd_buffer_management;
 
 
 
@@ -47,6 +49,7 @@ fn main() {
     // Add plugins and initialize resources
     app.add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
+        .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add Alkyd plugin for GPU compute shaders
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<AlkydWorldGenSettings>() // Initialize Alkyd world generation settings
@@ -59,6 +62,12 @@ fn main() {
     
     // Setup Alkyd integration before adding systems
     alkyd_integration::setup_alkyd_integration(&mut app);
+    
+    // Setup Alkyd GPU integration for actual GPU compute shaders
+    alkyd_gpu_shaders::setup_alkyd_gpu_integration(&mut app);
+    
+    // Setup Alkyd buffer management for efficient GPU resource handling
+    alkyd_buffer_management::setup_alkyd_buffer_management(&mut app);
     
     app
         .add_systems(Startup, setup)
