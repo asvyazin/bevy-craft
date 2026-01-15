@@ -73,6 +73,7 @@ fn main() {
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
         .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
+        .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
         .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
@@ -103,15 +104,16 @@ fn setup(
             ..default()
         }, Transform::from_xyz(4.0, 8.0, 4.0)));
 
-    // Generate some chunks for demonstration
-    generate_demo_chunks(&mut commands, &mut chunk_manager);
+    // Generate initial chunks around spawn point for dynamic loading system
+    generate_initial_chunks(&mut commands, &mut chunk_manager);
 }
 
-/// Generate demo chunks for testing the chunk system
-fn generate_demo_chunks(commands: &mut Commands, chunk_manager: &mut ChunkManager) {
-    println!("🌍 Generating demo chunks...");
+/// Generate initial chunks around spawn point for dynamic loading system
+fn generate_initial_chunks(commands: &mut Commands, chunk_manager: &mut ChunkManager) {
+    println!("🌍 Generating initial chunks around spawn point...");
     
-    // Generate a few chunks around the origin
+    // Generate initial chunks around the origin (spawn point)
+    // This creates a buffer so the player starts with some terrain
     for x in -1..=1 {
         for z in -1..=1 {
             let chunk_pos = ChunkPosition::new(x, z);
@@ -120,11 +122,11 @@ fn generate_demo_chunks(commands: &mut Commands, chunk_manager: &mut ChunkManage
             // Register the chunk in the manager
             chunk_manager.loaded_chunks.insert(chunk_pos, chunk_entity);
             
-            println!("🌱 Spawned chunk at ({}, {}) - waiting for terrain generation", x, z);
+            println!("🌱 Spawned initial chunk at ({}, {}) - waiting for terrain generation", x, z);
         }
     }
     
-    println!("🎮 Chunks created, terrain generation will be handled by the world generation system");
+    println!("🎮 Initial chunks created, dynamic chunk loading system will handle additional chunks");
 }
 
 /// System to initialize chunk mesh materials
@@ -246,4 +248,61 @@ fn spawn_player_safe(
     commands.spawn(player::Player::new(safe_spawn_position))
         .insert((Mesh3d(player_mesh), MeshMaterial3d(player_material)))
         .insert(Collider::player());
+}
+
+/// System for dynamic chunk loading based on player position
+fn dynamic_chunk_loading_system(
+    mut commands: Commands,
+    player_query: Query<&Transform, With<player::Player>>,
+    mut chunk_manager: ResMut<ChunkManager>,
+    chunks: Query<Entity, With<Chunk>>,
+) {
+    // Get player position
+    if let Ok(player_transform) = player_query.get_single() {
+        let player_position = player_transform.translation;
+        let player_chunk_pos = ChunkPosition::from_block_position(IVec3::new(
+            player_position.x as i32,
+            player_position.y as i32,
+            player_position.z as i32
+        ));
+        
+        // Only log player position occasionally to reduce spam
+        println!("🎮 Player is at chunk position ({}, {})", player_chunk_pos.x, player_chunk_pos.z);
+        
+        // Calculate the loading boundary (render distance)
+        let loading_boundary = chunk_manager.render_distance;
+        
+        // Check if player is near the edge of loaded chunks
+        let mut chunks_loaded = 0;
+        const MAX_CHUNKS_PER_FRAME: usize = 2; // Limit chunks loaded per frame for performance
+        
+        // Check all directions within render distance
+        for dx in -loading_boundary..=loading_boundary {
+            for dz in -loading_boundary..=loading_boundary {
+                let chunk_pos = ChunkPosition::new(player_chunk_pos.x + dx, player_chunk_pos.z + dz);
+                
+                // Check if this chunk should be loaded but isn't
+                if chunk_manager.should_load_chunk(chunk_pos, player_chunk_pos) {
+                    if !chunk_manager.loaded_chunks.contains_key(&chunk_pos) {
+                        println!("🌱 Loading new chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
+                        
+                        // Spawn the new chunk
+                        let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
+                        chunk_manager.loaded_chunks.insert(chunk_pos, chunk_entity);
+                        chunks_loaded += 1;
+                        
+                        // Stop if we've loaded enough chunks for this frame
+                        if chunks_loaded >= MAX_CHUNKS_PER_FRAME {
+                            println!("🔄 Reached chunk loading limit for this frame");
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if chunks_loaded > 0 {
+            println!("🔄 Loaded {} new chunks", chunks_loaded);
+        }
+    }
 }

@@ -75,6 +75,26 @@ pub fn generate_chunk_heightmap(
         for local_z in 0..CHUNK_SIZE {
             let height = raw_heights[local_x as usize][local_z as usize] as i32;
             
+            // Check for big differences with neighbors (for debugging)
+            if local_x > 0 {
+                let left_diff = (height - raw_heights[local_x as usize - 1][local_z as usize] as i32).abs();
+                if left_diff > 5 {
+                    let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
+                    let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
+                    println!("BIG X difference: {} at ({}, {}) vs ({}, {})", 
+                             left_diff, world_x, world_z, world_x - 1, world_z);
+                }
+            }
+            if local_z > 0 {
+                let back_diff = (height - raw_heights[local_x as usize][local_z as usize - 1] as i32).abs();
+                if back_diff > 5 {
+                    let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
+                    let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
+                    println!("BIG Z difference: {} at ({}, {}) vs ({}, {})", 
+                             back_diff, world_x, world_z, world_x, world_z - 1);
+                }
+            }
+            
             // Track height statistics
             min_height = min_height.min(height);
             max_height = max_height.max(height);
@@ -100,52 +120,6 @@ pub fn generate_chunk_heightmap(
     chunk.is_generated = true;
     chunk.needs_mesh_update = true;
     println!("✓ Completed Alkyd terrain generation for chunk ({}, {})", chunk_x, chunk_z);
-}
-
-/// Apply chunk boundary smoothing to reduce seams between chunks
-fn apply_chunk_boundary_smoothing(raw_heights: &[[f32; CHUNK_SIZE as usize]; CHUNK_SIZE as usize], chunk_x: i32, chunk_z: i32) -> [[f32; CHUNK_SIZE as usize]; CHUNK_SIZE as usize] {
-    let mut smoothed_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
-    
-    // Copy raw heights first
-    for x in 0..CHUNK_SIZE {
-        for z in 0..CHUNK_SIZE {
-            smoothed_heights[x as usize][z as usize] = raw_heights[x as usize][z as usize];
-        }
-    }
-    
-    // Apply boundary smoothing - smooth the edges of the chunk to reduce seams
-    const SMOOTHING_RADIUS: usize = 3; // Increased from 2 to 3 blocks from each edge
-    const SMOOTHING_STRENGTH: f32 = 0.5; // Increased from 0.3 to 0.5 for stronger smoothing
-    
-    for x in 0..CHUNK_SIZE {
-        for z in 0..CHUNK_SIZE {
-            // Check if this is a boundary pixel
-            if x < SMOOTHING_RADIUS || x >= CHUNK_SIZE - SMOOTHING_RADIUS ||
-               z < SMOOTHING_RADIUS || z >= CHUNK_SIZE - SMOOTHING_RADIUS {
-                
-                // Apply stronger smoothing by averaging with more neighbors
-                let mut sum = 0.0;
-                let mut count = 0;
-                
-                // Use 3x3 neighborhood for better smoothing
-                for dx in -1..=1 {
-                    for dz in -1..=1 {
-                        let nx = (x as i32 + dx).clamp(0, CHUNK_SIZE as i32 - 1) as usize;
-                        let nz = (z as i32 + dz).clamp(0, CHUNK_SIZE as i32 - 1) as usize;
-                        sum += raw_heights[nx][nz];
-                        count += 1;
-                    }
-                }
-                
-                // Blend the smoothed value with the original to preserve some detail
-                let smoothed_value = sum / count as f32;
-                smoothed_heights[x as usize][z as usize] = 
-                    raw_heights[x as usize][z as usize] * (1.0 - SMOOTHING_STRENGTH) + smoothed_value * SMOOTHING_STRENGTH;
-            }
-        }
-    }
-    
-    smoothed_heights
 }
 
 /// Generate fractal noise (multiple octaves) for more natural terrain
