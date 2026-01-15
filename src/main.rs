@@ -265,6 +265,7 @@ fn dynamic_chunk_loading_system(
     player_query: Query<&Transform, With<player::Player>>,
     mut chunk_manager: ResMut<ChunkManager>,
     chunks: Query<Entity, With<Chunk>>,
+    time: Res<Time>,
 ) {
     // Get player position
     if let Ok(player_transform) = player_query.get_single() {
@@ -276,7 +277,9 @@ fn dynamic_chunk_loading_system(
         ));
         
         // Only log player position occasionally to reduce spam
-        println!("🎮 Player is at chunk position ({}, {})", player_chunk_pos.x, player_chunk_pos.z);
+        if time.elapsed_secs_f64() % 5.0 < 0.1 {
+            println!("🎮 Player is at chunk position ({}, {})", player_chunk_pos.x, player_chunk_pos.z);
+        }
         
         // Calculate the loading boundary (render distance)
         let loading_boundary = chunk_manager.render_distance;

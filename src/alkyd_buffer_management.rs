@@ -5,6 +5,10 @@ use bevy::prelude::*;
 use bevy::render::render_resource::BufferUsages;
 use std::collections::HashMap;
 
+// Import our local modules for system ordering
+use crate::alkyd_integration;
+use crate::alkyd_gpu_shaders;
+
 // Placeholder for GPU buffer data
 #[derive(Debug, Clone)]
 struct GpuBufferData {
@@ -206,7 +210,19 @@ pub fn monitor_alkyd_memory_usage(
 pub fn create_alkyd_gpu_buffers(
     mut buffer_manager: ResMut<AlkydBufferManager>,
     enhanced_textures: Res<crate::alkyd_integration::EnhancedBlockTextures>,
+    alkyd_gpu: Res<crate::alkyd_gpu_shaders::AlkydGpuShaders>,
 ) {
+    // Only create buffers if we have both textures and GPU acceleration is available
+    if enhanced_textures.textures.is_empty() {
+        println!("ℹ️  No enhanced textures available yet, skipping GPU buffer creation");
+        return;
+    }
+    
+    if !alkyd_gpu.gpu_acceleration_enabled || !alkyd_gpu.shaders_loaded {
+        println!("ℹ️  GPU acceleration not available, skipping GPU buffer creation");
+        return;
+    }
+    
     println!("🎨 Creating Alkyd GPU buffers for texture generation...");
     
     // Create buffers for all available textures
@@ -238,9 +254,12 @@ pub fn create_alkyd_gpu_buffers(
 pub fn cleanup_alkyd_buffers(
     mut buffer_manager: ResMut<AlkydBufferManager>,
 ) {
-    println!("🧹 Cleaning up Alkyd GPU buffers...");
-    buffer_manager.cleanup_all_buffers();
-    println!("✓ Alkyd GPU buffers cleaned up");
+    let stats = buffer_manager.get_memory_stats();
+    if stats.buffer_count > 0 {
+        println!("🧹 Cleaning up Alkyd GPU buffers...");
+        buffer_manager.cleanup_all_buffers();
+        println!("✓ Alkyd GPU buffers cleaned up");
+    }
 }
 
 /// System to setup Alkyd buffer management in the app
@@ -249,7 +268,10 @@ pub fn setup_alkyd_buffer_management(app: &mut App) {
     app
         .init_resource::<AlkydBufferManager>()
         .add_systems(Startup, initialize_alkyd_buffer_manager)
-        .add_systems(Startup, create_alkyd_gpu_buffers.after(initialize_alkyd_buffer_manager))
+        .add_systems(Startup, create_alkyd_gpu_buffers
+            .after(alkyd_integration::generate_all_block_textures)
+            .after(alkyd_gpu_shaders::generate_all_block_gpu_textures)
+        )
         .add_systems(Update, monitor_alkyd_memory_usage)
         .add_systems(Last, cleanup_alkyd_buffers);
 }
