@@ -333,6 +333,7 @@ dependencies = [
  "alkyd",
  "bevy",
  "bevy_compute_noise",
+ "bevy_easy_compute",
 ]
 
 [[package]]

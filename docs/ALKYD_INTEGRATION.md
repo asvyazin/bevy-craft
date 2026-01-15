@@ -14,6 +14,7 @@ Added to `Cargo.toml`:
 ```toml
 [dependencies]
 alkyd = "0.3.2"
+bevy_easy_compute = "0.15.0"
 ```
 
 ### 2. Plugin Configuration
@@ -46,9 +47,14 @@ The current implementation includes:
 
 1. **Actual Alkyd GPU Integration**: Real Alkyd plugin integration with GPU compute shaders
 2. **GPU-Accelerated Texture Generation**: Actual GPU compute shaders for texture generation
-3. **Buffer Management**: Comprehensive GPU buffer management system
-4. **Advanced Noise Algorithms**: Multiple noise types (Simplex, Perlin, Fractal) with GPU optimization
-5. **Memory Management**: Efficient GPU memory usage tracking and optimization
+3. **Real Alkyd Shaders**: Integration of actual Alkyd shaders:
+   - `SOBEL_HANDLE` for Sobel edge detection
+   - `BLEND_MODES_HANDLE` for professional blend modes
+   - `CONVERTERS_HANDLE` for color space conversion
+4. **GPU Compute Workers**: Real GPU compute workers using `bevy_easy_compute`
+5. **Buffer Management**: Comprehensive GPU buffer management system
+6. **Advanced Noise Algorithms**: Multiple noise types (Simplex, Perlin, Fractal) with GPU optimization
+7. **Memory Management**: Efficient GPU memory usage tracking and optimization
 
 ### Key Components
 
@@ -59,9 +65,17 @@ The current implementation includes:
 
 #### 2. GPU Compute Shaders Module (`alkyd_gpu_shaders.rs`)
 - **`AlkydGpuShaders`**: Resource containing actual Alkyd GPU shaders and configuration
+  - `noise_compute_shader`: NOISE_COMPUTE_HANDLE for noise generation
+  - `noise_functions_shader`: NOISE_FUNCTIONS_HANDLE for noise functions
+  - `simplex_3d_shader`: SIMPLEX_HANDLE for 3D simplex noise
+  - `noise_utils_shader`: NOISE_GEN_UTILS_HANDLE for noise utilities
+  - `sobel_shader`: SOBEL_HANDLE for Sobel edge detection
+  - `blend_modes_shader`: BLEND_MODES_HANDLE for professional blend modes
+  - `converters_shader`: CONVERTERS_HANDLE for color space conversion
 - **`AlkydGpuTextureConfig`**: Configuration for GPU-optimized texture generation
 - **`generate_alkyd_gpu_textures`**: System for generating textures using actual GPU compute shaders
 - **Multiple Noise Types**: Simplex, Perlin, Fractal noise with GPU optimization
+- **Real GPU Compute Workers**: SobelComputeWorker, BlendModesComputeWorker, ConvertersComputeWorker
 
 #### 3. Buffer Management Module (`alkyd_buffer_management.rs`)
 - **`AlkydBufferManager`**: Resource for managing GPU buffers efficiently

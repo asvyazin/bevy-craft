@@ -11,7 +11,7 @@ use crate::biome_textures::BiomeTextureParams;
 
 /// LRU Cache entry for biome textures
 #[derive(Debug, Clone)]
-struct BiomeTextureCacheEntry {
+pub struct BiomeTextureCacheEntry {
     pub texture_handle: Handle<Image>,
     pub config: crate::alkyd_integration::AlkydTextureConfig,
     pub last_used: std::time::Instant,
