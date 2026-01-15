@@ -132,6 +132,37 @@ impl ChunkMeshMaterials {
     pub fn get_material(&self, block_type: BlockType) -> Option<Handle<StandardMaterial>> {
         self.materials.get(&block_type).cloned()
     }
+    
+    /// Get biome-specific material handle for a block type and biome parameters
+    pub fn get_biome_material(
+        &self,
+        block_type: BlockType,
+        biome_params: &crate::biome_textures::BiomeTextureParams,
+        enhanced_textures: &Res<EnhancedBlockTextures>,
+        materials: &mut ResMut<Assets<StandardMaterial>>,
+    ) -> Option<Handle<StandardMaterial>> {
+        // Generate a unique key for this biome+block combination
+        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        
+        // Check if we already have a material for this biome+block combination
+        if let Some(existing_material) = self.materials.get(&block_type) {
+            return Some(existing_material.clone());
+        }
+        
+        // Try to get biome-specific texture
+        if let Some(biome_texture) = enhanced_textures.biome_textures.get(&texture_key) {
+            let biome_material = materials.add(StandardMaterial {
+                base_color: Color::WHITE,
+                base_color_texture: Some(biome_texture.clone()),
+                ..default()
+            });
+            println!("🎨 Created biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
+            return Some(biome_material);
+        }
+        
+        // Fallback to regular material
+        self.get_material(block_type)
+    }
 }
 
 /// Check which faces of a block should be visible
@@ -484,7 +515,7 @@ fn get_block_face_uv(
     y: usize,
     enhanced_textures: &Res<EnhancedBlockTextures>,
 ) -> (f32, f32, f32, f32) {
-    // If biome textures are available, try to use biome-specific textures
+    // Enhanced biome-based texture selection logic with detailed debugging
     if texture_atlas.has_procedural_textures() {
         if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
             let biome_params = crate::biome_textures::BiomeTextureParams::new(
@@ -494,22 +525,38 @@ fn get_block_face_uv(
                 &biome_data.biome_type,
             );
             
+            // Generate texture key for debugging
+            let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
+            
+            // Debug: Show biome parameters for this block
+            println!("🔍 Biome texture selection for {:?} at ({}, {}, {}) - Biome: {}, Temp: {:.2}, Moist: {:.2}, Height: {}",
+                     block_type, local_x, y, local_z, biome_data.biome_type, biome_data.temperature, biome_data.moisture, y);
+            
+            // Try to get biome-specific texture first
             if texture_atlas.get_biome_texture(block_type, &biome_params, enhanced_textures).is_some() {
-                println!("🎨 Using biome-specific texture for {:?} at biome {} (temp: {:.2}, moist: {:.2}, height: {})",
-                         block_type, biome_data.biome_type, biome_data.temperature, biome_data.moisture, y);
+                println!("✓ Using biome-specific texture for {:?} - Key: {}", block_type, texture_key);
                 // For biome-specific procedural textures, use the entire texture space
                 return (0.0, 0.0, 1.0, 1.0);
+            } else {
+                println!("⚠️  No biome-specific texture found for {:?} - Key: {}", block_type, texture_key);
             }
-        }
-        
-        // Fallback to regular procedural textures
-        if texture_atlas.get_procedural_texture(block_type).is_some() {
-            println!("🎨 Using regular procedural texture for {:?}", block_type);
-            // For procedural textures, use the entire texture space
-            return (0.0, 0.0, 1.0, 1.0);
+            
+            // If biome-specific texture not found, try regular procedural texture
+            if texture_atlas.get_procedural_texture(block_type).is_some() {
+                println!("ℹ Using regular procedural texture for {:?}", block_type);
+                // For procedural textures, use the entire texture space
+                return (0.0, 0.0, 1.0, 1.0);
+            } else {
+                println!("⚠️  No procedural texture found for {:?}", block_type);
+            }
+        } else {
+            println!("⚠️  No biome data available at ({}, {}, {})", local_x, y, local_z);
         }
     }
     
-    // For atlas textures, use the original UV mapping
-    texture_atlas.get_uv(block_type, face)
+    // For atlas textures, use the original UV mapping with face-specific coordinates
+    let uv = texture_atlas.get_uv(block_type, face);
+    println!("ℹ Using atlas texture for {:?} - Face: {:?}, UV: ({:.2}, {:.2}, {:.2}, {:.2})",
+             block_type, face, uv.0, uv.1, uv.2, uv.3);
+    uv
 }

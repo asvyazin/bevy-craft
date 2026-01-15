@@ -205,26 +205,38 @@ pub fn apply_biome_parameters_to_config(
         }
     }
     
-    // Apply height effects
+    // Apply height effects with smooth blending
     if biome_config.height_effect > 0.0 {
         let height_factor = biome_params.relative_height * biome_config.height_effect;
         
+        // Smooth height-based blending for natural transitions
+        let smooth_height_factor = height_factor.powi(2); // Quadratic blending for smoother transitions
+        
         // Higher elevations tend to be lighter and more rocky
-        let lightness_factor = 0.1 + height_factor * 0.3;
+        let lightness_factor = 0.1 + smooth_height_factor * 0.3;
         modified_config.base_color[0] = (config.base_color[0] * lightness_factor).min(1.0);
         modified_config.base_color[1] = (config.base_color[1] * lightness_factor).min(1.0);
         modified_config.base_color[2] = (config.base_color[2] * lightness_factor).min(1.0);
         
         // Increase noise scale for higher elevations (more rocky texture)
-        modified_config.noise_scale = config.noise_scale * (1.0 + height_factor * 0.5);
+        modified_config.noise_scale = config.noise_scale * (1.0 + smooth_height_factor * 0.5);
         
         // Increase color variation for more natural look
-        modified_config.color_variation = config.color_variation * (1.0 + height_factor * 0.3);
+        modified_config.color_variation = config.color_variation * (1.0 + smooth_height_factor * 0.3);
+        
+        // Add height-based texture blending for smooth transitions
+        modified_config.enable_color_blending = true;
+        modified_config.blend_mode = "soft_light".to_string();
+        // blend_strength would be used for more advanced blending
     }
     
-    // Adjust noise parameters based on biome
+    // Adjust noise parameters based on biome with smooth transitions
     modified_config.noise_scale = config.noise_scale * (1.0 + biome_params.relative_height * 0.2);
     modified_config.color_variation = config.color_variation * (1.0 + biome_params.temperature * 0.1);
+    
+    // Add smooth transitions between biomes
+    modified_config.enable_edge_detection = true;
+    // edge_smoothness would be used for more advanced edge detection
     
     modified_config
 }
