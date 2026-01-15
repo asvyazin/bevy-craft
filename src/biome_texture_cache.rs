@@ -46,12 +46,12 @@ pub struct BiomeTextureCacheConfig {
 impl Default for BiomeTextureCacheConfig {
     fn default() -> Self {
         Self {
-            max_textures: 512,
-            max_memory_mb: 512,
+            max_textures: 1024,  // Increased for better coverage
+            max_memory_mb: 1024, // Increased memory limit
             enable_lru_eviction: true,
             enable_similarity_reuse: true,
-            similarity_threshold: 0.95,
-            log_cache_operations: true,
+            similarity_threshold: 0.85,  // Lowered threshold for better matching
+            log_cache_operations: false, // Reduced logging for production
         }
     }
 }
@@ -117,7 +117,8 @@ impl BiomeTextureCache {
                 self.stats.cache_hits += 1;  // Count similarity match as cache hit
                 self.stats.cache_misses -= 1; // Adjust cache miss count
                 
-                if self.config.log_cache_operations {
+                // Reduce logging spam - only log similarity reuse in debug mode
+                if self.config.log_cache_operations && self.config.enable_lru_eviction {
                     println!("🔄 Reusing similar biome texture for: {}", texture_key);
                 }
                 

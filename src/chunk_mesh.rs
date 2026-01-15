@@ -145,7 +145,8 @@ impl ChunkMeshMaterials {
     ) -> Option<Handle<StandardMaterial>> {
         // Generate a unique key for this biome+block combination
         let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
-        println!("🔑 Requesting texture for key: {}", texture_key);
+        // Debug logging - comment out for production to reduce spam
+        // println!("🔑 Requesting texture for key: {}", texture_key);
         
         // Check if we already have a material for this biome+block combination
         if let Some(existing_material) = self.materials.get(&block_type) {
@@ -173,7 +174,8 @@ impl ChunkMeshMaterials {
             base_color_texture: Some(texture_handle.clone()),
             ..default()
         });
-        println!("📊 Created biome-specific material for {:?} at biome {} with key {}", block_type, biome_params.biome_type, texture_key);
+        // Reduce logging spam - only log when actually creating new materials
+        // println!("📊 Created biome-specific material for {:?} at biome {} with key {}", block_type, biome_params.biome_type, texture_key);
         return Some(biome_material);
         
         // Try to get biome-specific texture from legacy enhanced textures

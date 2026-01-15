@@ -213,11 +213,29 @@ fn generate_chunk_meshes(
                 use std::collections::HashMap;
                 let mut biome_material_cache: HashMap<String, Handle<StandardMaterial>> = HashMap::new();
                 
+                // Track which biomes we've already processed to avoid duplicates
+                let mut processed_biomes: HashMap<String, bool> = HashMap::new();
+                
                 for local_x in 0..crate::chunk::CHUNK_SIZE {
                     for local_z in 0..crate::chunk::CHUNK_SIZE {
                         if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
-                            // Generate biome parameters once per biome column (not per block)
-                            // Use representative height based on biome type to match startup cache keys
+                            // Create a unique biome identifier to avoid processing the same biome multiple times
+                            // Round temperature and moisture to reduce unique biome variations
+                            let rounded_temp = (biome_data.temperature * 10.0).round() / 10.0;
+                            let rounded_moisture = (biome_data.moisture * 10.0).round() / 10.0;
+                            let biome_identifier = format!("{}-{:.1}-{:.1}", 
+                                biome_data.biome_type, 
+                                rounded_temp, 
+                                rounded_moisture);
+                            
+                            // Skip if we've already processed this biome in this chunk
+                            if processed_biomes.contains_key(&biome_identifier) {
+                                continue;
+                            }
+                            
+                            processed_biomes.insert(biome_identifier, true);
+                            
+                            // Generate biome parameters once per unique biome
                             let representative_height = match biome_data.biome_type.as_str() {
                                 "desert" => 15,
                                 "forest" => 25,
@@ -259,7 +277,8 @@ fn generate_chunk_meshes(
                                     // Store biome-specific material in chunk cache
                                     biome_material_cache.insert(texture_key, biome_material.clone());
                                     chunk_mesh.material_handles.insert(block_type, biome_material);
-                                    println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
+                                    // Reduce logging spam
+                                    // println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
                                 }
                             }
                         }
