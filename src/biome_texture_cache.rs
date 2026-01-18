@@ -13,7 +13,7 @@ use crate::biome_textures::BiomeTextureParams;
 #[derive(Debug, Clone)]
 pub struct BiomeTextureCacheEntry {
     pub texture_handle: Handle<Image>,
-    pub config: crate::alkyd_integration::AlkydTextureConfig,
+    pub config: crate::noise::NoiseSettings,
     pub last_used: std::time::Instant,
     pub access_count: u32,
     pub size_bytes: usize,  // Estimated memory size
@@ -83,7 +83,7 @@ impl BiomeTextureCache {
 
     /// Get a texture from cache or generate if missing
     pub fn get_or_generate<
-        F: FnOnce(&BiomeTextureParams) -> (Handle<Image>, crate::alkyd_integration::AlkydTextureConfig),
+        F: FnOnce(&BiomeTextureParams) -> (Handle<Image>, crate::noise::NoiseSettings),
     >(
         &mut self,
         block_type: &BlockType,
@@ -138,7 +138,7 @@ impl BiomeTextureCache {
         let (texture_handle, config) = generate_fn(biome_params);
         
         // Estimate texture size (128x128 RGBA = 128*128*4 bytes)
-        let texture_size = (config.texture_size.x * config.texture_size.y * 4) as usize;
+        let texture_size = 128 * 128 * 4; // Fixed size for now
         
         // Add to cache
         self.add_to_cache(texture_key.clone(), texture_handle.clone(), config, texture_size);
@@ -153,7 +153,7 @@ impl BiomeTextureCache {
         &mut self,
         key: String,
         texture_handle: Handle<Image>,
-        config: crate::alkyd_integration::AlkydTextureConfig,
+        config: crate::noise::NoiseSettings,
         size_bytes: usize,
     ) {
         let entry = BiomeTextureCacheEntry {

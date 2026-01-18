@@ -1,12 +1,11 @@
 // World generation module for Bevy Craft
-// This module handles procedural world generation using Perlin noise
+// This module handles procedural world generation using noise algorithms
 
 use bevy::prelude::*;
 
 use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use crate::block::BlockType;
-use crate::alkyd_world_gen::{AlkydWorldGenSettings, generate_alkyd_heightmap, generate_alkyd_biome_info};
-use crate::alkyd_integration::AlkydResources;
+use crate::noise::{NoiseSettings, generate_heightmap, generate_biome_info};
 
 /// World generation settings
 #[derive(Resource, Debug)]
@@ -17,7 +16,7 @@ pub struct WorldGenSettings {
     pub octaves: usize,
     pub persistence: f32,
     pub lacunarity: f32,
-    pub perlin_seed: u32,
+    pub biome_scale: f32,
 }
 
 impl Default for WorldGenSettings {
@@ -29,27 +28,41 @@ impl Default for WorldGenSettings {
             octaves: 10,         // Many octaves for detailed terrain
             persistence: 0.3,    // Low persistence for extreme variation
             lacunarity: 2.3,     // Higher lacunarity for more detail
-            perlin_seed: 42,
+            biome_scale: 0.005,  // Scale for biome generation
         }
     }
 }
 
-/// Generate heightmap for a chunk using Alkyd GPU-accelerated noise
+/// Convert WorldGenSettings to NoiseSettings for noise generation
+fn create_noise_settings(settings: &WorldGenSettings) -> NoiseSettings {
+    NoiseSettings {
+        base_height: settings.base_height,
+        height_scale: settings.height_scale,
+        scale: settings.frequency,
+        octaves: settings.octaves,
+        persistence: settings.persistence,
+        lacunarity: settings.lacunarity,
+        biome_scale: settings.biome_scale,
+    }
+}
+
+/// Generate heightmap for a chunk using noise algorithms
 pub fn generate_chunk_heightmap(
     chunk: &mut Chunk,
     settings: &WorldGenSettings,
-    alkyd_settings: &AlkydWorldGenSettings,
-    alkyd_resources: &AlkydResources,
 ) {
     let chunk_x = chunk.position.x;
     let chunk_z = chunk.position.z;
     
-    println!("🌱 Generating terrain for chunk ({}, {}) with Alkyd GPU acceleration", chunk_x, chunk_z);
+    println!("🌱 Generating terrain for chunk ({}, {}) with noise algorithms", chunk_x, chunk_z);
     
     let mut min_height = i32::MAX;
     let mut max_height = i32::MIN;
     let mut total_height = 0;
     let mut height_count = 0;
+    
+    // Create noise settings from world generation settings
+    let noise_settings = create_noise_settings(settings);
     
     // Generate heights using simple, deterministic approach with world coordinates
     let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
@@ -61,11 +74,10 @@ pub fn generate_chunk_heightmap(
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
             
             // Generate noise using world coordinates - should be deterministic
-            raw_heights[local_x as usize][local_z as usize] = generate_alkyd_heightmap(
+            raw_heights[local_x as usize][local_z as usize] = generate_heightmap(
                 world_x as f32,
                 world_z as f32,
-                alkyd_settings,
-                alkyd_resources,
+                &noise_settings,
             );
         }
     }
@@ -104,7 +116,7 @@ pub fn generate_chunk_heightmap(
             // Generate terrain column with biome information
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
-            let (temperature, moisture) = generate_alkyd_biome_info(world_x as f32, world_z as f32, alkyd_settings);
+            let (temperature, moisture) = generate_biome_info(world_x as f32, world_z as f32, &noise_settings);
             
             // Determine biome type for this position
             let biome_type = determine_biome_type(temperature, moisture, height);
@@ -121,8 +133,7 @@ pub fn generate_chunk_heightmap(
     
     println!("📊 Terrain stats for chunk ({}, {}): min={}, max={}, avg={:.1}, range={}", 
              chunk_x, chunk_z, min_height, max_height, average_height, height_range);
-    println!("🚀 Using Alkyd GPU-accelerated noise generation with {} octaves and {} noise type", 
-             alkyd_settings.octaves, alkyd_settings.noise_type);
+    println!("🚀 Using noise generation with {} octaves", noise_settings.octaves);
     
     chunk.is_generated = true;
     chunk.needs_mesh_update = true;
@@ -142,7 +153,7 @@ fn generate_fractal_noise(
     
     for _ in 0..settings.octaves {
         // Generate noise for this octave using simple CPU Perlin noise
-        let noise_value = cpu_perlin_noise(x * frequency, z * frequency, settings.perlin_seed);
+        let noise_value = cpu_perlin_noise(x * frequency, z * frequency, 42); // Use fixed seed for now
         
         // Apply amplitude and add to total
         total += noise_value * amplitude;
@@ -550,12 +561,10 @@ fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize,
     }
 }
 
-/// System to generate chunks that need generation using Alkyd GPU-accelerated noise
+/// System to generate chunks that need generation using noise algorithms
 pub fn generate_chunks_system(
     mut chunks: Query<&mut Chunk>,
     settings: Res<WorldGenSettings>,
-    alkyd_settings: Res<AlkydWorldGenSettings>,
-    alkyd_resources: Res<AlkydResources>,
 ) {
     // Limit the number of chunks generated per frame to prevent performance issues
     let mut chunks_generated = 0;
@@ -563,7 +572,7 @@ pub fn generate_chunks_system(
     
     for mut chunk in &mut chunks {
         if !chunk.is_generated {
-            generate_chunk_heightmap(&mut chunk, &settings, &alkyd_settings, &alkyd_resources);
+            generate_chunk_heightmap(&mut chunk, &settings);
             chunks_generated += 1;
             
             // Stop if we've generated enough chunks for this frame

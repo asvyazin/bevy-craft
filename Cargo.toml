@@ -6,8 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = "0.15"
 bevy_compute_noise = "0.4"
-alkyd = "0.3.2"
-bevy_easy_compute = "0.15.0"
+
 tokio = { version = "1.0", features = ["full"] }
 futures = "0.3"
 crossbeam-channel = "0.5"

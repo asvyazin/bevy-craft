@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::block::BlockType;
 use crate::texture_gen::BlockTextures;
-use crate::alkyd_integration::EnhancedBlockTextures;
+
 
 /// Enum representing different faces of a block
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -154,51 +154,15 @@ impl TextureAtlas {
         &self.texture_handle
     }
     
-    /// Load procedural textures from BlockTextures or EnhancedBlockTextures resource
+    /// Load procedural textures from BlockTextures resource
     pub fn load_procedural_textures(
         &mut self,
         block_textures: &Res<BlockTextures>,
-        enhanced_textures: Option<&Res<EnhancedBlockTextures>>,
     ) {
         println!("🎨 Loading procedural textures into texture atlas...");
         
-        // First try to use EnhancedBlockTextures if available (alkyd-generated)
-        if let Some(enhanced) = enhanced_textures {
-            if !enhanced.textures.is_empty() {
-                println!("✓ Using enhanced alkyd-generated textures");
-                
-                // Map block type names to BlockType enum
-                let block_type_mapping = [
-                    ("stone", BlockType::Stone),
-                    ("dirt", BlockType::Dirt),
-                    ("grass", BlockType::Grass),
-                    ("wood", BlockType::Wood),
-                    ("sand", BlockType::Sand),
-                    ("water", BlockType::Water),
-                    ("bedrock", BlockType::Bedrock),
-                    ("leaves", BlockType::Leaves),
-                ];
-                
-                for (name, block_type) in block_type_mapping {
-                    if let Some(texture_handle) = enhanced.textures.get(name) {
-                        self.procedural_textures.insert(block_type, texture_handle.clone());
-                        println!("  ✓ Loaded enhanced alkyd texture for {:?}", block_type);
-                    } else {
-                        println!("  ⚠️  No enhanced alkyd texture found for: {}", name);
-                    }
-                }
-                
-                self.has_procedural_textures = !self.procedural_textures.is_empty();
-                
-                if self.has_procedural_textures {
-                    println!("✓ Enhanced alkyd textures loaded successfully");
-                    return;
-                }
-            }
-        }
-        
-        // Fallback to BlockTextures if EnhancedBlockTextures not available
-        println!("ℹ Falling back to BlockTextures (enhanced alkyd textures not available)");
+        // Use standard BlockTextures
+        println!("ℹ Using standard BlockTextures");
         
         // Check if there are any textures in BlockTextures
         if block_textures.textures.is_empty() {
@@ -254,13 +218,12 @@ impl TextureAtlas {
         &self,
         block_type: BlockType,
         biome_params: &crate::biome_textures::BiomeTextureParams,
-        enhanced_textures: &Res<EnhancedBlockTextures>,
     ) -> Option<Handle<Image>> {
         // Generate the texture key for this biome+block combination
         let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
         
         // Try to find the biome-specific texture
-        enhanced_textures.biome_textures.get(&texture_key).cloned()
+        None
     }
     
     /// Check if procedural textures are available
@@ -282,7 +245,6 @@ pub fn initialize_texture_atlas(
 pub fn load_procedural_textures_into_atlas(
     mut texture_atlas: ResMut<TextureAtlas>,
     block_textures: Res<BlockTextures>,
-    enhanced_textures: Option<Res<EnhancedBlockTextures>>,
 ) {
-    texture_atlas.load_procedural_textures(&block_textures, enhanced_textures.as_ref());
+    texture_atlas.load_procedural_textures(&block_textures);
 }

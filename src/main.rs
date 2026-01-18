@@ -17,10 +17,7 @@ use texture_atlas::{TextureAtlas, initialize_texture_atlas, load_procedural_text
 mod texture_gen;
 use texture_gen::{TextureGenSettings, generate_procedural_textures, initialize_block_textures, BlockTextures, regenerate_dynamic_textures};
 
-mod alkyd_integration;
-mod alkyd_world_gen;
-mod alkyd_gpu_shaders;
-mod alkyd_buffer_management;
+mod noise;
 mod test_sophisticated_algorithms;
 
 mod biome_textures;
@@ -29,8 +26,7 @@ mod biome_texture_cache;
 mod world_gen;
 mod player;
 use world_gen::{WorldGenSettings, generate_chunks_system};
-use alkyd_world_gen::{AlkydWorldGenSettings, initialize_alkyd_world_gen};
-use crate::alkyd_integration::EnhancedBlockTextures;
+use crate::noise::NoiseSettings;
 use player::PlayerMovementSettings;
 
 mod camera;
@@ -52,10 +48,9 @@ fn main() {
     // Add plugins and initialize resources
     app.add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
-        .add_plugins(alkyd::AlkydPlugin { debug: false }) // Add Alkyd plugin for GPU compute shaders
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
-        .init_resource::<AlkydWorldGenSettings>() // Initialize Alkyd world generation settings
+        .init_resource::<NoiseSettings>() // Initialize noise settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
@@ -63,21 +58,11 @@ fn main() {
         .init_resource::<BlockTextures>() // Initialize block textures resource
         ;
     
-    // Setup Alkyd integration before adding systems
-    alkyd_integration::setup_alkyd_integration(&mut app);
-    
-    // Setup Alkyd GPU integration for actual GPU compute shaders
-    alkyd_gpu_shaders::setup_alkyd_gpu_integration(&mut app);
-    
-    // Setup Alkyd buffer management for efficient GPU resource handling
-    alkyd_buffer_management::setup_alkyd_buffer_management(&mut app);
-    
     app
         .add_systems(Startup, setup)
         .add_systems(Startup, spawn_game_camera)
-        .add_systems(Startup, initialize_alkyd_world_gen) // Initialize Alkyd world generation
         .add_systems(Startup, initialize_texture_atlas)
-        .add_systems(Startup, initialize_block_textures.after(alkyd_integration::generate_all_block_textures)) // Use alkyd textures
+        .add_systems(Startup, initialize_block_textures) // Use standard textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
@@ -85,8 +70,7 @@ fn main() {
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
-        .add_systems(Update, alkyd_integration::generate_alkyd_textures) // Add alkyd texture generation
-        .add_systems(Update, alkyd_integration::generate_missing_biome_textures_with_cache) // Add on-demand biome texture generation with caching
+
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
@@ -164,7 +148,7 @@ fn generate_chunk_meshes(
     all_chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
     texture_atlas: Res<TextureAtlas>,
-    enhanced_textures: Res<EnhancedBlockTextures>,
+
     biome_cache: Res<crate::biome_texture_cache::SharedBiomeTextureCache>,
 ) {
     for (chunk_entity, chunk) in &chunks {
@@ -179,7 +163,6 @@ fn generate_chunk_meshes(
                 &all_chunks,
                 &texture_atlas,
                 chunk,
-                &enhanced_textures,
             );
             let mesh_handle = meshes.add(mesh);
             
@@ -245,10 +228,11 @@ fn generate_chunk_meshes(
                             };
                             
                             let biome_params = crate::biome_textures::BiomeTextureParams::new(
+                                biome_data.biome_type.clone(),
                                 biome_data.temperature,
                                 biome_data.moisture,
-                                representative_height,
-                                &biome_data.biome_type,
+                                representative_height as f32,
+                                representative_height as f32 / 100.0, // Use fixed max height for now
                             );
                             
                             // Check all block types that should have biome textures
@@ -266,7 +250,7 @@ fn generate_chunk_meshes(
                                 if let Some(biome_material) = mesh_materials.get_biome_material(
                                     block_type, 
                                     &biome_params,
-                                    &enhanced_textures,
+
                                     &biome_cache,
                                     &mut materials
                                 ) {

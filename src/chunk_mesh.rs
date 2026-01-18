@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use crate::block::BlockType;
 use crate::chunk::{Chunk, ChunkData, ChunkPosition, ChunkManager};
 use crate::texture_atlas::{TextureAtlas, BlockFace};
-use crate::alkyd_integration::EnhancedBlockTextures;
+
 use crate::biome_texture_cache::SharedBiomeTextureCache;
 
 /// Component that stores the mesh data for a chunk
@@ -139,7 +139,6 @@ impl ChunkMeshMaterials {
         &self,
         block_type: BlockType,
         biome_params: &crate::biome_textures::BiomeTextureParams,
-        enhanced_textures: &Res<EnhancedBlockTextures>,
         biome_cache: &Res<SharedBiomeTextureCache>,
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) -> Option<Handle<StandardMaterial>> {
@@ -159,14 +158,9 @@ impl ChunkMeshMaterials {
         // Use the full get_or_generate method which includes similarity matching
         let texture_handle = cache.get_or_generate(&block_type, biome_params, |params| {
             // If cache miss and no similar texture found, fall back to enhanced textures
-            if let Some(biome_texture) = enhanced_textures.biome_textures.get(&texture_key) {
-                println!("🎨 Using enhanced texture for {:?} at biome {}", block_type, biome_params.biome_type);
-                return (biome_texture.clone(), crate::alkyd_integration::AlkydTextureConfig::default());
-            }
-            
             // If no texture available at all, use default material
             println!("⚠️  No texture available for {:?} at biome {}", block_type, biome_params.biome_type);
-            (Handle::default(), crate::alkyd_integration::AlkydTextureConfig::default())
+            (Handle::default(), crate::noise::NoiseSettings::default())
         });
         
         let biome_material = materials.add(StandardMaterial {
@@ -179,15 +173,7 @@ impl ChunkMeshMaterials {
         return Some(biome_material);
         
         // Try to get biome-specific texture from legacy enhanced textures
-        if let Some(biome_texture) = enhanced_textures.biome_textures.get(&texture_key) {
-            let biome_material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                base_color_texture: Some(biome_texture.clone()),
-                ..default()
-            });
-            println!("🎨 Created biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
-            return Some(biome_material);
-        }
+
         
         // Fallback to regular material
         self.get_material(block_type)
@@ -329,7 +315,6 @@ pub fn generate_chunk_mesh(
     chunks: &Query<&crate::chunk::Chunk>,
     texture_atlas: &TextureAtlas,
     chunk: &Chunk,
-    enhanced_textures: &Res<EnhancedBlockTextures>,
 ) -> Mesh {
     let mut mesh = Mesh::new(
         bevy::render::mesh::PrimitiveTopology::TriangleList,
@@ -366,7 +351,6 @@ pub fn generate_chunk_mesh(
                                 block_type,
                                 texture_atlas,
                                 chunk,
-                                enhanced_textures,
                             );
                         }
                     }
@@ -399,7 +383,6 @@ fn add_block_mesh(
     block_type: BlockType,
     texture_atlas: &TextureAtlas,
     chunk: &Chunk,
-    enhanced_textures: &Res<EnhancedBlockTextures>,
 ) {
     let base_index = positions.len() as u32;
     let mut current_index = base_index;
@@ -413,7 +396,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
             [local_x as f32, y as f32 + 1.0, z],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, 1.0], uv);
         current_index += 4;
     }
@@ -427,7 +410,7 @@ fn add_block_mesh(
             [local_x as f32, y as f32 + 1.0, z],
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, -1.0], uv);
         current_index += 4;
     }
@@ -441,7 +424,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32],
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
         add_face(positions, normals, uvs, indices, current_index, vertices, [1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -455,7 +438,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
             [x, y as f32 + 1.0, local_z as f32],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
         add_face(positions, normals, uvs, indices, current_index, vertices, [-1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -469,7 +452,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_top, local_z as f32],
             [local_x as f32, y_top, local_z as f32],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Top, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Top, texture_atlas, chunk, local_x, local_z, y, );
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 1.0, 0.0], uv);
         current_index += 4;
     }
@@ -483,7 +466,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_bottom, local_z as f32 + 1.0],
             [local_x as f32, y_bottom, local_z as f32 + 1.0],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Bottom, texture_atlas, chunk, local_x, local_z, y, enhanced_textures);
+        let uv = get_block_face_uv(block_type, BlockFace::Bottom, texture_atlas, chunk, local_x, local_z, y, );
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, -1.0, 0.0], uv);
     }
 }
@@ -542,16 +525,16 @@ fn get_block_face_uv(
     local_x: usize,
     local_z: usize,
     y: usize,
-    enhanced_textures: &Res<EnhancedBlockTextures>,
 ) -> (f32, f32, f32, f32) {
     // Enhanced biome-based texture selection logic with detailed debugging
     if texture_atlas.has_procedural_textures() {
         if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
             let biome_params = crate::biome_textures::BiomeTextureParams::new(
+                biome_data.biome_type.clone(),
                 biome_data.temperature,
                 biome_data.moisture,
-                y as i32,
-                &biome_data.biome_type,
+                y as f32,
+                y as f32 / 100.0, // Use fixed max height for now
             );
             
             // Generate texture key for debugging
@@ -562,7 +545,7 @@ fn get_block_face_uv(
                      block_type, local_x, y, local_z, biome_data.biome_type, biome_data.temperature, biome_data.moisture, y);
             
             // Try to get biome-specific texture first
-            if texture_atlas.get_biome_texture(block_type, &biome_params, enhanced_textures).is_some() {
+            if texture_atlas.get_biome_texture(block_type, &biome_params).is_some() {
                 println!("✓ Using biome-specific texture for {:?} - Key: {}", block_type, texture_key);
                 // For biome-specific procedural textures, use the entire texture space
                 return (0.0, 0.0, 1.0, 1.0);
