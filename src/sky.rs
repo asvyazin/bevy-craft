@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ecs::system::ParamSet;
 
 /// Component for the skybox entity
 #[derive(Component)]
@@ -125,14 +126,16 @@ pub fn update_sky_color(
 /// System to update sun and moon positions based on time of day
 pub fn update_sun_and_moon_positions(
     time: Res<crate::time::GameTime>,
-    mut sun_query: Query<&mut Transform, With<Sun>>,
-    mut moon_query: Query<&mut Transform, With<Moon>>,
+    mut transforms: ParamSet<(
+        Query<&mut Transform, With<Sun>>,
+        Query<&mut Transform, With<Moon>>,
+    )>,
 ) {
     // Calculate sun angle based on time of day
     let sun_angle = time.sun_angle_radians();
     
     // Update sun position
-    if let Ok(mut sun_transform) = sun_query.get_single_mut() {
+    if let Ok(mut sun_transform) = transforms.p0().get_single_mut() {
         let sun_position = calculate_celestial_position(sun_angle, 900.0);
         sun_transform.translation = sun_position;
     }
@@ -141,7 +144,7 @@ pub fn update_sun_and_moon_positions(
     let moon_angle = time.moon_angle_radians();
     
     // Update moon position
-    if let Ok(mut moon_transform) = moon_query.get_single_mut() {
+    if let Ok(mut moon_transform) = transforms.p1().get_single_mut() {
         let moon_position = calculate_celestial_position(moon_angle, 900.0);
         moon_transform.translation = moon_position;
     }
