@@ -17,7 +17,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use std::collections::HashMap;
 
 use crate::block::BlockType;
-use crate::chunk::{Chunk, ChunkData, ChunkPosition, ChunkManager};
+use crate::chunk::Chunk;
 use crate::texture_atlas::{TextureAtlas, BlockFace};
 
 use crate::biome_texture_cache::SharedBiomeTextureCache;
@@ -143,7 +143,7 @@ impl ChunkMeshMaterials {
         materials: &mut ResMut<Assets<StandardMaterial>>,
     ) -> Option<Handle<StandardMaterial>> {
         // Generate a unique key for this biome+block combination
-        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        let _texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
         // Debug logging - comment out for production to reduce spam
         // println!("🔑 Requesting texture for key: {}", texture_key);
         
@@ -156,7 +156,7 @@ impl ChunkMeshMaterials {
         let mut cache = biome_cache.cache.lock().unwrap();
         
         // Use the full get_or_generate method which includes similarity matching
-        let texture_handle = cache.get_or_generate(&block_type, biome_params, |params| {
+        let texture_handle = cache.get_or_generate(&block_type, biome_params, |_params| {
             // If cache miss and no similar texture found, fall back to enhanced textures
             // If no texture available at all, use default material
             println!("⚠️  No texture available for {:?} at biome {}", block_type, biome_params.biome_type);
@@ -170,13 +170,7 @@ impl ChunkMeshMaterials {
         });
         // Reduce logging spam - only log when actually creating new materials
         // println!("📊 Created biome-specific material for {:?} at biome {} with key {}", block_type, biome_params.biome_type, texture_key);
-        return Some(biome_material);
-        
-        // Try to get biome-specific texture from legacy enhanced textures
-
-        
-        // Fallback to regular material
-        self.get_material(block_type)
+        Some(biome_material)
     }
 }
 

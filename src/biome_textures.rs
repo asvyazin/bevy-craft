@@ -1,7 +1,7 @@
 // Biome-based texture parameterization system
 // This module handles texture variations based on biome and height parameters
 
-use bevy::prelude::*;
+
 use crate::block::BlockType;
 use crate::noise::NoiseSettings;
 

@@ -34,14 +34,14 @@ impl BlockType {
     pub fn color(&self) -> Color {
         match self {
             BlockType::Air => Color::NONE,
-            BlockType::Dirt => Color::rgb(0.5, 0.3, 0.2),
-            BlockType::Stone => Color::rgb(0.7, 0.7, 0.7),
-            BlockType::Grass => Color::rgb(0.2, 0.8, 0.2),
-            BlockType::Wood => Color::rgb(0.6, 0.4, 0.2),
-            BlockType::Leaves => Color::rgb(0.1, 0.7, 0.1),
-            BlockType::Sand => Color::rgb(0.9, 0.8, 0.5),
-            BlockType::Water => Color::rgb(0.1, 0.1, 0.9),
-            BlockType::Bedrock => Color::rgb(0.3, 0.3, 0.3),
+            BlockType::Dirt => Color::srgb(0.5, 0.3, 0.2),
+            BlockType::Stone => Color::srgb(0.7, 0.7, 0.7),
+            BlockType::Grass => Color::srgb(0.2, 0.8, 0.2),
+            BlockType::Wood => Color::srgb(0.6, 0.4, 0.2),
+            BlockType::Leaves => Color::srgb(0.1, 0.7, 0.1),
+            BlockType::Sand => Color::srgb(0.9, 0.8, 0.5),
+            BlockType::Water => Color::srgb(0.1, 0.1, 0.9),
+            BlockType::Bedrock => Color::srgb(0.3, 0.3, 0.3),
         }
     }
 

@@ -23,7 +23,7 @@ impl Player {
                 gravity: 20.0,
             },
             CollisionState::default(),
-            TransformBundle::from_transform(Transform::from_translation(spawn_position)),
+            Transform::from_translation(spawn_position),
         )
     }
 }

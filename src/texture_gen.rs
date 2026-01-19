@@ -283,14 +283,11 @@ pub fn spawn_procedural_texture_demo(
     
     // Spawn a quad to display the procedural texture
     commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(settings.texture_size.x as f32, settings.texture_size.y as f32)),
-                ..default()
-            },
-            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+        Sprite {
+            custom_size: Some(Vec2::new(settings.texture_size.x as f32, settings.texture_size.y as f32)),
             ..default()
         },
+        Transform::from_xyz(0.0, 0.0, 1.0),
         ProceduralTexture, // Mark this entity for procedural texture generation
     ));
 }
