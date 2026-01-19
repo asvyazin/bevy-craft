@@ -39,7 +39,10 @@ mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
 mod sky;
-use sky::spawn_skybox;
+use sky::{spawn_skybox, spawn_sun_and_moon, update_sky_color, update_sun_and_moon_positions};
+
+mod time;
+use time::{GameTime, update_game_time, display_game_time};
 
 fn main() {
     // Create the app first
@@ -57,6 +60,7 @@ fn main() {
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .init_resource::<BlockTextures>() // Initialize block textures resource
         .init_resource::<crate::biome_texture_cache::SharedBiomeTextureCache>() // Initialize biome texture cache
+        .init_resource::<GameTime>() // Initialize game time for day/night cycle
         ;
     
     app
@@ -67,10 +71,15 @@ fn main() {
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
+        .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
         .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
+        .add_systems(Update, update_game_time) // Add game time update system
+        .add_systems(Update, display_game_time) // Add game time display system
+        .add_systems(Update, update_sky_color) // Add sky color update system
+        .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
 
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
