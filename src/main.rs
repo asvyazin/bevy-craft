@@ -56,6 +56,7 @@ fn main() {
         .init_resource::<TextureAtlas>() // Initialize texture atlas
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .init_resource::<BlockTextures>() // Initialize block textures resource
+        .init_resource::<crate::biome_texture_cache::SharedBiomeTextureCache>() // Initialize biome texture cache
         ;
     
     app
