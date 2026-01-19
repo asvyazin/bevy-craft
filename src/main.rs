@@ -39,7 +39,7 @@ mod collision;
 use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 
 mod sky;
-use sky::{spawn_skybox, spawn_sun_and_moon, update_sky_color, update_sun_and_moon_positions};
+use sky::{spawn_skybox, spawn_sun_and_moon, update_sky_color, update_sun_and_moon_positions, update_atmospheric_scattering, AtmosphericScatteringParams};
 
 mod time;
 use time::{GameTime, update_game_time, display_game_time};
@@ -61,6 +61,7 @@ fn main() {
         .init_resource::<BlockTextures>() // Initialize block textures resource
         .init_resource::<crate::biome_texture_cache::SharedBiomeTextureCache>() // Initialize biome texture cache
         .init_resource::<GameTime>() // Initialize game time for day/night cycle
+        .init_resource::<AtmosphericScatteringParams>() // Initialize atmospheric scattering parameters
         ;
     
     app
@@ -78,7 +79,8 @@ fn main() {
         .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
         .add_systems(Update, update_game_time) // Add game time update system
         .add_systems(Update, display_game_time) // Add game time display system
-        .add_systems(Update, update_sky_color) // Add sky color update system
+        .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
+        .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
 
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system

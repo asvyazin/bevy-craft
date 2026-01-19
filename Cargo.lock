@@ -321,6 +321,7 @@ dependencies = [
  "bevy",
  "bevy_compute_noise",
  "crossbeam-channel",
+ "encase",
  "futures",
  "tokio",
 ]

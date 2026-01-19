@@ -1,14 +1,129 @@
 use bevy::prelude::*;
 use bevy::ecs::system::ParamSet;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::reflect::TypePath;
+use encase::ShaderType;
 
 /// Component for the skybox entity
 #[derive(Component)]
 pub struct Skybox;
 
+/// Component to identify entities with atmospheric scattering materials
+#[derive(Component)]
+pub struct AtmosphericScatteringEntity {
+    pub material_handle: Handle<AtmosphericScatteringMaterial>,
+}
+
 /// Component to store the skybox material handle for color updates
 #[derive(Component)]
 pub struct SkyboxMaterial {
     pub handle: Handle<StandardMaterial>,
+}
+
+/// Atmospheric scattering parameters for realistic sky rendering
+#[derive(Resource, Clone, Debug)]
+pub struct AtmosphericScatteringParams {
+    // Rayleigh scattering parameters (molecular scattering - creates blue sky)
+    pub rayleigh_coefficient: Vec3,
+    pub rayleigh_scale_height: f32,
+    
+    // Mie scattering parameters (particle scattering - creates haze, sun halos)
+    pub mie_coefficient: Vec3,
+    pub mie_scale_height: f32,
+    pub mie_phase_g: f32,
+    
+    // Sun parameters
+    pub sun_intensity: f32,
+    pub sun_angular_radius: f32,
+    
+    // Atmosphere parameters
+    pub planet_radius: f32,
+    pub atmosphere_radius: f32,
+}
+
+impl Default for AtmosphericScatteringParams {
+    fn default() -> Self {
+        Self {
+            // Rayleigh scattering coefficients (blue > green > red)
+            rayleigh_coefficient: Vec3::new(0.002, 0.005, 0.01),
+            rayleigh_scale_height: 8000.0,
+            
+            // Mie scattering coefficients (more uniform)
+            mie_coefficient: Vec3::new(0.001, 0.001, 0.001),
+            mie_scale_height: 1200.0,
+            mie_phase_g: 0.76, // Asymmetry factor for Mie scattering
+            
+            // Sun parameters
+            sun_intensity: 20.0,
+            sun_angular_radius: 0.01, // About 0.5 degrees
+            
+            // Atmosphere parameters (Earth-like)
+            planet_radius: 6360000.0, // Earth radius in meters
+            atmosphere_radius: 6460000.0, // Atmosphere radius in meters
+        }
+    }
+}
+
+/// Uniform structure for atmospheric scattering shader
+#[derive(Clone, ShaderType)]
+pub struct AtmosphericScatteringUniform {
+    // Rayleigh scattering parameters
+    rayleigh_coefficient: Vec3,
+    rayleigh_scale_height: f32,
+    
+    // Mie scattering parameters
+    mie_coefficient: Vec3,
+    mie_scale_height: f32,
+    mie_phase_g: f32,
+    
+    // Sun parameters
+    sun_intensity: f32,
+    sun_angular_radius: f32,
+    
+    // Atmosphere parameters
+    planet_radius: f32,
+    atmosphere_radius: f32,
+    
+    // Time of day parameters
+    sun_direction: Vec3,
+    
+    // Camera position
+    camera_position: Vec3,
+    
+    // Padding
+    _padding: f32,
+}
+
+impl From<&AtmosphericScatteringParams> for AtmosphericScatteringUniform {
+    fn from(params: &AtmosphericScatteringParams) -> Self {
+        Self {
+            rayleigh_coefficient: params.rayleigh_coefficient,
+            rayleigh_scale_height: params.rayleigh_scale_height,
+            mie_coefficient: params.mie_coefficient,
+            mie_scale_height: params.mie_scale_height,
+            mie_phase_g: params.mie_phase_g,
+            sun_intensity: params.sun_intensity,
+            sun_angular_radius: params.sun_angular_radius,
+            planet_radius: params.planet_radius,
+            atmosphere_radius: params.atmosphere_radius,
+            sun_direction: Vec3::ZERO, // Will be updated dynamically
+            camera_position: Vec3::ZERO, // Will be updated dynamically
+            _padding: 0.0,
+        }
+    }
+}
+
+/// Custom material for atmospheric scattering skybox
+#[derive(AsBindGroup, Asset, TypePath, Clone)]
+pub struct AtmosphericScatteringMaterial {
+    #[uniform(0)]
+    pub atmospheric_uniform: AtmosphericScatteringUniform,
+}
+
+impl Material for AtmosphericScatteringMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/atmospheric_scattering.wgsl".into()
+    }
 }
 
 /// Component for the sun entity
@@ -20,12 +135,16 @@ pub struct Sun;
 pub struct Moon;
 
 /// System to spawn the skybox
-pub fn spawn_skybox(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    // Create skybox material with realistic sky colors
-    let sky_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.4, 0.7, 0.9), // Base sky color
-        unlit: true, // Sky should not be affected by lighting
-        ..default()
+pub fn spawn_skybox(
+    mut commands: Commands, 
+    mut meshes: ResMut<Assets<Mesh>>, 
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut atmospheric_materials: ResMut<Assets<AtmosphericScatteringMaterial>>,
+    atmospheric_params: Res<AtmosphericScatteringParams>,
+) {
+    // Create atmospheric scattering material
+    let atmospheric_material = atmospheric_materials.add(AtmosphericScatteringMaterial {
+        atmospheric_uniform: atmospheric_params.as_ref().into(),
     });
 
     // Create a proper sphere mesh for the skybox
@@ -36,10 +155,12 @@ pub fn spawn_skybox(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mu
 
     commands.spawn((
         Mesh3d(sky_mesh),
-        MeshMaterial3d(sky_material.clone()),
-        SkyboxMaterial { handle: sky_material.clone() },
-        Transform::from_translation(Vec3::ZERO),
+        MeshMaterial3d(atmospheric_material.clone()),
         Skybox,
+        AtmosphericScatteringEntity {
+            material_handle: atmospheric_material,
+        },
+        Transform::from_translation(Vec3::ZERO),
     ));
 }
 
@@ -103,7 +224,59 @@ fn calculate_celestial_position(angle: f32, distance: f32) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-/// System to update sky color based on time of day
+/// System to update atmospheric scattering parameters based on time of day
+pub fn update_atmospheric_scattering(
+    time: Res<crate::time::GameTime>,
+    mut atmospheric_materials: ResMut<Assets<AtmosphericScatteringMaterial>>,
+    query: Query<&AtmosphericScatteringEntity>,
+    cameras: Query<&Transform, With<Camera>>,
+) {
+    // Get camera position for atmospheric scattering calculations
+    let camera_position = cameras.single().translation;
+    
+    // Calculate sun direction based on time of day
+    let sun_angle = time.sun_angle_radians();
+    let sun_direction = Vec3::new(sun_angle.sin(), sun_angle.cos(), 0.0);
+    
+    // Update all atmospheric scattering materials
+    for entity in &query {
+        if let Some(material) = atmospheric_materials.get_mut(&entity.material_handle) {
+            // Update sun direction and camera position in the uniform
+            material.atmospheric_uniform.sun_direction = sun_direction;
+            material.atmospheric_uniform.camera_position = camera_position;
+            
+            // Adjust scattering parameters based on time of day
+            let time_of_day = time.time_of_day_normalized();
+            
+            // Daytime has more scattering, nighttime has less
+            let scattering_intensity = if time.is_day() { 1.0 } else { 0.3 };
+            
+            material.atmospheric_uniform.rayleigh_coefficient *= scattering_intensity;
+            material.atmospheric_uniform.mie_coefficient *= scattering_intensity;
+            
+            // Adjust sun intensity based on time of day
+            let sun_intensity = if time.is_day() { 
+                20.0 * (1.0 - (time_of_day - 0.5).abs() * 2.0).max(0.1) // Brighter at noon
+            } else {
+                2.0 // Dimmer at night (moonlight)
+            };
+            
+            material.atmospheric_uniform.sun_intensity = sun_intensity;
+            
+            // Log atmospheric scattering parameters for debugging (every 10 seconds)
+            if time.current_time % 10.0 < 0.1 {
+                println!("🌤️  Atmospheric Scattering Update:");
+                println!("   Sun Direction: {:?}", sun_direction);
+                println!("   Sun Intensity: {}", sun_intensity);
+                println!("   Rayleigh Coefficient: {:?}", material.atmospheric_uniform.rayleigh_coefficient);
+                println!("   Mie Coefficient: {:?}", material.atmospheric_uniform.mie_coefficient);
+                println!("   Time of Day: {} ({})", time.format_time(), if time.is_day() { "Day" } else { "Night" });
+            }
+        }
+    }
+}
+
+/// System to update sky color based on time of day (legacy system, kept for compatibility)
 pub fn update_sky_color(
     time: Res<crate::time::GameTime>,
     mut sky_query: Query<&SkyboxMaterial>,
