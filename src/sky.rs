@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::math::primitives::Cuboid;
 
 /// Component for the skybox entity
 #[derive(Component)]
@@ -14,11 +13,11 @@ pub fn spawn_skybox(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mu
         ..default()
     });
 
-    // Create a large cube mesh for the skybox (temporary solution)
-    // This will be replaced with a proper sphere once we find the right Bevy primitive
-    let sky_mesh = meshes.add(Mesh::from(Cuboid {
-        half_size: Vec3::new(1000.0, 1000.0, 1000.0),  // Very large size to ensure it's always visible
-    }));
+    // Create a proper sphere mesh for the skybox
+    // Using a high-resolution sphere for smooth appearance
+    let sky_mesh = meshes.add(Mesh::try_from(bevy::prelude::Sphere {
+        radius: 1000.0,
+    }).unwrap());
 
     commands.spawn((
         Mesh3d(sky_mesh),
