@@ -109,7 +109,13 @@ fn fragment_main(in: FragmentInput) -> @location(0) vec4<f32> {
     // Render each cloud layer
     for (var i: i32 = 0; i < 4; i = i + 1) {
         if (cloud_uniform.layer_densities[i] > 0.0) {
-            let layer_direction = vec2<f32>(cloud_uniform.layer_direction_x[i], cloud_uniform.layer_direction_y[i]);
+            // Unpack directions from Vec4
+            let layer_direction = match(i) {
+                0 => vec2<f32>(cloud_uniform.layer_directions.x, cloud_uniform.layer_directions.y),
+                1 => vec2<f32>(cloud_uniform.layer_directions.z, cloud_uniform.layer_directions.w),
+                2 => vec2<f32>(cloud_uniform.layer_directions2.x, cloud_uniform.layer_directions2.y),
+                _ => vec2<f32>(cloud_uniform.layer_directions2.z, cloud_uniform.layer_directions2.w),
+            };
             let layer_color = render_clouds(
                 uv,
                 cloud_uniform.layer_altitudes[i],

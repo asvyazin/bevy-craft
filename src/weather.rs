@@ -301,16 +301,15 @@ impl Default for WeatherEffects {
 /// Uniform structure for cloud shader
 #[derive(Clone, ShaderType)]
 pub struct CloudUniform {
-    // Cloud layer parameters (grouped for better alignment)
-    layer_altitudes: [f32; 4],
-    layer_scales: [f32; 4],
-    layer_densities: [f32; 4],
-    layer_speeds: [f32; 4],
+    // Cloud layer parameters using Vec4 for guaranteed 16-byte alignment
+    layer_altitudes: Vec4,
+    layer_scales: Vec4,
+    layer_densities: Vec4,
+    layer_speeds: Vec4,
     
-    // Layer directions as separate components for proper alignment
-    layer_direction_x: [f32; 4],
-    layer_direction_y: [f32; 4],
-    _padding1: [f32; 2], // Pad to 16-byte alignment
+    // Layer directions as Vec4 for proper alignment
+    layer_directions: Vec4, // xyzw where x=layer0_x, y=layer0_y, z=layer1_x, w=layer1_y
+    layer_directions2: Vec4, // xyzw where x=layer2_x, y=layer2_y, z=layer3_x, w=layer3_y
     
     // Global cloud parameters
     global_coverage: f32,
@@ -319,47 +318,35 @@ pub struct CloudUniform {
     animation_speed: f32,
     
     // Camera and lighting parameters
-    camera_position: Vec3,
-    _padding2: f32, // Pad Vec3 to 16 bytes
-    sun_direction: Vec3,
-    _padding3: f32, // Pad Vec3 to 16 bytes
+    camera_position: Vec4, // Vec3 + padding
+    sun_direction: Vec4, // Vec3 + padding
     
     // Weather parameters
     weather_type: u32,
     precipitation_intensity: f32,
-    _padding4: [f32; 2], // Pad to 16 bytes
-    
-    wind_direction: Vec3,
-    _padding5: f32, // Pad Vec3 to 16 bytes
+    wind_direction: Vec4, // Vec3 + padding
     wind_speed: f32,
-    _padding6: [f32; 3], // Final padding
 }
 
 impl Default for CloudUniform {
     fn default() -> Self {
         Self {
-            layer_altitudes: [0.0; 4],
-            layer_scales: [0.0; 4],
-            layer_densities: [0.0; 4],
-            layer_speeds: [0.0; 4],
-            layer_direction_x: [0.0; 4],
-            layer_direction_y: [0.0; 4],
-            _padding1: [0.0; 2],
+            layer_altitudes: Vec4::ZERO,
+            layer_scales: Vec4::ZERO,
+            layer_densities: Vec4::ZERO,
+            layer_speeds: Vec4::ZERO,
+            layer_directions: Vec4::ZERO,
+            layer_directions2: Vec4::ZERO,
             global_coverage: 0.5,
             global_density: 0.5,
             animation_time: 0.0,
             animation_speed: 0.001,
-            camera_position: Vec3::ZERO,
-            _padding2: 0.0,
-            sun_direction: Vec3::Y,
-            _padding3: 0.0,
+            camera_position: Vec4::new(0.0, 0.0, 0.0, 0.0),
+            sun_direction: Vec4::new(0.0, 1.0, 0.0, 0.0),
             weather_type: 0,
             precipitation_intensity: 0.0,
-            _padding4: [0.0; 2],
-            wind_direction: Vec3::X,
-            _padding5: 0.0,
+            wind_direction: Vec4::new(1.0, 0.0, 0.0, 0.0),
             wind_speed: 1.0,
-            _padding6: [0.0; 3],
         }
     }
 }
@@ -655,28 +642,72 @@ pub fn update_cloud_rendering(
     // Update cloud uniform with current weather and system data
     let mut cloud_uniform = CloudUniform::default();
     
-    // Set up cloud layers from the cloud system
+    // Set up cloud layers from the cloud system using Vec4 packing
+    let mut altitudes = Vec4::ZERO;
+    let mut scales = Vec4::ZERO;
+    let mut densities = Vec4::ZERO;
+    let mut speeds = Vec4::ZERO;
+    let mut directions = Vec4::ZERO;
+    let mut directions2 = Vec4::ZERO;
+    
     for (i, layer) in updated_cloud_system.layers.iter().enumerate() {
         if i < 4 {
-            cloud_uniform.layer_altitudes[i] = layer.altitude;
-            cloud_uniform.layer_scales[i] = layer.scale;
-            cloud_uniform.layer_densities[i] = layer.density;
-            cloud_uniform.layer_speeds[i] = layer.speed;
-            cloud_uniform.layer_direction_x[i] = layer.direction.x;
-            cloud_uniform.layer_direction_y[i] = layer.direction.y;
+            // Set individual components
+            match i {
+                0 => {
+                    altitudes.x = layer.altitude;
+                    scales.x = layer.scale;
+                    densities.x = layer.density;
+                    speeds.x = layer.speed;
+                    directions.x = layer.direction.x;
+                    directions.y = layer.direction.y;
+                }
+                1 => {
+                    altitudes.y = layer.altitude;
+                    scales.y = layer.scale;
+                    densities.y = layer.density;
+                    speeds.y = layer.speed;
+                    directions.z = layer.direction.x;
+                    directions.w = layer.direction.y;
+                }
+                2 => {
+                    altitudes.z = layer.altitude;
+                    scales.z = layer.scale;
+                    densities.z = layer.density;
+                    speeds.z = layer.speed;
+                    directions2.x = layer.direction.x;
+                    directions2.y = layer.direction.y;
+                }
+                3 => {
+                    altitudes.w = layer.altitude;
+                    scales.w = layer.scale;
+                    densities.w = layer.density;
+                    speeds.w = layer.speed;
+                    directions2.z = layer.direction.x;
+                    directions2.w = layer.direction.y;
+                }
+                _ => {}
+            }
         }
     }
+    
+    cloud_uniform.layer_altitudes = altitudes;
+    cloud_uniform.layer_scales = scales;
+    cloud_uniform.layer_densities = densities;
+    cloud_uniform.layer_speeds = speeds;
+    cloud_uniform.layer_directions = directions;
+    cloud_uniform.layer_directions2 = directions2;
     
     // Apply global weather effects
     cloud_uniform.global_coverage = weather_system.cloud_coverage;
     cloud_uniform.global_density = weather_system.cloud_density;
     cloud_uniform.animation_time = updated_cloud_system.animation_time;
     cloud_uniform.animation_speed = updated_cloud_system.animation_speed;
-    cloud_uniform.camera_position = camera_position;
-    cloud_uniform.sun_direction = sun_direction;
+    cloud_uniform.camera_position = camera_position.extend(0.0); // Convert Vec3 to Vec4
+    cloud_uniform.sun_direction = sun_direction.extend(0.0); // Convert Vec3 to Vec4
     cloud_uniform.weather_type = weather_system.target_weather as u32;
     cloud_uniform.precipitation_intensity = weather_system.precipitation_intensity;
-    cloud_uniform.wind_direction = weather_system.wind_direction;
+    cloud_uniform.wind_direction = weather_system.wind_direction.extend(0.0); // Convert Vec3 to Vec4
     cloud_uniform.wind_speed = weather_system.wind_speed;
     
     // Update all cloud materials
