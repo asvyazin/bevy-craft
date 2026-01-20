@@ -148,11 +148,6 @@ impl ChunkMeshMaterials {
         // Debug logging - comment out for production to reduce spam
         // println!("🔑 Requesting texture for key: {}", texture_key);
         
-        // Check if we already have a material for this biome+block combination
-        if let Some(existing_material) = self.materials.get(&block_type) {
-            return Some(existing_material.clone());
-        }
-        
         // Try to get biome-specific texture from cache first
         let mut cache = biome_cache.cache.lock().unwrap();
         
