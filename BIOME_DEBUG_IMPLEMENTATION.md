@@ -16,10 +16,10 @@ This document describes the implementation of the biome texture debugging and vi
 - **Texture Variation Visualization**: Shows colored cubes representing different biome texture variations
 - **Console Output**: Displays biome debug information every 3 seconds
 
-### 3. Helper Functions
-- **Biome Color Mapping**: `get_biome_color()` function for consistent biome coloring
-- **Biome Display Names**: `get_biome_display_name()` for user-friendly biome names
-- **String Utilities**: `StringTitleCase` trait for proper text formatting
+### 3. Optimization
+- **Removed Unused Code**: Cleaned up unused functions, enums, and struct fields
+- **Efficient Implementation**: Kept only essential functionality that is actually used
+- **Future-Proof Design**: Added comments for planned future features
 
 ### 4. Integration
 - **Main Game Loop**: All debug systems integrated into startup and update systems
@@ -67,18 +67,18 @@ pub struct BiomeDebugSettings {
     pub show_biome_boundaries: bool,
     pub show_texture_variations: bool,
     pub show_biome_parameters: bool,
-    pub show_cache_stats: bool,
-    pub boundary_mode: BiomeBoundaryMode,
-    pub texture_mode: BiomeTextureMode,
-    pub ui_position: BiomeDebugUIPosition,
     pub advanced_debug: bool,
+    // Future features (currently unused but planned)
+    // pub show_cache_stats: bool,
+    // pub boundary_mode: BiomeBoundaryMode,
+    // pub texture_mode: BiomeTextureMode,
+    // pub ui_position: BiomeDebugUIPosition,
 }
 ```
 
-#### Visualization Modes
-- **BiomeBoundaryMode**: Wireframe, Solid, Transparent, HeightMap
-- **BiomeTextureMode**: ColorGradient, ParameterOverlay, TextureAtlas, NormalMap
-- **BiomeDebugUIPosition**: TopLeft, TopRight, BottomLeft, BottomRight
+#### Visualization Components
+- **BiomeBoundaryVisualization**: Marker component for biome boundary entities
+- **BiomeTextureVisualization**: Marker component for biome texture variation entities
 
 ### Performance Considerations
 - Visualizations only run when debug modes are enabled
