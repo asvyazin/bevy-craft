@@ -842,7 +842,12 @@ pub fn spawn_weather_particles_dynamic(
 ) {
     // First, despawn existing particles to avoid accumulation
     for entity in &particle_query {
-        commands.entity(entity).despawn();
+        if let Some(mut entity_commands) = commands.get_entity(entity) {
+            // Double-check entity exists before despawning
+            if entity_commands.id() == entity {
+                entity_commands.despawn();
+            }
+        }
     }
     
     // Spawn particles based on current weather

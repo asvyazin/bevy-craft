@@ -184,10 +184,7 @@ pub fn visualize_biome_boundaries(
         let z = 0.0;
         
         commands.spawn((
-            SpatialBundle {
-                transform: Transform::from_xyz(x, y, z),
-                ..default()
-            },
+            Transform::from_xyz(x, y, z),
             Mesh3d(cube_mesh.clone()),
             MeshMaterial3d(material.clone()),
             BiomeBoundaryVisualization {},
@@ -242,10 +239,7 @@ pub fn visualize_biome_texture_variations(
         let z = 2.0;
         
         commands.spawn((
-            SpatialBundle {
-                transform: Transform::from_xyz(x, y, z),
-                ..default()
-            },
+            Transform::from_xyz(x, y, z),
             Mesh3d(cube_mesh.clone()),
             MeshMaterial3d(material.clone()),
             BiomeTextureVisualization {},

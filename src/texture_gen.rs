@@ -102,12 +102,16 @@ pub fn generate_procedural_textures(
         // Add the image to assets
         let image_handle = images.add(image);
         
-        // Add the image to the entity
-        commands.entity(entity).insert(EntityImageHandle {
-            handle: image_handle.clone(),
-        });
-        
-        println!("🎨 Generated procedural texture for entity {:?}", entity);
+        // Add the image to the entity with existence check
+        if let Some(mut entity_commands) = commands.get_entity(entity) {
+            // Double-check entity exists before inserting
+            if entity_commands.id() == entity {
+                entity_commands.insert(EntityImageHandle {
+                    handle: image_handle.clone(),
+                });
+                println!("🎨 Generated procedural texture for entity {:?}", entity);
+            }
+        }
     }
 }
 
@@ -247,13 +251,18 @@ pub fn regenerate_dynamic_textures(
             // Update the block textures resource
             block_textures.textures.insert(dynamic_texture.block_type.clone(), new_image_handle.clone());
             
-            // Update the entity with the new texture
-            commands.entity(entity).insert(EntityImageHandle {
-                handle: new_image_handle,
-            });
-            
-            // Mark as no longer needing regeneration
-            commands.entity(entity).remove::<DynamicTexture>();
+            // Update the entity with the new texture with existence check
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                // Double-check entity exists before updating
+                if entity_commands.id() == entity {
+                    entity_commands.insert(EntityImageHandle {
+                        handle: new_image_handle,
+                    });
+                    
+                    // Mark as no longer needing regeneration
+                    entity_commands.remove::<DynamicTexture>();
+                }
+            }
             
             println!("✓ Texture regenerated for {:?}", dynamic_texture.block_type);
         }

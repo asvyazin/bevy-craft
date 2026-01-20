@@ -130,6 +130,7 @@ impl Default for Inventory {
 }
 
 impl Inventory {
+    #[allow(dead_code)]
     pub fn new(inventory_size: usize, hotbar_size: usize, max_stack_size: u32) -> Self {
         Self {
             slots: vec![ItemStack::new(ItemType::Block(BlockType::Air), 0); inventory_size],
@@ -147,6 +148,7 @@ impl Inventory {
     }
 
     /// Get the currently selected item from the hotbar (mutable)
+    #[allow(dead_code)]
     pub fn get_selected_item_mut(&mut self) -> Option<&mut ItemStack> {
         self.hotbar_slots.get_mut(self.selected_hotbar_slot)
     }
@@ -248,6 +250,7 @@ impl Inventory {
     }
 
     /// Get the total count of a specific item type in the inventory
+    #[allow(dead_code)]
     pub fn get_item_count(&self, item_type: ItemType) -> u32 {
         let mut count = 0;
 
@@ -269,11 +272,13 @@ impl Inventory {
     }
 
     /// Check if the inventory contains at least the specified quantity of an item
+    #[allow(dead_code)]
     pub fn has_item(&self, item_type: ItemType, quantity: u32) -> bool {
         self.get_item_count(item_type) >= quantity
     }
 
     /// Clear a specific slot
+    #[allow(dead_code)]
     pub fn clear_slot(&mut self, slot_index: usize, is_hotbar: bool) {
         if is_hotbar && slot_index < self.hotbar_size {
             self.hotbar_slots[slot_index] = ItemStack::new(ItemType::Block(BlockType::Air), 0);
@@ -283,6 +288,7 @@ impl Inventory {
     }
 
     /// Swap items between two slots
+    #[allow(dead_code)]
     pub fn swap_slots(&mut self, slot1: usize, is_hotbar1: bool, slot2: usize, is_hotbar2: bool) {
         // Handle different combinations of slot types
         if is_hotbar1 && is_hotbar2 && slot1 < self.hotbar_size && slot2 < self.hotbar_size {
