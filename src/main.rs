@@ -55,7 +55,7 @@ mod inventory;
 use inventory::{Inventory, inventory_update_system, display_inventory_info, initialize_inventory};
 
 mod hotbar_ui;
-use hotbar_ui::{spawn_hotbar_ui, update_hotbar_ui, display_hotbar_info};
+use hotbar_ui::{spawn_hotbar_ui, update_hotbar_ui, display_hotbar_info, initialize_item_texture_atlas, update_hotbar_item_icons, render_hotbar_item_images, ItemTextureAtlas};
 
 fn main() {
     // Create the app first
@@ -80,6 +80,7 @@ fn main() {
         .init_resource::<BiomeDebugSettings>() // Initialize biome debug settings
         .init_resource::<BiomeDebugStats>() // Initialize biome debug statistics
         .init_resource::<Inventory>() // Initialize inventory system
+        .init_resource::<ItemTextureAtlas>() // Initialize item texture atlas
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
@@ -99,6 +100,7 @@ fn main() {
         .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
         .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
         .add_systems(Startup, initialize_inventory) // Initialize inventory with starting items
+        .add_systems(Startup, initialize_item_texture_atlas) // Initialize item texture atlas
         .add_systems(Startup, spawn_hotbar_ui) // Spawn hotbar UI
         .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
@@ -108,6 +110,8 @@ fn main() {
         .add_systems(Update, display_game_time) // Add game time display system
         .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
         .add_systems(Update, inventory_update_system) // Add inventory update system
+        .add_systems(Update, update_hotbar_item_icons) // Add hotbar item icons update system
+        .add_systems(Update, render_hotbar_item_images) // Add hotbar item images rendering system
         .add_systems(Update, update_hotbar_ui) // Add hotbar UI update system
         .add_systems(Update, display_hotbar_info) // Add hotbar info display system (fallback)
         .add_systems(Update, display_inventory_info) // Add inventory info display system
