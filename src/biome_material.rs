@@ -115,6 +115,7 @@ impl Default for BiomeMaterialProperties {
 /// Biome material configuration for different block types
 #[derive(Debug, Clone)]
 pub struct BiomeMaterialConfig {
+    #[allow(dead_code)]
     pub block_type: BlockType,
     pub base_properties: BiomeMaterialProperties,
     pub biome_effects: HashMap<String, BiomeMaterialProperties>, // Biome-specific overrides
@@ -179,6 +180,7 @@ impl BiomeMaterialConfig {
     }
     
     /// Add biome-specific material properties
+    #[allow(dead_code)]
     pub fn add_biome_effect(&mut self, biome_type: &str, properties: BiomeMaterialProperties) {
         self.biome_effects.insert(biome_type.to_string(), properties);
     }
@@ -212,7 +214,9 @@ impl BiomeMaterialConfig {
 #[derive(Debug, Clone)]
 pub struct BiomeMaterialCacheEntry {
     pub material_handle: Handle<BiomeMaterial>,
+    #[allow(dead_code)]
     pub texture_handle: Handle<Image>,
+    #[allow(dead_code)]
     pub biome_params: BiomeTextureParams,
     pub last_used: std::time::Instant,
     pub access_count: u32,
@@ -418,6 +422,7 @@ impl BiomeMaterialCache {
     }
     
     /// Print cache statistics
+    #[allow(dead_code)]
     pub fn print_stats(&self) {
         println!("📈 Biome Material Cache Statistics:");
         println!("  Total Requests: {}", self.stats.total_requests);
@@ -434,6 +439,7 @@ impl BiomeMaterialCache {
     }
     
     /// Clear cache
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.cache.clear();
         self.lru_queue.clear();

@@ -165,7 +165,7 @@ impl ChunkMeshMaterials {
         
         // Try to get biome-specific material from the enhanced biome material cache
         let mut material_cache = biome_material_cache.cache.lock().unwrap();
-        let biome_material_handle = material_cache.get_or_generate(
+        let _biome_material_handle = material_cache.get_or_generate(
             &block_type, 
             biome_params, 
             biome_materials, 
