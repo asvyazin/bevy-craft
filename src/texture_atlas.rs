@@ -218,12 +218,25 @@ impl TextureAtlas {
         &self,
         block_type: BlockType,
         biome_params: &crate::biome_textures::BiomeTextureParams,
+        biome_cache: &crate::biome_texture_cache::SharedBiomeTextureCache,
+        images: &mut ResMut<Assets<Image>>,
     ) -> Option<Handle<Image>> {
         // Generate the texture key for this biome+block combination
-        let _texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
         
-        // Try to find the biome-specific texture
-        None
+        // Try to get biome-specific texture from cache
+        let mut cache = biome_cache.cache.lock().unwrap();
+        let texture_handle = cache.get_or_generate(&block_type, biome_params, images, |_params| {
+            // Fallback if texture generation fails
+            (Handle::default(), crate::noise::NoiseSettings::default())
+        });
+        
+        // Return the texture handle if it's valid
+        if texture_handle == Handle::default() {
+            None
+        } else {
+            Some(texture_handle)
+        }
     }
     
     /// Check if procedural textures are available

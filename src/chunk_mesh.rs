@@ -141,6 +141,7 @@ impl ChunkMeshMaterials {
         biome_params: &crate::biome_textures::BiomeTextureParams,
         biome_cache: &Res<SharedBiomeTextureCache>,
         materials: &mut ResMut<Assets<StandardMaterial>>,
+        images: &mut ResMut<Assets<Image>>,
     ) -> Option<Handle<StandardMaterial>> {
         // Generate a unique key for this biome+block combination
         let _texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
@@ -156,7 +157,7 @@ impl ChunkMeshMaterials {
         let mut cache = biome_cache.cache.lock().unwrap();
         
         // Use the full get_or_generate method which includes similarity matching
-        let texture_handle = cache.get_or_generate(&block_type, biome_params, |_params| {
+        let texture_handle = cache.get_or_generate(&block_type, biome_params, images, |_params| {
             // If cache miss and no similar texture found, fall back to enhanced textures
             // If no texture available at all, use default material
             println!("⚠️  No texture available for {:?} at biome {}", block_type, biome_params.biome_type);
@@ -309,6 +310,8 @@ pub fn generate_chunk_mesh(
     chunks: &Query<&crate::chunk::Chunk>,
     texture_atlas: &TextureAtlas,
     chunk: &Chunk,
+    biome_cache: &crate::biome_texture_cache::SharedBiomeTextureCache,
+    images: &mut ResMut<Assets<Image>>,
 ) -> Mesh {
     let mut mesh = Mesh::new(
         bevy::render::mesh::PrimitiveTopology::TriangleList,
@@ -345,6 +348,8 @@ pub fn generate_chunk_mesh(
                                 block_type,
                                 texture_atlas,
                                 chunk,
+                                biome_cache,
+                                images,
                             );
                         }
                     }
@@ -377,6 +382,8 @@ fn add_block_mesh(
     block_type: BlockType,
     texture_atlas: &TextureAtlas,
     chunk: &Chunk,
+    biome_cache: &crate::biome_texture_cache::SharedBiomeTextureCache,
+    images: &mut ResMut<Assets<Image>>,
 ) {
     let base_index = positions.len() as u32;
     let mut current_index = base_index;
@@ -390,7 +397,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
             [local_x as f32, y as f32 + 1.0, z],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y);
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, 1.0], uv);
         current_index += 4;
     }
@@ -404,7 +411,7 @@ fn add_block_mesh(
             [local_x as f32, y as f32 + 1.0, z],
             [local_x as f32 + 1.0, y as f32 + 1.0, z],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 0.0, -1.0], uv);
         current_index += 4;
     }
@@ -418,7 +425,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32],
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -432,7 +439,7 @@ fn add_block_mesh(
             [x, y as f32 + 1.0, local_z as f32 + 1.0],
             [x, y as f32 + 1.0, local_z as f32],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, );
+        let uv = get_block_face_uv(block_type, BlockFace::Side, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [-1.0, 0.0, 0.0], uv);
         current_index += 4;
     }
@@ -446,7 +453,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_top, local_z as f32],
             [local_x as f32, y_top, local_z as f32],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Top, texture_atlas, chunk, local_x, local_z, y, );
+        let uv = get_block_face_uv(block_type, BlockFace::Top, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, 1.0, 0.0], uv);
         current_index += 4;
     }
@@ -460,7 +467,7 @@ fn add_block_mesh(
             [local_x as f32 + 1.0, y_bottom, local_z as f32 + 1.0],
             [local_x as f32, y_bottom, local_z as f32 + 1.0],
         ];
-        let uv = get_block_face_uv(block_type, BlockFace::Bottom, texture_atlas, chunk, local_x, local_z, y, );
+        let uv = get_block_face_uv(block_type, BlockFace::Bottom, texture_atlas, chunk, local_x, local_z, y, biome_cache, images);
         add_face(positions, normals, uvs, indices, current_index, vertices, [0.0, -1.0, 0.0], uv);
     }
 }
@@ -519,6 +526,8 @@ fn get_block_face_uv(
     local_x: usize,
     local_z: usize,
     y: usize,
+    biome_cache: &crate::biome_texture_cache::SharedBiomeTextureCache,
+    images: &mut ResMut<Assets<Image>>,
 ) -> (f32, f32, f32, f32) {
     // Enhanced biome-based texture selection logic with detailed debugging
     if texture_atlas.has_procedural_textures() {
@@ -539,7 +548,7 @@ fn get_block_face_uv(
                      block_type, local_x, y, local_z, biome_data.biome_type, biome_data.temperature, biome_data.moisture, y);
             
             // Try to get biome-specific texture first
-            if texture_atlas.get_biome_texture(block_type, &biome_params).is_some() {
+            if texture_atlas.get_biome_texture(block_type, &biome_params, biome_cache, images).is_some() {
                 println!("✓ Using biome-specific texture for {:?} - Key: {}", block_type, texture_key);
                 // For biome-specific procedural textures, use the entire texture space
                 return (0.0, 0.0, 1.0, 1.0);

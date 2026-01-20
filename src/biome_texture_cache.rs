@@ -2,6 +2,8 @@
 // This module provides LRU-based caching for biome textures with efficient reuse
 
 use bevy::prelude::*;
+use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::collections::{HashMap, VecDeque};
 
 use std::sync::{Arc, Mutex};
@@ -88,6 +90,7 @@ impl BiomeTextureCache {
         &mut self,
         block_type: &BlockType,
         biome_params: &BiomeTextureParams,
+        images: &mut ResMut<Assets<Image>>,
         generate_fn: F,
     ) -> Handle<Image> {
         self.stats.total_requests += 1;
@@ -130,18 +133,55 @@ impl BiomeTextureCache {
             }
         }
         
-        // Generate new texture
+        // Generate new texture using biome-aware generation
         if self.config.log_cache_operations {
             println!("🎨 Generating new biome texture: {}", texture_key);
         }
         
-        let (texture_handle, config) = generate_fn(biome_params);
+        // Convert block type to string for texture generation
+        let block_type_str = match block_type {
+            BlockType::Stone => "stone",
+            BlockType::Dirt => "dirt",
+            BlockType::Grass => "grass",
+            BlockType::Wood => "wood",
+            BlockType::Leaves => "leaves",
+            BlockType::Sand => "sand",
+            BlockType::Water => "water",
+            BlockType::Bedrock => "bedrock",
+            _ => "stone", // Default to stone for unknown types
+        };
+        
+        // Generate biome-aware texture data
+        let texture_data = crate::texture_gen::generate_biome_texture_data(
+            128, 128, biome_params, block_type_str
+        );
+        
+        // Create image from generated texture data
+        let image = Image::new(
+            Extent3d {
+                width: 128,
+                height: 128,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            texture_data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        );
+        
+        let texture_handle = images.add(image);
         
         // Estimate texture size (128x128 RGBA = 128*128*4 bytes)
-        let texture_size = 128 * 128 * 4; // Fixed size for now
+        let texture_size = 128 * 128 * 4;
+        
+        // Create a default noise config for this biome
+        let biome_config = crate::biome_textures::BiomeTextureConfig::for_block_type(block_type);
+        let noise_config = crate::biome_textures::apply_biome_parameters_to_config(
+            &biome_config.base_config, biome_params, &biome_config
+        );
         
         // Add to cache
-        self.add_to_cache(texture_key.clone(), texture_handle.clone(), config, texture_size);
+        self.add_to_cache(texture_key.clone(), texture_handle.clone(), noise_config, texture_size);
         
         self.stats.textures_generated += 1;
         

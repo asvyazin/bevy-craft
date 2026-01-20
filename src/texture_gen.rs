@@ -349,6 +349,162 @@ fn generate_simple_texture_data(width: u32, height: u32, scale: f32, octaves: us
     texture_data
 }
 
+/// Generate biome-aware procedural texture data
+pub fn generate_biome_texture_data(
+    width: u32,
+    height: u32,
+    biome_params: &crate::biome_textures::BiomeTextureParams,
+    block_type: &str,
+) -> Vec<u8> {
+    let mut texture_data = vec![0; (width * height * 4) as usize];
+    
+    // Adjust noise parameters based on biome
+    let base_scale = match block_type {
+        "stone" => 0.1,
+        "dirt" => 0.08,
+        "grass" => 0.07,
+        "wood" => 0.06,
+        "sand" => 0.09,
+        _ => 0.05,
+    };
+    
+    let base_octaves = match block_type {
+        "stone" => 6,
+        "dirt" => 5,
+        "grass" => 4,
+        "wood" => 4,
+        "sand" => 3,
+        _ => 4,
+    };
+    
+    // Apply biome modifications to noise parameters
+    let scale = base_scale * (1.0 + biome_params.temperature * 0.2 - biome_params.moisture * 0.1);
+    let octaves = (base_octaves as f32 * (1.0 + biome_params.height * 0.1)) as usize;
+    
+    for y in 0..height {
+        for x in 0..width {
+            // Biome-aware noise calculation
+            let nx = x as f32 * scale;
+            let ny = y as f32 * scale;
+            
+            // Add biome-specific variations
+            let biome_variation_x = biome_params.temperature * 100.0;
+            let biome_variation_y = biome_params.moisture * 100.0;
+            let nx = nx + biome_variation_x;
+            let ny = ny + biome_variation_y;
+            
+            // Enhanced hash-based noise with biome influence
+            let mut value = 0.0;
+            let mut amplitude = 1.0;
+            let mut frequency = 1.0;
+            let mut max_value = 0.0;
+            
+            for _ in 0..octaves {
+                let i = nx.floor() as i32;
+                let j = ny.floor() as i32;
+                let fx = nx - i as f32;
+                let fy = ny - j as f32;
+                
+                // Biome-influenced fade function
+                let u = fx * fx * fx * (fx * (fx * 6.0 - 15.0) + 10.0);
+                let v = fy * fy * fy * (fy * (fy * 6.0 - 15.0) + 10.0);
+                
+                // Hash-based gradient values with biome seed
+                let biome_seed = (biome_params.temperature * 1000.0 + biome_params.moisture * 100.0) as i32;
+                let grad00 = hash_noise(i, j, biome_seed);
+                let grad10 = hash_noise(i + 1, j, biome_seed + 1);
+                let grad01 = hash_noise(i, j + 1, biome_seed + 2);
+                let grad11 = hash_noise(i + 1, j + 1, biome_seed + 3);
+                
+                // Biome-influenced interpolation
+                let lerp1 = grad00 + (grad10 - grad00) * u;
+                let lerp2 = grad01 + (grad11 - grad01) * u;
+                let noise_value = lerp1 + (lerp2 - lerp1) * v;
+                
+                value += noise_value * amplitude;
+                max_value += amplitude;
+                amplitude *= 0.5;
+                frequency *= 2.0;
+            }
+            
+            let noise_value = value / max_value;
+            
+            // Apply biome-specific color modifications
+            let color = apply_biome_color_modifications(noise_value, biome_params, block_type);
+            
+            let index = ((y * width + x) * 4) as usize;
+            texture_data[index] = color[0];
+            texture_data[index + 1] = color[1];
+            texture_data[index + 2] = color[2];
+            texture_data[index + 3] = color[3];
+        }
+    }
+    
+    texture_data
+}
+
+/// Apply biome-specific color modifications to base noise value
+fn apply_biome_color_modifications(
+    noise_value: f32,
+    biome_params: &crate::biome_textures::BiomeTextureParams,
+    block_type: &str,
+) -> [u8; 4] {
+    let base_color = match block_type {
+        "stone" => stone_color(noise_value),
+        "dirt" => dirt_color(noise_value),
+        "grass" => grass_color(noise_value),
+        "wood" => wood_color(noise_value),
+        "sand" => sand_color(noise_value),
+        "water" => water_color(noise_value),
+        "bedrock" => bedrock_color(noise_value),
+        "leaves" => leaves_color(noise_value),
+        _ => natural_color(noise_value),
+    };
+    
+    // Apply biome-specific color modifications
+    let mut r = base_color[0] as f32;
+    let mut g = base_color[1] as f32;
+    let mut b = base_color[2] as f32;
+    
+    // Temperature effects
+    if biome_params.temperature > 0.7 {
+        // Hot biomes - more red/yellow tones
+        r = (r as f32 * 1.2).min(255.0);
+        g = (g as f32 * 0.9).min(255.0);
+    } else if biome_params.temperature < 0.3 {
+        // Cold biomes - more blue tones
+        b = (b as f32 * 1.3).min(255.0);
+        r = (r as f32 * 0.8).min(255.0);
+    }
+    
+    // Moisture effects
+    if biome_params.moisture > 0.7 {
+        // Wet biomes - more green/blue tones
+        g = (g as f32 * 1.1).min(255.0);
+        b = (b as f32 * 1.1).min(255.0);
+    } else if biome_params.moisture < 0.3 {
+        // Dry biomes - more brown/red tones
+        r = (r as f32 * 1.1).min(255.0);
+        g = (g as f32 * 0.9).min(255.0);
+        b = (b as f32 * 0.8).min(255.0);
+    }
+    
+    // Height effects
+    if biome_params.relative_height > 0.8 {
+        // High altitude - lighter colors
+        r = (r as f32 * 1.1).min(255.0);
+        g = (g as f32 * 1.1).min(255.0);
+        b = (b as f32 * 1.1).min(255.0);
+    } else if biome_params.relative_height < 0.2 {
+        // Low altitude - darker colors
+        r = (r as f32 * 0.9).min(255.0);
+        g = (g as f32 * 0.9).min(255.0);
+        b = (b as f32 * 0.9).min(255.0);
+    }
+    
+    [r as u8, g as u8, b as u8, 255]
+}
+
 /// Simple hash function for noise generation
 fn hash_noise(x: i32, y: i32, seed: i32) -> f32 {
     let mut hash = x ^ y ^ seed;

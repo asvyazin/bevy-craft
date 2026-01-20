@@ -156,6 +156,7 @@ fn generate_chunk_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mesh_materials: Res<ChunkMeshMaterials>,
     chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
     all_chunks: Query<&Chunk>,
@@ -176,6 +177,8 @@ fn generate_chunk_meshes(
                 &all_chunks,
                 &texture_atlas,
                 chunk,
+                &biome_cache,
+                &mut images,
             );
             let mesh_handle = meshes.add(mesh);
             
@@ -265,7 +268,8 @@ fn generate_chunk_meshes(
                                     &biome_params,
 
                                     &biome_cache,
-                                    &mut materials
+                                    &mut materials,
+                                    &mut images
                                 ) {
                                     // Store biome-specific material in chunk cache
                                     biome_material_cache.insert(texture_key, biome_material.clone());
