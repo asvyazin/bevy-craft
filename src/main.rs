@@ -22,6 +22,8 @@ mod test_sophisticated_algorithms;
 
 mod biome_textures;
 mod biome_texture_cache;
+mod biome_material;
+use biome_material::BiomeMaterial;
 
 mod world_gen;
 mod player;
@@ -64,9 +66,11 @@ fn main() {
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
         .init_resource::<BlockTextures>() // Initialize block textures resource
         .init_resource::<crate::biome_texture_cache::SharedBiomeTextureCache>() // Initialize biome texture cache
+        .init_resource::<crate::biome_material::SharedBiomeMaterialCache>() // Initialize biome material cache
         .init_resource::<GameTime>() // Initialize game time for day/night cycle
         .init_resource::<AtmosphericScatteringParams>() // Initialize atmospheric scattering parameters
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
+        .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
     
     app
@@ -76,6 +80,7 @@ fn main() {
         .add_systems(Startup, initialize_block_textures) // Use standard textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
+        .add_systems(Startup, initialize_biome_material_cache.after(initialize_chunk_mesh_materials))
         .add_systems(Startup, initialize_weather_system) // Initialize weather system
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
         .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
@@ -96,6 +101,7 @@ fn main() {
         .add_systems(Update, update_weather_particles) // Add weather particle update
         .add_systems(Update, update_lightning_effects) // Add lightning effects update
         .add_systems(Update, display_weather_info) // Add weather info display
+        .add_systems(Update, display_biome_material_stats) // Add biome material statistics display
 
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
@@ -164,11 +170,60 @@ fn initialize_chunk_mesh_materials(
     println!("✓ Chunk mesh materials initialized");
 }
 
+/// System to initialize biome material cache
+fn initialize_biome_material_cache(
+    mut biome_material_cache: ResMut<crate::biome_material::SharedBiomeMaterialCache>,
+) {
+    println!("🎨 Initializing biome material cache...");
+    
+    // Configure the biome material cache
+    let config = crate::biome_material::BiomeMaterialCacheConfig {
+        max_materials: 1024,
+        max_memory_mb: 512,
+        enable_lru_eviction: true,
+        log_operations: false, // Set to true for debugging
+    };
+    
+    *biome_material_cache = crate::biome_material::SharedBiomeMaterialCache::new(config.clone());
+    
+    println!("✓ Biome material cache initialized with {} max materials and {} MB limit",
+        config.max_materials, config.max_memory_mb);
+}
+
+/// System to display biome material cache statistics
+fn display_biome_material_stats(
+    biome_material_cache: Res<crate::biome_material::SharedBiomeMaterialCache>,
+    time: Res<Time>,
+) {
+    // Only display stats every 5 seconds to avoid spam
+    if time.elapsed_secs_f64() % 5.0 > 0.1 {
+        return;
+    }
+    
+    let cache = biome_material_cache.cache.lock().unwrap();
+    let stats = cache.get_stats();
+    
+    if stats.total_requests > 0 {
+        println!("📈 Biome Material Cache Stats:");
+        println!("  Requests: {} | Hits: {} ({:.1}%) | Misses: {} ({:.1}%)",
+            stats.total_requests,
+            stats.cache_hits,
+            (stats.cache_hits as f64 / stats.total_requests as f64 * 100.0),
+            stats.cache_misses,
+            (stats.cache_misses as f64 / stats.total_requests as f64 * 100.0));
+        println!("  Materials: {} generated, {} evicted | Memory: {:.1} MB",
+            stats.materials_generated,
+            stats.materials_evicted,
+            stats.memory_used_bytes as f64 / 1024.0 / 1024.0);
+    }
+}
+
 /// System to generate chunk meshes
 fn generate_chunk_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut biome_materials: ResMut<Assets<BiomeMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mesh_materials: Res<ChunkMeshMaterials>,
     chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
@@ -177,6 +232,7 @@ fn generate_chunk_meshes(
     texture_atlas: Res<TextureAtlas>,
 
     biome_cache: Res<crate::biome_texture_cache::SharedBiomeTextureCache>,
+    biome_material_cache: Res<crate::biome_material::SharedBiomeMaterialCache>,
 ) {
     for (chunk_entity, chunk) in &chunks {
         if chunk.is_generated && chunk.needs_mesh_update {
@@ -223,7 +279,7 @@ fn generate_chunk_meshes(
             // Add biome-specific materials if available
             if texture_atlas.has_procedural_textures() {
                 use std::collections::HashMap;
-                let mut biome_material_cache: HashMap<String, Handle<StandardMaterial>> = HashMap::new();
+                let mut biome_material_local_cache: HashMap<String, Handle<StandardMaterial>> = HashMap::new();
                 
                 // Track which biomes we've already processed to avoid duplicates
                 let mut processed_biomes: HashMap<String, bool> = HashMap::new();
@@ -271,21 +327,22 @@ fn generate_chunk_meshes(
                                 let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
                                 
                                 // Check if we already have this biome material cached for this chunk
-                                if biome_material_cache.contains_key(&texture_key) {
+                                if biome_material_local_cache.contains_key(&texture_key) {
                                     continue;
                                 }
                                 
-                                // Try to get biome-specific material
+                                // Try to get biome-specific material using enhanced biome material system
                                 if let Some(biome_material) = mesh_materials.get_biome_material(
                                     block_type, 
                                     &biome_params,
-
                                     &biome_cache,
+                                    &biome_material_cache,
                                     &mut materials,
+                                    &mut biome_materials,
                                     &mut images
                                 ) {
                                     // Store biome-specific material in chunk cache
-                                    biome_material_cache.insert(texture_key, biome_material.clone());
+                                    biome_material_local_cache.insert(texture_key, biome_material.clone());
                                     chunk_mesh.material_handles.insert(block_type, biome_material);
                                     // Reduce logging spam
                                     // println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
@@ -310,15 +367,19 @@ fn render_chunk_meshes(
     chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
 ) {
     for (entity, chunk_mesh, chunk) in &chunk_meshes {
-        // Use a default material (grass) if no specific materials are available
-        // This ensures all chunks are rendered even if material assignment is incomplete
-        let material_handle = chunk_mesh.material_handles.values().next()
-            .cloned()
-            .unwrap_or_else(|| Handle::default());
-            
-        commands.entity(entity).insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
-                                        MeshMaterial3d(material_handle),
-                                        Transform::from_translation(chunk.position.min_block_position().as_vec3())));
+        // Check if the entity still exists before trying to insert components
+        // This prevents panics when chunks are despawned between systems
+        if let Some(mut entity_commands) = commands.get_entity(entity) {
+            // Use a default material (grass) if no specific materials are available
+            // This ensures all chunks are rendered even if material assignment is incomplete
+            let material_handle = chunk_mesh.material_handles.values().next()
+                .cloned()
+                .unwrap_or_else(|| Handle::default());
+                
+            entity_commands.insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
+                                    MeshMaterial3d(material_handle),
+                                    Transform::from_translation(chunk.position.min_block_position().as_vec3())));
+        }
     }
 }
 

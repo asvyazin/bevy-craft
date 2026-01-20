@@ -21,6 +21,7 @@ use crate::chunk::Chunk;
 use crate::texture_atlas::{TextureAtlas, BlockFace};
 
 use crate::biome_texture_cache::SharedBiomeTextureCache;
+use crate::biome_material::{BiomeMaterial, SharedBiomeMaterialCache};
 
 /// Component that stores the mesh data for a chunk
 #[derive(Component, Debug)]
@@ -141,7 +142,9 @@ impl ChunkMeshMaterials {
         block_type: BlockType,
         biome_params: &crate::biome_textures::BiomeTextureParams,
         biome_cache: &Res<SharedBiomeTextureCache>,
+        biome_material_cache: &Res<SharedBiomeMaterialCache>,
         materials: &mut ResMut<Assets<StandardMaterial>>,
+        biome_materials: &mut ResMut<Assets<BiomeMaterial>>,
         images: &mut ResMut<Assets<Image>>,
     ) -> Option<Handle<StandardMaterial>> {
         // Generate a unique key for this biome+block combination
@@ -150,21 +153,42 @@ impl ChunkMeshMaterials {
         // println!("🔑 Requesting texture for key: {}", texture_key);
         
         // Try to get biome-specific texture from cache first
-        let mut cache = biome_cache.cache.lock().unwrap();
+        let mut texture_cache = biome_cache.cache.lock().unwrap();
         
         // Use the full get_or_generate method which includes similarity matching
-        let texture_handle = cache.get_or_generate(&block_type, biome_params, images, |_params| {
+        let texture_handle = texture_cache.get_or_generate(&block_type, biome_params, images, |_params| {
             // If cache miss and no similar texture found, fall back to enhanced textures
             // If no texture available at all, use default material
             println!("⚠️  No texture available for {:?} at biome {}", block_type, biome_params.biome_type);
             (Handle::default(), crate::noise::NoiseSettings::default())
         });
         
+        // Try to get biome-specific material from the enhanced biome material cache
+        let mut material_cache = biome_material_cache.cache.lock().unwrap();
+        let biome_material_handle = material_cache.get_or_generate(
+            &block_type, 
+            biome_params, 
+            biome_materials, 
+            images, 
+            |params| {
+                // Generate biome-specific material properties
+                let config = crate::biome_material::BiomeMaterialConfig::new(block_type);
+                let material_properties = config.get_properties_for_biome(params);
+                (texture_handle.clone(), material_properties)
+            }
+        );
+        
+        // For now, we'll still use StandardMaterial for compatibility
+        // In future, we can switch to using BiomeMaterial directly
         let biome_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             base_color_texture: Some(texture_handle.clone()),
+            // Apply some biome-specific properties to standard material
+            perceptual_roughness: biome_params.temperature * 0.5 + 0.3,
+            metallic: biome_params.moisture * 0.2,
             ..default()
         });
+        
         // Reduce logging spam - only log when actually creating new materials
         // println!("📊 Created biome-specific material for {:?} at biome {} with key {}", block_type, biome_params.biome_type, texture_key);
         Some(biome_material)
