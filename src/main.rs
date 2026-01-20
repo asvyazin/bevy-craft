@@ -6,7 +6,7 @@ mod block;
 use block::{Block, BlockType};
 
 mod chunk;
-use chunk::{Chunk, ChunkManager, ChunkPosition};
+use chunk::{Chunk, ChunkManager, ChunkPosition, ChunkPriority};
 
 mod chunk_mesh;
 use chunk_mesh::{ChunkMesh, ChunkMeshMaterials};
@@ -143,8 +143,8 @@ fn generate_initial_chunks(commands: &mut Commands, chunk_manager: &mut ChunkMan
             let chunk_pos = ChunkPosition::new(x, z);
             let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
             
-            // Register the chunk in the manager
-            chunk_manager.loaded_chunks.insert(chunk_pos, chunk_entity);
+            // Register the chunk in the manager using spatial partitioning
+            chunk_manager.insert_chunk(chunk_pos, chunk_entity);
             
             println!("🌱 Spawned initial chunk at ({}, {}) - waiting for terrain generation", x, z);
         }
@@ -362,7 +362,7 @@ fn dynamic_chunk_loading_system(
     mut commands: Commands,
     player_query: Query<&Transform, With<player::Player>>,
     mut chunk_manager: ResMut<ChunkManager>,
-    chunks: Query<Entity, With<Chunk>>,
+    chunks: Query<&Chunk>,
     time: Res<Time>,
 ) {
     // Get player position
@@ -379,34 +379,59 @@ fn dynamic_chunk_loading_system(
             println!("🎮 Player is at chunk position ({}, {})", player_chunk_pos.x, player_chunk_pos.z);
         }
         
+        // Update chunk priorities based on player position
+        chunk_manager.update_chunk_priorities(&player_chunk_pos);
+        
         // Calculate the loading boundary (render distance)
         let loading_boundary = chunk_manager.render_distance;
         
-        // First, unload chunks that are too far from the player
+        // Log performance statistics occasionally
+        if time.elapsed_secs_f64() % 10.0 < 0.1 {
+            let loaded_chunks = chunk_manager.get_loaded_chunk_count();
+            let memory_usage_kb = chunk_manager.estimate_memory_usage() / 1024;
+            let cache_stats = chunk_manager.get_cache_stats();
+            
+            println!("📊 Chunk System Stats:");
+            println!("   Loaded chunks: {}", loaded_chunks);
+            println!("   Memory usage: {} KB", memory_usage_kb);
+            println!("   Cache: {}/{} chunks", cache_stats.cached_chunks, cache_stats.max_cache_size);
+            println!("   Render distance: {}", loading_boundary);
+        }
+        
+        // First, unload chunks that are too far from the player using spatial partitioning
         let mut chunks_unloaded = 0;
         const MAX_CHUNKS_UNLOADED_PER_FRAME: usize = 4; // Limit chunks unloaded per frame for performance
         
-        // Create a list of chunks to unload to avoid borrowing issues
-        let chunks_to_unload: Vec<ChunkPosition> = chunk_manager.loaded_chunks.keys()
-            .filter(|&&chunk_pos| chunk_manager.should_unload_chunk(chunk_pos, player_chunk_pos))
-            .cloned()
-            .collect();
+        // Use spatial partitioning to get chunks in the player's region and neighboring regions
+        let chunks_to_check = chunk_manager.get_chunks_within_distance_spatial(&player_chunk_pos, loading_boundary + 1);
         
-        for chunk_pos in chunks_to_unload {
-            if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                println!("🗑️  Unloading chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
-                
-                // Despawn the chunk entity
-                commands.entity(chunk_entity).despawn();
-                
-                // Remove from chunk manager
-                chunk_manager.loaded_chunks.remove(&chunk_pos);
-                chunks_unloaded += 1;
-                
-                // Stop if we've unloaded enough chunks for this frame
-                if chunks_unloaded >= MAX_CHUNKS_UNLOADED_PER_FRAME {
-                    println!("🔄 Reached chunk unloading limit for this frame");
-                    break;
+        for chunk_pos in chunks_to_check {
+            if chunk_manager.should_unload_chunk(chunk_pos, player_chunk_pos) {
+                if let Some(chunk_entity) = chunk_manager.remove_chunk(&chunk_pos) {
+                    println!("🗑️  Unloading chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
+                    
+                    // Before despawning, cache the chunk data for potential reuse
+                    if let Ok(chunk_component) = chunks.get(chunk_entity) {
+                        chunk_manager.cache_chunk(
+                            chunk_pos,
+                            chunk_component.data.clone(),
+                            chunk_component.biome_data.clone(),
+                            chunk_component.is_generated,
+                            time.elapsed_secs_f64()
+                        );
+                        println!("💾 Cached chunk data for ({}, {})", chunk_pos.x, chunk_pos.z);
+                    }
+                    
+                    // Despawn the chunk entity
+                    commands.entity(chunk_entity).despawn();
+                    
+                    chunks_unloaded += 1;
+                    
+                    // Stop if we've unloaded enough chunks for this frame
+                    if chunks_unloaded >= MAX_CHUNKS_UNLOADED_PER_FRAME {
+                        println!("🔄 Reached chunk unloading limit for this frame");
+                        break;
+                    }
                 }
             }
         }
@@ -415,31 +440,151 @@ fn dynamic_chunk_loading_system(
             println!("🔄 Unloaded {} chunks", chunks_unloaded);
         }
         
-        // Then, load new chunks that are within render distance
+        // Then, load new chunks that are within render distance using priority-based spatial partitioning
         let mut chunks_loaded = 0;
         const MAX_CHUNKS_PER_FRAME: usize = 2; // Limit chunks loaded per frame for performance
         
-        // Check all directions within render distance
-        for dx in -loading_boundary..=loading_boundary {
-            for dz in -loading_boundary..=loading_boundary {
-                let chunk_pos = ChunkPosition::new(player_chunk_pos.x + dx, player_chunk_pos.z + dz);
+        // Get chunks sorted by priority to load the most important chunks first
+        let chunks_by_priority = chunk_manager.get_chunks_sorted_by_priority(&player_chunk_pos);
+        
+        // First, try to load chunks in priority order from existing spatial grid
+        for (chunk_pos, priority) in chunks_by_priority {
+            // Only consider chunks that should be loaded but aren't
+            if chunk_manager.should_load_chunk(chunk_pos, player_chunk_pos) && 
+               !chunk_manager.loaded_chunks.contains_key(&chunk_pos) {
                 
-                // Check if this chunk should be loaded but isn't
-                if chunk_manager.should_load_chunk(chunk_pos, player_chunk_pos) {
-                    if !chunk_manager.loaded_chunks.contains_key(&chunk_pos) {
-                        println!("🌱 Loading new chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
+                // Check if we have cached data for this chunk
+                if let Some(cached_data) = chunk_manager.get_cached_chunk(&chunk_pos, time.elapsed_secs_f64()) {
+                    println!("🔄 Restoring cached chunk at ({}, {}) with priority {:?}", chunk_pos.x, chunk_pos.z, priority);
+                    
+                    // Spawn the new chunk with cached data
+                    let mut chunk = Chunk::new(chunk_pos);
+                    chunk.data = cached_data.data;
+                    chunk.biome_data = cached_data.biome_data;
+                    chunk.is_generated = cached_data.is_generated;
+                    chunk.needs_mesh_update = true; // Ensure mesh is regenerated
+                    
+                    let chunk_entity = commands.spawn(chunk).id();
+                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                } else {
+                    println!("🌱 Loading new chunk at ({}, {}) with priority {:?}", chunk_pos.x, chunk_pos.z, priority);
+                    
+                    // Spawn the new chunk
+                    let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
+                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                }
+                
+                chunks_loaded += 1;
+                
+                // Stop if we've loaded enough chunks for this frame
+                if chunks_loaded >= MAX_CHUNKS_PER_FRAME {
+                    println!("🔄 Reached chunk loading limit for this frame");
+                    break;
+                }
+            }
+        }
+        
+        // If we still haven't loaded enough chunks, fall back to spatial partitioning
+        if chunks_loaded < MAX_CHUNKS_PER_FRAME {
+            let center_region = chunk_manager.chunk_pos_to_grid_region(&player_chunk_pos);
+            let mut regions_checked = 0;
+            let max_regions_to_check = 4; // Limit regions checked per frame for performance
+            
+            // Spiral outward from the center region
+            let mut region_radius = 0;
+            while chunks_loaded < MAX_CHUNKS_PER_FRAME && regions_checked < max_regions_to_check {
+                for dx in -region_radius..=region_radius {
+                    for dz in -region_radius..=region_radius {
+                        // Skip if this is not on the perimeter of the current radius
+                        if (dx as i32).abs() != region_radius && (dz as i32).abs() != region_radius {
+                            continue;
+                        }
                         
-                        // Spawn the new chunk
-                        let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
-                        chunk_manager.loaded_chunks.insert(chunk_pos, chunk_entity);
-                        chunks_loaded += 1;
+                        let region_x = center_region.0 + dx;
+                        let region_z = center_region.1 + dz;
+                        let region_coords = (region_x, region_z);
+                        regions_checked += 1;
                         
-                        // Stop if we've loaded enough chunks for this frame
-                        if chunks_loaded >= MAX_CHUNKS_PER_FRAME {
-                            println!("🔄 Reached chunk loading limit for this frame");
-                            return;
+                        // Check if we need to load chunks in this region
+                        let min_chunk_x = region_x * chunk_manager.grid_region_size;
+                        let min_chunk_z = region_z * chunk_manager.grid_region_size;
+                        
+                        for local_dx in 0..chunk_manager.grid_region_size {
+                            for local_dz in 0..chunk_manager.grid_region_size {
+                                let chunk_pos = ChunkPosition::new(min_chunk_x + local_dx, min_chunk_z + local_dz);
+                                
+                                // Check if this chunk should be loaded
+                                if chunk_manager.should_load_chunk(chunk_pos, player_chunk_pos) {
+                                    if !chunk_manager.loaded_chunks.contains_key(&chunk_pos) {
+                                        
+                                        // Calculate priority for this chunk
+                                        let dx = (chunk_pos.x - player_chunk_pos.x).abs();
+                                        let dz = (chunk_pos.z - player_chunk_pos.z).abs();
+                                        let distance = (dx.max(dz)) as i32;
+                                        let priority = if distance <= chunk_manager.render_distance / 2 {
+                                            ChunkPriority::Near
+                                        } else {
+                                            ChunkPriority::Far
+                                        };
+                                        
+                                        println!("🌱 Loading new chunk at ({}, {}) with priority {:?}", chunk_pos.x, chunk_pos.z, priority);
+                                        
+                                        // Spawn the new chunk
+                                        let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
+                                        chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                        chunks_loaded += 1;
+                                        
+                                        // Stop if we've loaded enough chunks for this frame
+                                        if chunks_loaded >= MAX_CHUNKS_PER_FRAME {
+                                            println!("🔄 Reached chunk loading limit for this frame");
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
+                }
+                region_radius += 1;
+            }
+        }
+        
+        // If we still haven't loaded enough chunks, fall back to the original method
+        if chunks_loaded < MAX_CHUNKS_PER_FRAME {
+            // Check chunks in a spiral pattern around the player for better cache locality
+            let mut distance = 1;
+            while chunks_loaded < MAX_CHUNKS_PER_FRAME {
+                for dx in -distance..=distance {
+                    for dz in -distance..=distance {
+                        // Only check the perimeter of the current distance
+                        if (dx as i32).abs() == distance || (dz as i32).abs() == distance {
+                            let chunk_pos = ChunkPosition::new(player_chunk_pos.x + dx, player_chunk_pos.z + dz);
+                            
+                            // Check if this chunk should be loaded but isn't
+                            if chunk_manager.should_load_chunk(chunk_pos, player_chunk_pos) {
+                                if !chunk_manager.loaded_chunks.contains_key(&chunk_pos) {
+                                    println!("🌱 Loading new chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
+                                    
+                                    // Spawn the new chunk
+                                    let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
+                                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                    chunks_loaded += 1;
+                                    
+                                    // Stop if we've loaded enough chunks for this frame
+                                    if chunks_loaded >= MAX_CHUNKS_PER_FRAME {
+                                        println!("🔄 Reached chunk loading limit for this frame");
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                distance += 1;
+                
+                // Don't go beyond render distance
+                if distance > loading_boundary {
+                    break;
                 }
             }
         }
