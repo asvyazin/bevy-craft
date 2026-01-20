@@ -51,6 +51,9 @@ use weather::{initialize_weather_system, spawn_cloud_layers, update_weather_syst
 mod time;
 use time::{GameTime, update_game_time, display_game_time};
 
+mod inventory;
+use inventory::{Inventory, inventory_update_system, display_inventory_info, initialize_inventory};
+
 fn main() {
     // Create the app first
     let mut app = App::new();
@@ -73,6 +76,7 @@ fn main() {
         .init_resource::<AtmosphericScatteringParams>() // Initialize atmospheric scattering parameters
         .init_resource::<BiomeDebugSettings>() // Initialize biome debug settings
         .init_resource::<BiomeDebugStats>() // Initialize biome debug statistics
+        .init_resource::<Inventory>() // Initialize inventory system
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
@@ -91,6 +95,7 @@ fn main() {
         .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
         .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
         .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
+        .add_systems(Startup, initialize_inventory) // Initialize inventory with starting items
         .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
@@ -98,6 +103,8 @@ fn main() {
         .add_systems(Update, update_game_time) // Add game time update system
         .add_systems(Update, display_game_time) // Add game time display system
         .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
+        .add_systems(Update, inventory_update_system) // Add inventory update system
+        .add_systems(Update, display_inventory_info) // Add inventory info display system
         .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
         .add_systems(Update, update_weather_system) // Add weather system update

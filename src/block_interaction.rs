@@ -7,6 +7,7 @@ use bevy::input::mouse::MouseButton;
 
 use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 use crate::block::BlockType;
+use crate::inventory::{Inventory, ItemType};
 
 /// System to handle block breaking with left mouse button and placement with right mouse button
 pub fn block_interaction_system(
@@ -14,6 +15,7 @@ pub fn block_interaction_system(
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunk_manager: Res<ChunkManager>,
+    mut inventory: ResMut<Inventory>,
     mut chunk_params: ParamSet<(
         Query<&Chunk>,
         Query<&mut Chunk>,
@@ -46,8 +48,16 @@ pub fn block_interaction_system(
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
-                    // Remove the block (set to Air)
-                    chunk.set_block_world(target_block_pos, BlockType::Air);
+                    // Get the current block type before removing it
+                    if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
+                        // Remove the block (set to Air)
+                        chunk.set_block_world(target_block_pos, BlockType::Air);
+                        
+                        // Add the broken block to inventory (if it's not air)
+                        if current_block_type != BlockType::Air {
+                            inventory.add_item(ItemType::Block(current_block_type), 1);
+                        }
+                    }
                 }
             }
         }
@@ -83,9 +93,19 @@ pub fn block_interaction_system(
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
-                    // Place a new block (for now, we'll use Stone as the default block type)
-                    // TODO: Add inventory system to select different block types
-                    chunk.set_block_world(placement_pos, BlockType::Stone);
+                    // Get the selected item from inventory
+                    if let Some(selected_item) = inventory.get_selected_item() {
+                        if !selected_item.is_empty() {
+                            if let ItemType::Block(block_type) = selected_item.item_type {
+                                // Place the block from inventory
+                                chunk.set_block_world(placement_pos, block_type);
+                                
+                                // Remove one item from inventory (clone the item type to avoid borrow issues)
+                                let item_type = selected_item.item_type;
+                                inventory.remove_item(item_type, 1);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 /// Enum representing different types of blocks in the game
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum BlockType {
     Air,
     Dirt,
