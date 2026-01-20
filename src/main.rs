@@ -23,7 +23,9 @@ mod test_sophisticated_algorithms;
 mod biome_textures;
 mod biome_texture_cache;
 mod biome_material;
+mod biome_debug;
 use biome_material::BiomeMaterial;
+use biome_debug::{BiomeDebugSettings, BiomeDebugStats};
 
 mod world_gen;
 mod player;
@@ -69,6 +71,8 @@ fn main() {
         .init_resource::<crate::biome_material::SharedBiomeMaterialCache>() // Initialize biome material cache
         .init_resource::<GameTime>() // Initialize game time for day/night cycle
         .init_resource::<AtmosphericScatteringParams>() // Initialize atmospheric scattering parameters
+        .init_resource::<BiomeDebugSettings>() // Initialize biome debug settings
+        .init_resource::<BiomeDebugStats>() // Initialize biome debug statistics
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
@@ -83,6 +87,7 @@ fn main() {
         .add_systems(Startup, initialize_biome_material_cache.after(initialize_chunk_mesh_materials))
         .add_systems(Startup, initialize_weather_system) // Initialize weather system
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
+        .add_systems(Startup, biome_debug::initialize_biome_debug_system) // Initialize biome debug system
         .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
         .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
         .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
@@ -102,6 +107,11 @@ fn main() {
         .add_systems(Update, update_lightning_effects) // Add lightning effects update
         .add_systems(Update, display_weather_info) // Add weather info display
         .add_systems(Update, display_biome_material_stats) // Add biome material statistics display
+        .add_systems(Update, biome_debug::toggle_biome_debug) // Add biome debug toggle
+        .add_systems(Update, biome_debug::display_biome_debug_info) // Add biome debug info display
+        .add_systems(Update, biome_debug::update_biome_debug_stats) // Add biome debug stats update
+        .add_systems(Update, biome_debug::visualize_biome_boundaries) // Add biome boundary visualization
+        .add_systems(Update, biome_debug::visualize_biome_texture_variations) // Add biome texture variation visualization
 
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
