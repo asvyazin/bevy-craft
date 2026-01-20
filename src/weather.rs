@@ -368,6 +368,52 @@ pub fn initialize_weather_system(mut commands: Commands) {
     commands.insert_resource(WeatherEffects::default());
 }
 
+/// System to spawn cloud layers
+pub fn spawn_cloud_layers(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<CloudMaterial>>,
+    cloud_system: Res<CloudSystem>,
+) {
+    // Create a large plane mesh for cloud rendering
+    let cloud_mesh = meshes.add(Mesh::try_from(bevy::prelude::Plane3d {
+        normal: bevy::math::Dir3::Y,
+        half_size: Vec2::new(2500.0, 2500.0),
+        ..default()
+    }).unwrap());
+
+    // Create cloud material
+    let mut cloud_uniform = CloudUniform::default();
+    
+    // Set up cloud layers in the uniform
+    for (i, layer) in cloud_system.layers.iter().enumerate() {
+        if i < 4 {
+            cloud_uniform.layer_altitudes[i] = layer.altitude;
+            cloud_uniform.layer_scales[i] = layer.scale;
+            cloud_uniform.layer_densities[i] = layer.density;
+            cloud_uniform.layer_speeds[i] = layer.speed;
+            cloud_uniform.layer_directions[i] = layer.direction;
+        }
+    }
+    
+    let cloud_material = materials.add(CloudMaterial {
+        cloud_uniform,
+    });
+    
+    // Spawn cloud layers
+    for (i, layer) in cloud_system.layers.iter().enumerate() {
+        commands.spawn((
+            Mesh3d(cloud_mesh.clone()),
+            MeshMaterial3d(cloud_material.clone()),
+            CloudEntity,
+            TransformBundle::from_transform(
+                Transform::from_translation(Vec3::new(0.0, layer.altitude, 0.0))
+                    .with_rotation(Quat::from_rotation_x(-PI / 2.0)), // Make plane horizontal
+            ),
+        ));
+    }
+}
+
 /// System to update weather conditions based on time and random factors
 pub fn update_weather_system(
     time: Res<Time>,
@@ -574,52 +620,6 @@ fn update_environmental_conditions(game_time: &crate::time::GameTime, weather_sy
 }
 
 /// System to spawn cloud layers
-pub fn spawn_cloud_layers(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CloudMaterial>>,
-    cloud_system: Res<CloudSystem>,
-) {
-    // Create a large plane mesh for cloud rendering
-    let cloud_mesh = meshes.add(Mesh::try_from(bevy::prelude::Plane3d {
-        normal: bevy::math::Dir3::Y,
-        half_size: Vec2::new(2500.0, 2500.0),
-        ..default()
-    }).unwrap());
-
-    // Create cloud material
-    let mut cloud_uniform = CloudUniform::default();
-    
-    // Set up cloud layers in the uniform
-    for (i, layer) in cloud_system.layers.iter().enumerate() {
-        if i < 4 {
-            cloud_uniform.layer_altitudes[i] = layer.altitude;
-            cloud_uniform.layer_scales[i] = layer.scale;
-            cloud_uniform.layer_densities[i] = layer.density;
-            cloud_uniform.layer_speeds[i] = layer.speed;
-            cloud_uniform.layer_directions[i] = layer.direction;
-        }
-    }
-    
-    let cloud_material = materials.add(CloudMaterial {
-        cloud_uniform,
-    });
-    
-    // Spawn cloud layers
-    for (i, layer) in cloud_system.layers.iter().enumerate() {
-        commands.spawn((
-            Mesh3d(cloud_mesh.clone()),
-            MeshMaterial3d(cloud_material.clone()),
-            CloudEntity,
-            TransformBundle::from_transform(
-                Transform::from_translation(Vec3::new(0.0, layer.altitude, 0.0))
-                    .with_rotation(Quat::from_rotation_x(-PI / 2.0)) // Make plane horizontal
-            ),
-        ));
-    }
-}
-
-/// System to update cloud rendering parameters
 pub fn update_cloud_rendering(
     time: Res<Time>,
     game_time: Res<crate::time::GameTime>,
