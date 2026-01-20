@@ -42,20 +42,17 @@ pub fn spawn_hotbar_ui(
 ) {
     // Spawn the root UI node for the hotbar
     commands.spawn((
-        NodeBundle {
-            node: Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(20.0),
-                left: Val::Px(20.0),
-                right: Val::Px(20.0),
-                height: Val::Px(80.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            background_color: BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.7)),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(20.0),
+            left: Val::Px(20.0),
+            right: Val::Px(20.0),
+            height: Val::Px(80.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         },
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.7)),
         HotbarUI,
     ))
     .with_children(|parent| {
@@ -72,18 +69,15 @@ fn spawn_hotbar_slot(
     slot_index: usize,
 ) {
     parent.spawn((
-        NodeBundle {
-            node: Node {
-                width: Val::Px(60.0),
-                height: Val::Px(60.0),
-                margin: UiRect::all(Val::Px(5.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            background_color: BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
+        Node {
+            width: Val::Px(60.0),
+            height: Val::Px(60.0),
+            margin: UiRect::all(Val::Px(5.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         },
+        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 0.8)),
         HotbarSlot { slot_index },
     ))
     .with_children(|slot_parent| {
@@ -133,9 +127,14 @@ pub fn initialize_item_texture_atlas(
     let _unknown_texture: Handle<Image> = asset_server.load("textures/unknown_icon.png");
     
     let texture_count = texture_handles.len();
-    commands.insert_resource(ItemTextureAtlas { texture_handles });
+    commands.insert_resource(ItemTextureAtlas { texture_handles: texture_handles.clone() });
     
     info!("🎨 Initialized item texture atlas with {} textures", texture_count);
+    
+    // Debug: Print all loaded textures
+    for (item_type, handle) in &texture_handles {
+        info!("Loaded texture for {:?}: {:?}", item_type, handle);
+    }
 }
 
 /// System to update the hotbar item icons based on inventory contents
@@ -151,16 +150,21 @@ pub fn update_hotbar_item_icons(
         if item_icon.slot_index < inventory.hotbar_slots.len() {
             let item_stack = &inventory.hotbar_slots[item_icon.slot_index];
             
+            info!("Updating hotbar slot {}: {:?} x{}", item_icon.slot_index, item_stack.item_type, item_stack.quantity);
+            
             if item_stack.is_empty() {
                 // Empty slot - use empty slot texture
                 item_texture.texture_handle = empty_slot_texture.clone();
+                info!("Slot {} is empty", item_icon.slot_index);
             } else {
                 // Find the appropriate texture for this item type
                 if let Some(texture_handle) = item_textures.texture_handles.get(&item_stack.item_type) {
                     item_texture.texture_handle = texture_handle.clone();
+                    info!("Slot {}: Found texture for {:?}", item_icon.slot_index, item_stack.item_type);
                 } else {
                     // Fallback to unknown texture if no specific texture found
                     item_texture.texture_handle = asset_server.load("textures/unknown_icon.png");
+                    info!("Slot {}: Using unknown texture for {:?}", item_icon.slot_index, item_stack.item_type);
                 }
             }
         }
@@ -172,22 +176,21 @@ pub fn render_hotbar_item_images(
     item_textures: Query<(Entity, &HotbarItemTexture, &HotbarItemIcon), Changed<HotbarItemTexture>>,
     mut commands: Commands,
 ) {
-    for (entity, _item_texture, _item_icon) in &item_textures {
+    for (entity, item_texture, item_icon) in &item_textures {
+        info!("Rendering hotbar item image for slot {} with texture: {:?}", item_icon.slot_index, item_texture.texture_handle);
+        
         // Remove any existing UI image children
         commands.entity(entity).despawn_descendants();
         
         // Spawn new UI image with the current texture
         commands.entity(entity).with_children(|parent| {
             parent.spawn((
-                NodeBundle {
-                    node: Node {
-                        width: Val::Px(48.0),
-                        height: Val::Px(48.0),
-                        ..default()
-                    },
-                    background_color: BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.5)),
+                Node {
+                    width: Val::Px(48.0),
+                    height: Val::Px(48.0),
                     ..default()
                 },
+                BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.5)),
             ));
         });
     }
