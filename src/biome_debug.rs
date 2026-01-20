@@ -5,9 +5,6 @@ use bevy::prelude::*;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::ButtonInput;
 use bevy::math::primitives::Cuboid;
-use crate::biome_textures::BiomeTextureParams;
-use crate::block::BlockType;
-use crate::chunk::ChunkPosition;
 
 /// Resource for controlling biome debug visualization
 #[derive(Resource, Debug, Clone)]
@@ -18,16 +15,14 @@ pub struct BiomeDebugSettings {
     pub show_texture_variations: bool,
     /// Enable biome parameter display
     pub show_biome_parameters: bool,
-    /// Enable biome cache statistics display
-    pub show_cache_stats: bool,
-    /// Biome boundary visualization mode
-    pub boundary_mode: BiomeBoundaryMode,
-    /// Texture variation visualization mode
-    pub texture_mode: BiomeTextureMode,
-    /// Debug UI position
-    pub ui_position: BiomeDebugUIPosition,
     /// Toggle for advanced biome debugging
     pub advanced_debug: bool,
+    
+    // Future features (currently unused but planned)
+    // pub show_cache_stats: bool,
+    // pub boundary_mode: BiomeBoundaryMode,
+    // pub texture_mode: BiomeTextureMode,
+    // pub ui_position: BiomeDebugUIPosition,
 }
 
 impl Default for BiomeDebugSettings {
@@ -36,59 +31,54 @@ impl Default for BiomeDebugSettings {
             show_biome_boundaries: false,
             show_texture_variations: false,
             show_biome_parameters: false,
-            show_cache_stats: false,
-            boundary_mode: BiomeBoundaryMode::Wireframe,
-            texture_mode: BiomeTextureMode::ColorGradient,
-            ui_position: BiomeDebugUIPosition::TopLeft,
             advanced_debug: false,
         }
     }
 }
 
-/// Biome boundary visualization modes
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BiomeBoundaryMode {
-    Wireframe,
-    Solid,
-    Transparent,
-    HeightMap,
-}
-
-/// Biome texture visualization modes
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BiomeTextureMode {
-    ColorGradient,
-    ParameterOverlay,
-    TextureAtlas,
-    NormalMap,
-}
-
-/// Biome debug UI position
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BiomeDebugUIPosition {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-}
-
 /// Component for marking biome boundary visualization entities
 #[derive(Component, Debug)]
 pub struct BiomeBoundaryVisualization {
-    pub chunk_position: ChunkPosition,
-    pub biome_type: String,
+    // Future fields (currently unused but planned)
+    // pub chunk_position: ChunkPosition,
+    // pub biome_type: String,
 }
 
 /// Component for marking biome texture variation entities
 #[derive(Component, Debug)]
 pub struct BiomeTextureVisualization {
-    pub block_type: BlockType,
-    pub biome_params: BiomeTextureParams,
+    // Future fields (currently unused but planned)
+    // pub block_type: BlockType,
+    // pub biome_params: BiomeTextureParams,
 }
 
-/// Component for biome debug UI elements
-#[derive(Component, Debug)]
-pub struct BiomeDebugUI;
+// Future enum types (currently unused but planned)
+// #[derive(Debug, Clone, Copy, PartialEq)]
+// pub enum BiomeBoundaryMode {
+//     Wireframe,
+//     Solid,
+//     Transparent,
+//     HeightMap,
+// }
+
+// #[derive(Debug, Clone, Copy, PartialEq)]
+// pub enum BiomeTextureMode {
+//     ColorGradient,
+//     ParameterOverlay,
+//     TextureAtlas,
+//     NormalMap,
+// }
+
+// #[derive(Debug, Clone, Copy, PartialEq)]
+// pub enum BiomeDebugUIPosition {
+//     TopLeft,
+//     TopRight,
+//     BottomLeft,
+//     BottomRight,
+// }
+
+// #[derive(Component, Debug)]
+// pub struct BiomeDebugUI;
 
 /// Biome debug statistics
 #[derive(Resource, Debug, Default)]
@@ -152,8 +142,6 @@ pub fn display_biome_debug_info(
         println!("   Biome Transitions: {}", debug_stats.biome_transitions);
         println!("   Texture Variations: {}", debug_stats.texture_variations);
         println!("   Cache Hit Rate: {:.1}%", debug_stats.cache_hit_rate * 100.0);
-        println!("   Boundary Mode: {:?}", debug_settings.boundary_mode);
-        println!("   Texture Mode: {:?}", debug_settings.texture_mode);
     }
 }
 
@@ -202,10 +190,7 @@ pub fn visualize_biome_boundaries(
             },
             Mesh3d(cube_mesh.clone()),
             MeshMaterial3d(material.clone()),
-            BiomeBoundaryVisualization {
-                chunk_position: ChunkPosition { x: 0, z: 0 },
-                biome_type: format!("debug_biome_{}", i),
-            },
+            BiomeBoundaryVisualization {},
         ));
     }
     
@@ -226,7 +211,7 @@ pub fn visualize_biome_texture_variations(
     
     // Get biome cache statistics for visualization
     let cache = biome_cache.cache.lock().unwrap();
-    let stats = cache.get_stats();
+    let _stats = cache.get_stats();
     
     // Create visualization for different biome texture variations
     // This shows the variety of textures being used
@@ -263,16 +248,7 @@ pub fn visualize_biome_texture_variations(
             },
             Mesh3d(cube_mesh.clone()),
             MeshMaterial3d(material.clone()),
-            BiomeTextureVisualization {
-                block_type: BlockType::Grass, // Example block type
-                biome_params: BiomeTextureParams {
-                    biome_type: format!("variation_{}", i),
-                    temperature: 0.5,
-                    moisture: 0.5,
-                    height: 10.0,
-                    relative_height: 0.5,
-                },
-            },
+            BiomeTextureVisualization {},
         ));
     }
     
@@ -288,65 +264,3 @@ pub fn update_biome_debug_stats(
     // TODO: Update statistics from biome systems
 }
 
-/// System to create biome debug UI
-pub fn create_biome_debug_ui(
-    debug_settings: Res<BiomeDebugSettings>,
-    _commands: Commands,
-    _asset_server: Res<AssetServer>,
-) {
-    if !debug_settings.show_biome_parameters {
-        return;
-    }
-    
-    // TODO: Implement UI creation using Bevy UI components
-    // This will show biome information in a panel
-}
-
-/// Helper function to get biome color for visualization
-pub fn get_biome_color(biome_type: &str) -> Color {
-    match biome_type {
-        "desert" => Color::srgb(0.9, 0.8, 0.2),
-        "forest" => Color::srgb(0.2, 0.6, 0.2),
-        "jungle" => Color::srgb(0.1, 0.5, 0.1),
-        "grassland" => Color::srgb(0.3, 0.7, 0.3),
-        "swamp" => Color::srgb(0.2, 0.4, 0.2),
-        "tundra" => Color::srgb(0.7, 0.8, 0.9),
-        "snowy_mountain" => Color::srgb(0.9, 0.9, 0.9),
-        "rocky_mountain" => Color::srgb(0.5, 0.5, 0.5),
-        "plains" => Color::srgb(0.5, 0.7, 0.3),
-        "savanna" => Color::srgb(0.8, 0.7, 0.2),
-        _ => Color::srgb(0.5, 0.5, 0.5), // Default gray
-    }
-}
-
-/// Helper function to get biome display name
-pub fn get_biome_display_name(biome_type: &str) -> String {
-    biome_type.replace('_', " ").to_title_case()
-}
-
-/// Extension trait for string title case conversion
-pub trait StringTitleCase {
-    fn to_title_case(&self) -> String;
-}
-
-impl StringTitleCase for str {
-    fn to_title_case(&self) -> String {
-        let mut result = String::new();
-        let mut capitalize_next = true;
-        
-        for c in self.chars() {
-            if capitalize_next && c.is_alphabetic() {
-                result.push(c.to_uppercase().next().unwrap());
-                capitalize_next = false;
-            } else {
-                result.push(c.to_lowercase().next().unwrap());
-            }
-            
-            if c == ' ' || c == '_' || c == '-' {
-                capitalize_next = true;
-            }
-        }
-        
-        result
-    }
-}
