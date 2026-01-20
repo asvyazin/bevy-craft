@@ -55,7 +55,7 @@ mod inventory;
 use inventory::{Inventory, inventory_update_system, display_inventory_info, initialize_inventory};
 
 mod hotbar_ui;
-use hotbar_ui::display_hotbar_info;
+use hotbar_ui::{spawn_hotbar_ui, update_hotbar_ui, display_hotbar_info};
 
 fn main() {
     // Create the app first
@@ -99,6 +99,7 @@ fn main() {
         .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
         .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
         .add_systems(Startup, initialize_inventory) // Initialize inventory with starting items
+        .add_systems(Startup, spawn_hotbar_ui) // Spawn hotbar UI
         .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
@@ -107,7 +108,8 @@ fn main() {
         .add_systems(Update, display_game_time) // Add game time display system
         .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
         .add_systems(Update, inventory_update_system) // Add inventory update system
-        .add_systems(Update, display_hotbar_info) // Add hotbar info display system
+        .add_systems(Update, update_hotbar_ui) // Add hotbar UI update system
+        .add_systems(Update, display_hotbar_info) // Add hotbar info display system (fallback)
         .add_systems(Update, display_inventory_info) // Add inventory info display system
         .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
