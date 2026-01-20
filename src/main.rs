@@ -129,7 +129,7 @@ fn main() {
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
-        .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
+        .add_systems(Update, render_chunk_meshes.run_if(|chunks: Query<&ChunkMesh>| !chunks.is_empty())) // Add chunk mesh rendering system
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(Update, collision_detection_system.after(player::player_movement_system)) // Add collision detection system
@@ -395,26 +395,34 @@ fn generate_chunk_meshes(
 fn render_chunk_meshes(
     mut commands: Commands,
     chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
+    existing_meshes: Query<Entity, With<Mesh3d>>,
 ) {
     for (entity, chunk_mesh, chunk) in &chunk_meshes {
-        // Double-check entity existence to prevent race conditions
-        // First check: does the entity exist in the query (it does, since we're iterating)
-        // Second check: can we get entity commands for it?
-        // Third check: does the entity still exist after we got the commands?
+        // Check if this entity already has a mesh rendered to avoid duplicate insertion
+        if existing_meshes.get(entity).is_ok() {
+            continue; // Skip if already rendered
+        }
         
-        if let Some(mut entity_commands) = commands.get_entity(entity) {
-            // Final existence check - verify the entity hasn't been despawned
-            // between getting entity_commands and inserting components
-            if entity_commands.id() == entity {
-                // Use a default material (grass) if no specific materials are available
-                // This ensures all chunks are rendered even if material assignment is incomplete
-                let material_handle = chunk_mesh.material_handles.values().next()
-                    .cloned()
-                    .unwrap_or_else(|| Handle::default());
+        // Multiple existence checks to prevent race conditions
+        // First check: verify the entity exists
+        if commands.get_entity(entity).is_some() {
+            // Second check: can we get entity commands for it?
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                // Third check: verify the entity hasn't been despawned
+                if entity_commands.id() == entity {
+                    // Use a default material (grass) if no specific materials are available
+                    // This ensures all chunks are rendered even if material assignment is incomplete
+                    let material_handle = chunk_mesh.material_handles.values().next()
+                        .cloned()
+                        .unwrap_or_else(|| Handle::default());
                     
-                entity_commands.insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
-                                        MeshMaterial3d(material_handle),
-                                        Transform::from_translation(chunk.position.min_block_position().as_vec3())));
+                    // Only insert components if all checks pass
+                    entity_commands.insert((
+                        Mesh3d(chunk_mesh.mesh_handle.clone()),
+                        MeshMaterial3d(material_handle),
+                        Transform::from_translation(chunk.position.min_block_position().as_vec3())
+                    ));
+                }
             }
         }
     }
