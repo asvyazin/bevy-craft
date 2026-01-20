@@ -60,6 +60,7 @@ impl ChunkPosition {
     }
 
     /// Get neighboring chunk positions (4 directions: N, S, E, W)
+    #[allow(dead_code)]
     pub fn neighbors(&self) -> [ChunkPosition; 4] {
         [
             ChunkPosition::new(self.x, self.z - 1), // North
@@ -123,6 +124,7 @@ impl ChunkData {
     }
 
     /// Convert array index to local coordinates
+    #[allow(dead_code)]
     fn index_to_local(&self, index: usize) -> (usize, usize, usize) {
         let y = index / CHUNK_AREA;
         let remainder = index % CHUNK_AREA;
@@ -184,7 +186,9 @@ pub struct Chunk {
     pub biome_data: ChunkBiomeData,
     pub is_generated: bool,
     pub needs_mesh_update: bool,
+    #[allow(dead_code)]
     pub priority: ChunkPriority,
+    #[allow(dead_code)]
     pub is_visible: bool,
 }
 
@@ -224,6 +228,7 @@ impl Chunk {
     }
 
     /// Check if a world position is within this chunk
+    #[allow(dead_code)]
     pub fn contains(&self, world_pos: IVec3) -> bool {
         let min_pos = self.position.min_block_position();
         let max_pos = min_pos + IVec3::new(CHUNK_SIZE as i32, CHUNK_HEIGHT as i32, CHUNK_SIZE as i32);
@@ -257,9 +262,11 @@ pub struct CachedChunkData {
     pub data: ChunkData,
     pub biome_data: ChunkBiomeData,
     pub is_generated: bool,
+    #[allow(dead_code)]
     pub last_accessed: f64, // Timestamp of last access
 }
 
+#[allow(dead_code)]
 impl ChunkManager {
     pub fn new(render_distance: i32) -> Self {
         // Set grid region size based on render distance for optimal performance
@@ -448,6 +455,7 @@ impl ChunkManager {
     }
 
     /// Calculate chunk priority based on distance from player and visibility
+    #[allow(dead_code)]
     pub fn calculate_chunk_priority(&self, chunk_pos: &ChunkPosition, player_chunk_pos: &ChunkPosition, is_visible: bool) -> ChunkPriority {
         let dx = (chunk_pos.x - player_chunk_pos.x).abs();
         let dz = (chunk_pos.z - player_chunk_pos.z).abs();
@@ -630,5 +638,6 @@ impl ChunkManager {
 pub struct CacheStats {
     pub cached_chunks: usize,
     pub max_cache_size: usize,
+    #[allow(dead_code)]
     pub cache_hit_rate: f32, // Percentage of cache hits
 }

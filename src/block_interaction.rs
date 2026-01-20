@@ -102,6 +102,7 @@ fn raycast_for_block_immutable(
     max_distance: f32,
 ) -> Option<(IVec3, f32)> {
     const STEP_SIZE: f32 = 0.1;
+    #[allow(dead_code)]
     const BLOCK_SIZE: f32 = 1.0;
     
     let mut current_pos = ray_origin;
@@ -148,6 +149,7 @@ fn raycast_for_block_mutable(
     max_distance: f32,
 ) -> Option<(IVec3, f32)> {
     const STEP_SIZE: f32 = 0.1;
+    #[allow(dead_code)]
     const BLOCK_SIZE: f32 = 1.0;
     
     let mut current_pos = ray_origin;

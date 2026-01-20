@@ -21,6 +21,7 @@ impl Default for GameTime {
     }
 }
 
+#[allow(dead_code)]
 impl GameTime {
     /// Create a new GameTime instance
     pub fn new(start_time: f32, time_scale: f32) -> Self {

@@ -12,6 +12,7 @@ pub struct TextureGenSettings {
     pub texture_size: UVec2,
     pub noise_scale: f32,
     pub noise_octaves: usize,
+    #[allow(dead_code)]
     pub color_scheme: String,
 }
 
@@ -27,6 +28,7 @@ impl Default for TextureGenSettings {
 }
 
 impl TextureGenSettings {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -64,6 +66,7 @@ pub struct ProceduralTexture;
 /// Component to store an image handle on an entity
 #[derive(Component)]
 pub struct EntityImageHandle {
+    #[allow(dead_code)]
     pub handle: Handle<Image>,
 }
 
@@ -109,6 +112,7 @@ pub fn generate_procedural_textures(
 }
 
 /// Generate fallback texture data (simple gradient)
+#[allow(dead_code)]
 fn generate_fallback_texture_data(settings: &TextureGenSettings) -> Vec<u8> {
     let expected_size = (settings.texture_size.x * settings.texture_size.y * 4) as usize;
     let mut texture_data = Vec::with_capacity(expected_size);
@@ -265,6 +269,7 @@ pub struct DynamicTexture {
 }
 
 impl DynamicTexture {
+    #[allow(dead_code)]
     pub fn new(block_type: &str) -> Self {
         Self {
             block_type: block_type.to_string(),
@@ -275,6 +280,7 @@ impl DynamicTexture {
 }
 
 /// System to create a demo entity with procedural texture
+#[allow(dead_code)]
 pub fn spawn_procedural_texture_demo(
     mut commands: Commands,
     settings: Res<TextureGenSettings>,

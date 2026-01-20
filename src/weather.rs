@@ -1,6 +1,7 @@
 // Weather and cloud system for Bevy Craft
 // This module handles cloud rendering, weather effects, and atmospheric conditions
 
+#![allow(dead_code)]
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 use bevy::reflect::TypePath;
@@ -37,6 +38,7 @@ pub struct WeatherSystem {
     /// Minimum time between weather changes (seconds)
     pub min_weather_duration: f32,
     /// Maximum time between weather changes (seconds)
+    #[allow(dead_code)]
     pub max_weather_duration: f32,
 }
 
@@ -71,10 +73,12 @@ pub struct WeatherParticleEntity;
 
 /// Component to identify weather effect entities
 #[derive(Component)]
+#[allow(dead_code)]
 pub struct WeatherEffectEntity;
 
 /// Weather types supported by the system
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum WeatherType {
     Clear,           // No clouds, sunny
     PartlyCloudy,    // Some clouds
@@ -108,6 +112,7 @@ impl WeatherType {
     }
 
     /// Check if this weather type has precipitation
+    #[allow(dead_code)]
     pub fn has_precipitation(&self) -> bool {
         matches!(
             self,
@@ -169,10 +174,13 @@ pub struct CloudLayer {
     /// Direction of the cloud layer
     pub direction: Vec2,
     /// Noise octaves for cloud generation
+    #[allow(dead_code)]
     pub noise_octaves: u32,
     /// Noise frequency for cloud generation
+    #[allow(dead_code)]
     pub noise_frequency: f32,
     /// Noise persistence for cloud generation
+    #[allow(dead_code)]
     pub noise_persistence: f32,
 }
 
@@ -197,8 +205,10 @@ pub struct CloudSystem {
     /// Multiple cloud layers for realistic cloud rendering
     pub layers: Vec<CloudLayer>,
     /// Global cloud coverage multiplier
+    #[allow(dead_code)]
     pub coverage_multiplier: f32,
     /// Global cloud density multiplier
+    #[allow(dead_code)]
     pub density_multiplier: f32,
     /// Cloud animation time
     pub animation_time: f32,
@@ -272,8 +282,10 @@ pub struct WeatherEffects {
     /// Snow particle size
     pub snow_particle_size: f32,
     /// Lightning flash intensity
+    #[allow(dead_code)]
     pub lightning_flash_intensity: f32,
     /// Lightning flash duration
+    #[allow(dead_code)]
     pub lightning_flash_duration: f32,
     /// Time between lightning strikes
     pub lightning_frequency: f32,
@@ -300,6 +312,7 @@ impl Default for WeatherEffects {
 
 /// Uniform structure for cloud shader
 #[derive(Clone, ShaderType)]
+#[allow(dead_code)]
 pub struct CloudUniform {
     // Cloud layer parameters using Vec4 for guaranteed 16-byte alignment
     layer_altitudes: Vec4,
@@ -405,10 +418,8 @@ pub fn spawn_cloud_layers(
             Mesh3d(cloud_mesh.clone()),
             MeshMaterial3d(cloud_material.clone()),
             CloudEntity,
-            TransformBundle::from_transform(
-                Transform::from_translation(Vec3::new(0.0, *altitude, 0.0))
-                    .with_rotation(Quat::from_rotation_x(-PI / 2.0)), // Make plane horizontal
-            ),
+            Transform::from_translation(Vec3::new(0.0, *altitude, 0.0))
+                .with_rotation(Quat::from_rotation_x(-PI / 2.0)), // Make plane horizontal
         ));
     }
 }
@@ -782,7 +793,7 @@ fn spawn_rain_particles_dynamic(
             Mesh3d(rain_mesh.clone()),
             MeshMaterial3d(rain_material.clone()),
             WeatherParticleEntity,
-            TransformBundle::from_transform(Transform::from_translation(Vec3::new(x, y, z))),
+            Transform::from_translation(Vec3::new(x, y, z)),
         ));
     }
 }
@@ -815,7 +826,7 @@ fn spawn_snow_particles_dynamic(
             Mesh3d(snow_mesh.clone()),
             MeshMaterial3d(snow_material.clone()),
             WeatherParticleEntity,
-            TransformBundle::from_transform(Transform::from_translation(Vec3::new(x, y, z))),
+            Transform::from_translation(Vec3::new(x, y, z)),
         ));
     }
 }

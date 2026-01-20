@@ -147,6 +147,7 @@ pub fn generate_texture_cache_key(block_type: &BlockType, biome_params: &BiomeTe
 }
 
 /// Determine biome type based on temperature and moisture
+#[allow(dead_code)]
 pub fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> String {
     if height > 60 {
         if temperature < 0.3 {
@@ -180,6 +181,7 @@ pub fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> Str
 }
 
 /// Get biome texture parameters for a given position
+#[allow(dead_code)]
 pub fn get_biome_texture_params(
     temperature: f32,
     moisture: f32,

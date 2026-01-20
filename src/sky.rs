@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::prelude::*;
 use bevy::ecs::system::ParamSet;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
@@ -66,6 +67,7 @@ impl Default for AtmosphericScatteringParams {
 
 /// Uniform structure for atmospheric scattering shader
 #[derive(Clone, ShaderType)]
+#[allow(dead_code)]
 pub struct AtmosphericScatteringUniform {
     // Rayleigh scattering parameters
     rayleigh_coefficient: Vec3,

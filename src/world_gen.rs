@@ -141,6 +141,7 @@ pub fn generate_chunk_heightmap(
 }
 
 /// Generate fractal noise (multiple octaves) for more natural terrain
+#[allow(dead_code)]
 fn generate_fractal_noise(
     x: f32,
     z: f32,
@@ -169,6 +170,7 @@ fn generate_fractal_noise(
 }
 
 /// Simple CPU-based Perlin noise implementation for world generation
+#[allow(dead_code)]
 fn cpu_perlin_noise(x: f32, z: f32, seed: u32) -> f32 {
     // Improved hash function for pseudo-random numbers
     fn hash(seed: u32, x: i32, y: i32) -> f32 {
@@ -211,16 +213,19 @@ fn cpu_perlin_noise(x: f32, z: f32, seed: u32) -> f32 {
 }
 
 /// Fade function for Perlin noise
+#[allow(dead_code)]
 fn fade(t: f32) -> f32 {
     t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 }
 
 /// Linear interpolation
+#[allow(dead_code)]
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + t * (b - a)
 }
 
 /// Calculate height from noise value
+#[allow(dead_code)]
 fn calculate_height(noise_value: f32, settings: &WorldGenSettings) -> i32 {
     // Map noise range [-1, 1] to height range
     let normalized = (noise_value + 1.0) / 2.0; // Map to [0, 1]
@@ -533,11 +538,13 @@ fn add_environmental_features_with_biome(chunk: &mut Chunk, local_x: usize, loca
 }
 
 /// Original terrain column function (kept for compatibility)
+#[allow(dead_code)]
 fn generate_terrain_column(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32) {
     generate_terrain_column_with_biome(chunk, local_x, local_z, height, 0.5, 0.5);
 }
 
 /// Add environmental features like sand, water, etc. based on terrain characteristics
+#[allow(dead_code)]
 fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32) {
     // Add sand for beach-like areas (low terrain near "water level")
     if height > 5 && height < 12 {

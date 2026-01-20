@@ -18,12 +18,19 @@ pub struct Collider {
 /// Component to track collision state and timing for smoothing
 #[derive(Component, Debug)]
 pub struct CollisionState {
+    #[allow(dead_code)]
     pub last_collision_time: f32,
+    #[allow(dead_code)]
     pub previous_position: Vec3,
+    #[allow(dead_code)]
     pub velocity: Vec3,
+    #[allow(dead_code)]
     pub stable_frames_count: u32,
+    #[allow(dead_code)]
     pub is_ground_locked: bool,
+    #[allow(dead_code)]
     pub ground_lock_position: Vec3,
+    #[allow(dead_code)]
     pub last_stable_y_position: f32,
 }
 
@@ -42,6 +49,7 @@ impl Default for CollisionState {
 }
 
 impl Collider {
+    #[allow(dead_code)]
     pub fn new(size: Vec3, offset: Vec3) -> Self {
         Self { size, offset }
     }
@@ -544,6 +552,7 @@ fn find_highest_solid_ground(
 }
 
 /// Check if a position is safe for spawning (no collisions with blocks)
+#[allow(dead_code)]
 fn is_position_safe(
     position: Vec3,
     chunks: &Query<&Chunk>,
@@ -560,6 +569,7 @@ fn is_position_safe(
 }
 
 /// Find the ground level at a specific X,Z position
+#[allow(dead_code)]
 fn find_ground_level(
     x: f32,
     z: f32, 
@@ -596,6 +606,7 @@ fn find_ground_level(
 }
 
 /// Check if there's a solid block at a specific position
+#[allow(dead_code)]
 fn check_block_at_position(
     position: IVec3,
     blocks: &Query<&Block>,
@@ -629,6 +640,7 @@ fn check_block_at_position(
 }
 
 /// Find ground level using chunk-based approach
+#[allow(dead_code)]
 fn find_ground_level_in_chunks(
     x: f32,
     z: f32,
@@ -659,6 +671,7 @@ fn find_ground_level_in_chunks(
 }
 
 /// Find an empty space near a desired position
+#[allow(dead_code)]
 fn find_empty_space_near_position(
     desired_position: Vec3,
     blocks: &Query<&Block>,

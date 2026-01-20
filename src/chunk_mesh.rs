@@ -30,6 +30,7 @@ pub struct ChunkMesh {
     /// Material handles for different block types in this chunk
     pub material_handles: HashMap<BlockType, Handle<StandardMaterial>>,
     /// Flag indicating if the mesh needs to be regenerated
+    #[allow(dead_code)]
     pub needs_rebuild: bool,
 }
 

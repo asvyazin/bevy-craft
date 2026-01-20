@@ -16,6 +16,7 @@ pub enum BlockType {
 
 impl BlockType {
     /// Get the display name of the block type
+    #[allow(dead_code)]
     pub fn name(&self) -> &str {
         match self {
             BlockType::Air => "Air",
@@ -70,6 +71,7 @@ pub struct Block {
 }
 
 impl Block {
+    #[allow(dead_code)]
     pub fn new(block_type: BlockType, position: IVec3) -> Self {
         Self { block_type, position }
     }

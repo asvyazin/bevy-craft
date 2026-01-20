@@ -15,6 +15,7 @@ use crate::biome_textures::BiomeTextureParams;
 #[derive(Debug, Clone)]
 pub struct BiomeTextureCacheEntry {
     pub texture_handle: Handle<Image>,
+    #[allow(dead_code)]
     pub config: crate::noise::NoiseSettings,
     pub last_used: std::time::Instant,
     pub access_count: u32,
@@ -72,6 +73,7 @@ pub struct BiomeTextureCacheStats {
     pub peak_textures: usize,
 }
 
+#[allow(dead_code)]
 impl BiomeTextureCache {
     /// Create a new biome texture cache
     pub fn new(config: BiomeTextureCacheConfig) -> Self {
@@ -371,6 +373,7 @@ pub struct SharedBiomeTextureCache {
 }
 
 impl SharedBiomeTextureCache {
+    #[allow(dead_code)]
     pub fn new(config: BiomeTextureCacheConfig) -> Self {
         Self {
             cache: Arc::new(Mutex::new(BiomeTextureCache::new(config))),

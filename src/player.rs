@@ -31,8 +31,11 @@ impl Player {
 /// Settings for player movement
 #[derive(Resource, Debug)]
 pub struct PlayerMovementSettings {
+    #[allow(dead_code)]
     pub move_speed: f32,
+    #[allow(dead_code)]
     pub jump_force: f32,
+    #[allow(dead_code)]
     pub gravity: f32,
     pub mouse_sensitivity: f32,
 }
@@ -49,6 +52,7 @@ impl Default for PlayerMovementSettings {
 }
 
 /// System to spawn the player with proper mesh and materials
+#[allow(dead_code)]
 pub fn spawn_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
