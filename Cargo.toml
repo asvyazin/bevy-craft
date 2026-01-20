@@ -11,3 +11,4 @@ tokio = { version = "1.0", features = ["full"] }
 futures = "0.3"
 crossbeam-channel = "0.5"
 encase = "0.10"
+rand = "0.8"

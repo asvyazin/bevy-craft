@@ -41,6 +41,9 @@ use collision::{Collider, collision_detection_system, find_safe_spawn_position};
 mod sky;
 use sky::{spawn_skybox, spawn_sun_and_moon, update_sky_color, update_sun_and_moon_positions, update_atmospheric_scattering, AtmosphericScatteringParams};
 
+mod weather;
+use weather::{initialize_weather_system, spawn_cloud_layers, update_weather_system, update_cloud_rendering, spawn_weather_particles, update_weather_particles, update_lightning_effects, display_weather_info};
+
 mod time;
 use time::{GameTime, update_game_time, display_game_time};
 
@@ -63,6 +66,7 @@ fn main() {
         .init_resource::<crate::biome_texture_cache::SharedBiomeTextureCache>() // Initialize biome texture cache
         .init_resource::<GameTime>() // Initialize game time for day/night cycle
         .init_resource::<AtmosphericScatteringParams>() // Initialize atmospheric scattering parameters
+        .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         ;
     
     app
@@ -72,8 +76,11 @@ fn main() {
         .add_systems(Startup, initialize_block_textures) // Use standard textures
         .add_systems(Startup, load_procedural_textures_into_atlas.after(initialize_block_textures))
         .add_systems(Startup, initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas))
+        .add_systems(Startup, initialize_weather_system) // Initialize weather system
         .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
         .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
+        .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
+        .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
         .add_systems(Startup, test_sophisticated_algorithms::test_sophisticated_algorithms)
 
         .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
@@ -83,6 +90,11 @@ fn main() {
         .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
         .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
+        .add_systems(Update, update_weather_system) // Add weather system update
+        .add_systems(Update, update_cloud_rendering) // Add cloud rendering update
+        .add_systems(Update, update_weather_particles) // Add weather particle update
+        .add_systems(Update, update_lightning_effects) // Add lightning effects update
+        .add_systems(Update, display_weather_info) // Add weather info display
 
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
         .add_systems(Update, generate_chunk_meshes)
