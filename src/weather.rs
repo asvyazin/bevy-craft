@@ -301,12 +301,16 @@ impl Default for WeatherEffects {
 /// Uniform structure for cloud shader
 #[derive(Clone, ShaderType)]
 pub struct CloudUniform {
-    // Cloud layer parameters
+    // Cloud layer parameters (grouped for better alignment)
     layer_altitudes: [f32; 4],
     layer_scales: [f32; 4],
     layer_densities: [f32; 4],
     layer_speeds: [f32; 4],
-    layer_directions: [Vec2; 4],
+    
+    // Layer directions as separate components for proper alignment
+    layer_direction_x: [f32; 4],
+    layer_direction_y: [f32; 4],
+    _padding1: [f32; 2], // Pad to 16-byte alignment
     
     // Global cloud parameters
     global_coverage: f32,
@@ -316,16 +320,19 @@ pub struct CloudUniform {
     
     // Camera and lighting parameters
     camera_position: Vec3,
+    _padding2: f32, // Pad Vec3 to 16 bytes
     sun_direction: Vec3,
+    _padding3: f32, // Pad Vec3 to 16 bytes
     
     // Weather parameters
     weather_type: u32,
     precipitation_intensity: f32,
-    wind_direction: Vec3,
-    wind_speed: f32,
+    _padding4: [f32; 2], // Pad to 16 bytes
     
-    // Padding
-    _padding: [f32; 2],
+    wind_direction: Vec3,
+    _padding5: f32, // Pad Vec3 to 16 bytes
+    wind_speed: f32,
+    _padding6: [f32; 3], // Final padding
 }
 
 impl Default for CloudUniform {
@@ -335,18 +342,24 @@ impl Default for CloudUniform {
             layer_scales: [0.0; 4],
             layer_densities: [0.0; 4],
             layer_speeds: [0.0; 4],
-            layer_directions: [Vec2::ZERO; 4],
+            layer_direction_x: [0.0; 4],
+            layer_direction_y: [0.0; 4],
+            _padding1: [0.0; 2],
             global_coverage: 0.5,
             global_density: 0.5,
             animation_time: 0.0,
             animation_speed: 0.001,
             camera_position: Vec3::ZERO,
+            _padding2: 0.0,
             sun_direction: Vec3::Y,
+            _padding3: 0.0,
             weather_type: 0,
             precipitation_intensity: 0.0,
+            _padding4: [0.0; 2],
             wind_direction: Vec3::X,
+            _padding5: 0.0,
             wind_speed: 1.0,
-            _padding: [0.0; 2],
+            _padding6: [0.0; 3],
         }
     }
 }
@@ -649,7 +662,8 @@ pub fn update_cloud_rendering(
             cloud_uniform.layer_scales[i] = layer.scale;
             cloud_uniform.layer_densities[i] = layer.density;
             cloud_uniform.layer_speeds[i] = layer.speed;
-            cloud_uniform.layer_directions[i] = layer.direction;
+            cloud_uniform.layer_direction_x[i] = layer.direction.x;
+            cloud_uniform.layer_direction_y[i] = layer.direction.y;
         }
     }
     

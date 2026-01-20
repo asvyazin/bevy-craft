@@ -109,13 +109,14 @@ fn fragment_main(in: FragmentInput) -> @location(0) vec4<f32> {
     // Render each cloud layer
     for (var i: i32 = 0; i < 4; i = i + 1) {
         if (cloud_uniform.layer_densities[i] > 0.0) {
+            let layer_direction = vec2<f32>(cloud_uniform.layer_direction_x[i], cloud_uniform.layer_direction_y[i]);
             let layer_color = render_clouds(
                 uv,
                 cloud_uniform.layer_altitudes[i],
                 cloud_uniform.layer_scales[i],
                 cloud_uniform.layer_densities[i],
                 cloud_uniform.layer_speeds[i],
-                cloud_uniform.layer_directions[i],
+                layer_direction,
                 4, // Default octaves
                 0.001, // Default frequency
                 0.5, // Default persistence
