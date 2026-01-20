@@ -249,6 +249,13 @@ impl Default for CloudSystem {
     }
 }
 
+/// Weather particle materials resource
+#[derive(Resource, Debug, Clone)]
+pub struct WeatherParticleMaterials {
+    pub rain_material: Handle<StandardMaterial>,
+    pub snow_material: Handle<StandardMaterial>,
+}
+
 /// Weather effects configuration
 #[derive(Resource, Debug, Clone)]
 pub struct WeatherEffects {
@@ -651,61 +658,50 @@ pub fn update_cloud_rendering(
 }
 
 /// System to spawn weather particles (rain, snow, etc.)
+/// Note: This is a startup system that just initializes particle systems
+/// Actual particle spawning happens in the update phase
 pub fn spawn_weather_particles(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    weather_system: Res<WeatherSystem>,
-    weather_effects: Res<WeatherEffects>,
 ) {
-    // Clear existing weather particles first
-    // In a real implementation, we'd despawn existing particles
+    // During startup, we just prepare the particle systems
+    // Actual particle spawning will happen in the update phase based on current weather
     
-    // Spawn particles based on current weather
-    match weather_system.target_weather {
-        WeatherType::Rain | WeatherType::HeavyRain | WeatherType::Thunderstorm => {
-            spawn_rain_particles(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                &weather_system,
-                &weather_effects,
-            );
-        }
-        WeatherType::Snow | WeatherType::HeavySnow => {
-            spawn_snow_particles(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                &weather_system,
-                &weather_effects,
-            );
-        }
-        _ => {
-            // No particles for other weather types
-        }
-    }
-}
-
-/// Spawn rain particles
-fn spawn_rain_particles(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    weather_system: &WeatherSystem,
-    weather_effects: &WeatherEffects,
-) {
-    let particle_count = weather_effects.rain_particle_count;
-    let particle_size = weather_effects.rain_particle_size;
-    let spawn_area = 1000.0; // Area where particles spawn
-    
-    // Create rain particle material
+    // Create a placeholder rain material for later use
     let rain_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.7, 0.8, 1.0),
         emissive: Color::srgb(0.1, 0.2, 0.3).into(),
         unlit: true,
         ..default()
     });
+    
+    // Create a placeholder snow material for later use  
+    let snow_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 1.0, 1.0),
+        emissive: Color::srgb(0.8, 0.9, 1.0).into(),
+        unlit: true,
+        ..default()
+    });
+    
+    // Store these materials in a resource for later use
+    commands.insert_resource(WeatherParticleMaterials {
+        rain_material,
+        snow_material,
+    });
+}
+
+/// Spawn rain particles (dynamic version for update phase)
+fn spawn_rain_particles_dynamic(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    rain_material: &Handle<StandardMaterial>,
+    weather_system: &WeatherSystem,
+    weather_effects: &WeatherEffects,
+) {
+    let particle_count = weather_effects.rain_particle_count;
+    let particle_size = weather_effects.rain_particle_size;
+    let spawn_area = 1000.0; // Area where particles spawn
     
     // Create rain particle mesh (simple cylinder)
     let rain_mesh = meshes.add(Mesh::try_from(bevy::prelude::Cylinder {
@@ -729,25 +725,17 @@ fn spawn_rain_particles(
     }
 }
 
-/// Spawn snow particles
-fn spawn_snow_particles(
+/// Spawn snow particles (dynamic version for update phase)
+fn spawn_snow_particles_dynamic(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    snow_material: &Handle<StandardMaterial>,
     weather_system: &WeatherSystem,
     weather_effects: &WeatherEffects,
 ) {
     let particle_count = weather_effects.snow_particle_count;
     let particle_size = weather_effects.snow_particle_size;
     let spawn_area = 1000.0; // Area where particles spawn
-    
-    // Create snow particle material
-    let snow_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(1.0, 1.0, 1.0),
-        emissive: Color::srgb(0.8, 0.9, 1.0).into(),
-        unlit: true,
-        ..default()
-    });
     
     // Create snow particle mesh (simple sphere)
     let snow_mesh = meshes.add(Mesh::try_from(bevy::prelude::Sphere {
@@ -767,6 +755,46 @@ fn spawn_snow_particles(
             WeatherParticleEntity,
             TransformBundle::from_transform(Transform::from_translation(Vec3::new(x, y, z))),
         ));
+    }
+}
+
+/// System to spawn weather particles during update phase based on current weather
+pub fn spawn_weather_particles_dynamic(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    particle_materials: Res<WeatherParticleMaterials>,
+    weather_system: Res<WeatherSystem>,
+    weather_effects: Res<WeatherEffects>,
+    particle_query: Query<Entity, With<WeatherParticleEntity>>,
+) {
+    // First, despawn existing particles to avoid accumulation
+    for entity in &particle_query {
+        commands.entity(entity).despawn();
+    }
+    
+    // Spawn particles based on current weather
+    match weather_system.target_weather {
+        WeatherType::Rain | WeatherType::HeavyRain | WeatherType::Thunderstorm => {
+            spawn_rain_particles_dynamic(
+                &mut commands,
+                &mut meshes,
+                &particle_materials.rain_material,
+                &weather_system,
+                &weather_effects,
+            );
+        }
+        WeatherType::Snow | WeatherType::HeavySnow => {
+            spawn_snow_particles_dynamic(
+                &mut commands,
+                &mut meshes,
+                &particle_materials.snow_material,
+                &weather_system,
+                &weather_effects,
+            );
+        }
+        _ => {
+            // No particles for other weather types
+        }
     }
 }
 

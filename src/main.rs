@@ -42,7 +42,7 @@ mod sky;
 use sky::{spawn_skybox, spawn_sun_and_moon, update_sky_color, update_sun_and_moon_positions, update_atmospheric_scattering, AtmosphericScatteringParams};
 
 mod weather;
-use weather::{initialize_weather_system, spawn_cloud_layers, update_weather_system, update_cloud_rendering, spawn_weather_particles, update_weather_particles, update_lightning_effects, display_weather_info};
+use weather::{initialize_weather_system, spawn_cloud_layers, update_weather_system, update_cloud_rendering, spawn_weather_particles, spawn_weather_particles_dynamic, update_weather_particles, update_lightning_effects, display_weather_info};
 
 mod time;
 use time::{GameTime, update_game_time, display_game_time};
@@ -92,6 +92,7 @@ fn main() {
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
         .add_systems(Update, update_weather_system) // Add weather system update
         .add_systems(Update, update_cloud_rendering) // Add cloud rendering update
+        .add_systems(Update, spawn_weather_particles_dynamic) // Add dynamic weather particle spawning
         .add_systems(Update, update_weather_particles) // Add weather particle update
         .add_systems(Update, update_lightning_effects) // Add lightning effects update
         .add_systems(Update, display_weather_info) // Add weather info display
