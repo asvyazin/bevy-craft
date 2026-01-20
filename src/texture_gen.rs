@@ -152,8 +152,8 @@ impl Default for BlockTextures {
 
 /// System to initialize block textures resource
 pub fn initialize_block_textures(
-    mut commands: Commands,
-    settings: Res<TextureGenSettings>,
+    _commands: Commands,
+    _settings: Res<TextureGenSettings>,
     mut images: ResMut<Assets<Image>>,
     mut block_textures: ResMut<BlockTextures>,
 ) {
@@ -305,7 +305,6 @@ fn generate_simple_texture_data(width: u32, height: u32, scale: f32, octaves: us
             // Basic hash-based noise
             let mut value = 0.0;
             let mut amplitude = 1.0;
-            let mut frequency = 1.0;
             let mut max_value = 0.0;
             
             for _ in 0..octaves {
@@ -332,7 +331,7 @@ fn generate_simple_texture_data(width: u32, height: u32, scale: f32, octaves: us
                 value += noise_value * amplitude;
                 max_value += amplitude;
                 amplitude *= 0.5;
-                frequency *= 2.0;
+                // frequency *= 2.0; // Unused assignment
             }
             
             let noise_value = value / max_value;
@@ -396,7 +395,6 @@ pub fn generate_biome_texture_data(
             // Enhanced hash-based noise with biome influence
             let mut value = 0.0;
             let mut amplitude = 1.0;
-            let mut frequency = 1.0;
             let mut max_value = 0.0;
             
             for _ in 0..octaves {
@@ -424,7 +422,7 @@ pub fn generate_biome_texture_data(
                 value += noise_value * amplitude;
                 max_value += amplitude;
                 amplitude *= 0.5;
-                frequency *= 2.0;
+                // frequency *= 2.0; // Unused assignment
             }
             
             let noise_value = value / max_value;

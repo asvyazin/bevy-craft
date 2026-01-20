@@ -186,9 +186,9 @@ fn raycast_for_block_mutable(
 
 /// Find the adjacent block position for placement
 /// Given a target block position and ray information, determine where to place a new block
-fn find_adjacent_block_position(target_block_pos: IVec3, ray_origin: Vec3, ray_direction: Vec3) -> IVec3 {
+fn find_adjacent_block_position(target_block_pos: IVec3, _ray_origin: Vec3, ray_direction: Vec3) -> IVec3 {
     // Convert target block position to Vec3 for calculations
-    let target_block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
+    let _target_block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
     
     // Determine which face of the target block is being looked at
     // by finding the component with the largest absolute value

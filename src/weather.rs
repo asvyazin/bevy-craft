@@ -626,7 +626,7 @@ pub fn update_cloud_rendering(
     cloud_system: Res<CloudSystem>,
     cameras: Query<&Transform, With<Camera>>,
     mut materials: ResMut<Assets<CloudMaterial>>,
-    cloud_query: Query<&CloudEntity>,
+    _cloud_query: Query<&CloudEntity>,
 ) {
     // Update cloud animation time
     let mut updated_cloud_system = cloud_system.clone();
@@ -724,7 +724,7 @@ pub fn update_cloud_rendering(
 /// Actual particle spawning happens in the update phase
 pub fn spawn_weather_particles(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    _meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // During startup, we just prepare the particle systems
@@ -758,7 +758,7 @@ fn spawn_rain_particles_dynamic(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     rain_material: &Handle<StandardMaterial>,
-    weather_system: &WeatherSystem,
+    _weather_system: &WeatherSystem,
     weather_effects: &WeatherEffects,
 ) {
     let particle_count = weather_effects.rain_particle_count;
@@ -792,7 +792,7 @@ fn spawn_snow_particles_dynamic(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     snow_material: &Handle<StandardMaterial>,
-    weather_system: &WeatherSystem,
+    _weather_system: &WeatherSystem,
     weather_effects: &WeatherEffects,
 ) {
     let particle_count = weather_effects.snow_particle_count;

@@ -222,7 +222,7 @@ impl TextureAtlas {
         images: &mut ResMut<Assets<Image>>,
     ) -> Option<Handle<Image>> {
         // Generate the texture key for this biome+block combination
-        let texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
+        let _texture_key = crate::biome_textures::generate_texture_cache_key(&block_type, biome_params);
         
         // Try to get biome-specific texture from cache
         let mut cache = biome_cache.cache.lock().unwrap();

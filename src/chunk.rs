@@ -500,7 +500,7 @@ impl ChunkManager {
             let distance = (dx.max(dz)) as i32;
 
             // Simple priority calculation - visible chunks would get higher priority
-            let priority = if distance <= self.render_distance / 2 {
+            let _priority = if distance <= self.render_distance / 2 {
                 ChunkPriority::Near
             } else if distance <= self.render_distance {
                 ChunkPriority::Far
@@ -590,7 +590,7 @@ impl ChunkManager {
     }
 
     /// Get cached chunk data if available
-    pub fn get_cached_chunk(&mut self, chunk_pos: &ChunkPosition, current_time: f64) -> Option<CachedChunkData> {
+    pub fn get_cached_chunk(&mut self, chunk_pos: &ChunkPosition, _current_time: f64) -> Option<CachedChunkData> {
         if let Some(cached_data) = self.chunk_cache.get(chunk_pos) {
             // Update access time
             self.cache_access_order.retain(|&pos| pos != *chunk_pos);

@@ -91,7 +91,7 @@ impl BiomeTextureCache {
         block_type: &BlockType,
         biome_params: &BiomeTextureParams,
         images: &mut ResMut<Assets<Image>>,
-        generate_fn: F,
+        _generate_fn: F,
     ) -> Handle<Image> {
         self.stats.total_requests += 1;
         
@@ -244,7 +244,7 @@ impl BiomeTextureCache {
         let target_key = crate::biome_textures::generate_texture_cache_key(block_type, biome_params);
         
         // Look for textures with same block type and similar biome parameters
-        for (key, entry) in &self.cache {
+        for (key, _entry) in &self.cache {
             if !key.starts_with(&format!("{:?}-", block_type)) {
                 continue;
             }

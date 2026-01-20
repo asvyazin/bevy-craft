@@ -502,7 +502,7 @@ fn dynamic_chunk_loading_system(
                         
                         let region_x = center_region.0 + dx;
                         let region_z = center_region.1 + dz;
-                        let region_coords = (region_x, region_z);
+                        let _region_coords = (region_x, region_z);
                         regions_checked += 1;
                         
                         // Check if we need to load chunks in this region

@@ -138,7 +138,7 @@ pub struct Moon;
 pub fn spawn_skybox(
     mut commands: Commands, 
     mut meshes: ResMut<Assets<Mesh>>, 
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    _standard_materials: ResMut<Assets<StandardMaterial>>,
     mut atmospheric_materials: ResMut<Assets<AtmosphericScatteringMaterial>>,
     atmospheric_params: Res<AtmosphericScatteringParams>,
 ) {
@@ -279,7 +279,7 @@ pub fn update_atmospheric_scattering(
 /// System to update sky color based on time of day (legacy system, kept for compatibility)
 pub fn update_sky_color(
     time: Res<crate::time::GameTime>,
-    mut sky_query: Query<&SkyboxMaterial>,
+    sky_query: Query<&SkyboxMaterial>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Get the sky material and update its color based on time of day
