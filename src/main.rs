@@ -54,6 +54,9 @@ use time::{GameTime, update_game_time, display_game_time};
 mod inventory;
 use inventory::{Inventory, inventory_update_system, display_inventory_info, initialize_inventory};
 
+mod hotbar_ui;
+use hotbar_ui::display_hotbar_info;
+
 fn main() {
     // Create the app first
     let mut app = App::new();
@@ -104,6 +107,7 @@ fn main() {
         .add_systems(Update, display_game_time) // Add game time display system
         .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
         .add_systems(Update, inventory_update_system) // Add inventory update system
+        .add_systems(Update, display_hotbar_info) // Add hotbar info display system
         .add_systems(Update, display_inventory_info) // Add inventory info display system
         .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
         .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
@@ -166,10 +170,13 @@ fn generate_initial_chunks(commands: &mut Commands, chunk_manager: &mut ChunkMan
             let chunk_pos = ChunkPosition::new(x, z);
             let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
             
-            // Register the chunk in the manager using spatial partitioning
-            chunk_manager.insert_chunk(chunk_pos, chunk_entity);
-            
-            println!("🌱 Spawned initial chunk at ({}, {}) - waiting for terrain generation", x, z);
+            // Register the chunk in the manager using spatial partitioning (with existence check)
+            if let Some(entity_commands) = commands.get_entity(chunk_entity) {
+                if entity_commands.id() == chunk_entity {
+                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                    println!("🌱 Spawned initial chunk at ({}, {}) - waiting for terrain generation", x, z);
+                }
+            }
         }
     }
     
@@ -370,10 +377,14 @@ fn generate_chunk_meshes(
                 }
             }
             
-            // Add the chunk mesh component to the chunk entity
-            commands.entity(chunk_entity).insert(chunk_mesh);
-            
-            println!("✓ Generated mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
+            // Add the chunk mesh component to the chunk entity with existence check
+            if let Some(mut entity_commands) = commands.get_entity(chunk_entity) {
+                // Double-check that the entity still exists before inserting
+                if entity_commands.id() == chunk_entity {
+                    entity_commands.insert(chunk_mesh);
+                    println!("✓ Generated mesh for chunk ({}, {})", chunk.position.x, chunk.position.z);
+                }
+            }
         }
     }
 }
@@ -384,18 +395,25 @@ fn render_chunk_meshes(
     chunk_meshes: Query<(Entity, &ChunkMesh, &Chunk)>, 
 ) {
     for (entity, chunk_mesh, chunk) in &chunk_meshes {
-        // Check if the entity still exists before trying to insert components
-        // This prevents panics when chunks are despawned between systems
+        // Double-check entity existence to prevent race conditions
+        // First check: does the entity exist in the query (it does, since we're iterating)
+        // Second check: can we get entity commands for it?
+        // Third check: does the entity still exist after we got the commands?
+        
         if let Some(mut entity_commands) = commands.get_entity(entity) {
-            // Use a default material (grass) if no specific materials are available
-            // This ensures all chunks are rendered even if material assignment is incomplete
-            let material_handle = chunk_mesh.material_handles.values().next()
-                .cloned()
-                .unwrap_or_else(|| Handle::default());
-                
-            entity_commands.insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
-                                    MeshMaterial3d(material_handle),
-                                    Transform::from_translation(chunk.position.min_block_position().as_vec3())));
+            // Final existence check - verify the entity hasn't been despawned
+            // between getting entity_commands and inserting components
+            if entity_commands.id() == entity {
+                // Use a default material (grass) if no specific materials are available
+                // This ensures all chunks are rendered even if material assignment is incomplete
+                let material_handle = chunk_mesh.material_handles.values().next()
+                    .cloned()
+                    .unwrap_or_else(|| Handle::default());
+                    
+                entity_commands.insert((Mesh3d(chunk_mesh.mesh_handle.clone()),
+                                        MeshMaterial3d(material_handle),
+                                        Transform::from_translation(chunk.position.min_block_position().as_vec3())));
+            }
         }
     }
 }
@@ -489,19 +507,24 @@ fn dynamic_chunk_loading_system(
                     println!("🗑️  Unloading chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
                     
                     // Before despawning, cache the chunk data for potential reuse
-                    if let Ok(chunk_component) = chunks.get(chunk_entity) {
-                        chunk_manager.cache_chunk(
-                            chunk_pos,
-                            chunk_component.data.clone(),
-                            chunk_component.biome_data.clone(),
-                            chunk_component.is_generated,
-                            time.elapsed_secs_f64()
-                        );
-                        println!("💾 Cached chunk data for ({}, {})", chunk_pos.x, chunk_pos.z);
+                    if let Some(mut entity_commands) = commands.get_entity(chunk_entity) {
+                        // Double-check entity exists before caching and despawning
+                        if entity_commands.id() == chunk_entity {
+                            if let Ok(chunk_component) = chunks.get(chunk_entity) {
+                                chunk_manager.cache_chunk(
+                                    chunk_pos,
+                                    chunk_component.data.clone(),
+                                    chunk_component.biome_data.clone(),
+                                    chunk_component.is_generated,
+                                    time.elapsed_secs_f64()
+                                );
+                                println!("💾 Cached chunk data for ({}, {})", chunk_pos.x, chunk_pos.z);
+                            }
+                            
+                            // Despawn the chunk entity
+                            entity_commands.despawn();
+                        }
                     }
-                    
-                    // Despawn the chunk entity
-                    commands.entity(chunk_entity).despawn();
                     
                     chunks_unloaded += 1;
                     
@@ -549,7 +572,12 @@ fn dynamic_chunk_loading_system(
                     
                     // Spawn the new chunk
                     let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
-                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                    // Register the chunk in the manager with existence check
+                    if let Some(entity_commands) = commands.get_entity(chunk_entity) {
+                        if entity_commands.id() == chunk_entity {
+                            chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                        }
+                    }
                 }
                 
                 chunks_loaded += 1;
@@ -609,7 +637,12 @@ fn dynamic_chunk_loading_system(
                                         
                                         // Spawn the new chunk
                                         let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
-                                        chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                        // Register the chunk in the manager with existence check
+                                        if let Some(entity_commands) = commands.get_entity(chunk_entity) {
+                                            if entity_commands.id() == chunk_entity {
+                                                chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                            }
+                                        }
                                         chunks_loaded += 1;
                                         
                                         // Stop if we've loaded enough chunks for this frame
@@ -645,7 +678,12 @@ fn dynamic_chunk_loading_system(
                                     
                                     // Spawn the new chunk
                                     let chunk_entity = commands.spawn(Chunk::new(chunk_pos)).id();
-                                    chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                    // Register the chunk in the manager with existence check
+                                    if let Some(entity_commands) = commands.get_entity(chunk_entity) {
+                                        if entity_commands.id() == chunk_entity {
+                                            chunk_manager.insert_chunk(chunk_pos, chunk_entity);
+                                        }
+                                    }
                                     chunks_loaded += 1;
                                     
                                     // Stop if we've loaded enough chunks for this frame
