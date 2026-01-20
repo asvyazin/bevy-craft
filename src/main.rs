@@ -357,7 +357,7 @@ fn spawn_player_safe(
         .insert(Collider::player());
 }
 
-/// System for dynamic chunk loading based on player position
+/// System for dynamic chunk loading and unloading based on player position
 fn dynamic_chunk_loading_system(
     mut commands: Commands,
     player_query: Query<&Transform, With<player::Player>>,
@@ -382,7 +382,40 @@ fn dynamic_chunk_loading_system(
         // Calculate the loading boundary (render distance)
         let loading_boundary = chunk_manager.render_distance;
         
-        // Check if player is near the edge of loaded chunks
+        // First, unload chunks that are too far from the player
+        let mut chunks_unloaded = 0;
+        const MAX_CHUNKS_UNLOADED_PER_FRAME: usize = 4; // Limit chunks unloaded per frame for performance
+        
+        // Create a list of chunks to unload to avoid borrowing issues
+        let chunks_to_unload: Vec<ChunkPosition> = chunk_manager.loaded_chunks.keys()
+            .filter(|&&chunk_pos| chunk_manager.should_unload_chunk(chunk_pos, player_chunk_pos))
+            .cloned()
+            .collect();
+        
+        for chunk_pos in chunks_to_unload {
+            if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+                println!("🗑️  Unloading chunk at ({}, {})", chunk_pos.x, chunk_pos.z);
+                
+                // Despawn the chunk entity
+                commands.entity(chunk_entity).despawn();
+                
+                // Remove from chunk manager
+                chunk_manager.loaded_chunks.remove(&chunk_pos);
+                chunks_unloaded += 1;
+                
+                // Stop if we've unloaded enough chunks for this frame
+                if chunks_unloaded >= MAX_CHUNKS_UNLOADED_PER_FRAME {
+                    println!("🔄 Reached chunk unloading limit for this frame");
+                    break;
+                }
+            }
+        }
+        
+        if chunks_unloaded > 0 {
+            println!("🔄 Unloaded {} chunks", chunks_unloaded);
+        }
+        
+        // Then, load new chunks that are within render distance
         let mut chunks_loaded = 0;
         const MAX_CHUNKS_PER_FRAME: usize = 2; // Limit chunks loaded per frame for performance
         

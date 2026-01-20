@@ -233,6 +233,13 @@ impl ChunkManager {
         dx <= self.render_distance && dz <= self.render_distance
     }
 
+    /// Check if a chunk should be unloaded based on player position
+    pub fn should_unload_chunk(&self, chunk_pos: ChunkPosition, player_chunk_pos: ChunkPosition) -> bool {
+        let dx = (chunk_pos.x - player_chunk_pos.x).abs();
+        let dz = (chunk_pos.z - player_chunk_pos.z).abs();
+        dx > self.render_distance || dz > self.render_distance
+    }
+
     /// Get a neighboring chunk entity if it exists
     pub fn get_neighbor_chunk(&self, _chunk_pos: &ChunkPosition, neighbor_pos: &ChunkPosition) -> Option<Entity> {
         self.loaded_chunks.get(neighbor_pos).copied()
