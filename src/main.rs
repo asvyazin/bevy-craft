@@ -51,6 +51,7 @@ fn main() {
     // Add plugins and initialize resources
     app.add_plugins(DefaultPlugins)
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
+        .add_plugins(bevy::pbr::MaterialPlugin::<sky::AtmosphericScatteringMaterial>::default()) // Add atmospheric scattering material plugin
         .init_resource::<ChunkManager>()
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<NoiseSettings>() // Initialize noise settings
