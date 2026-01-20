@@ -376,11 +376,12 @@ pub fn initialize_weather_system(mut commands: Commands) {
 }
 
 /// System to spawn cloud layers
+/// Note: This is a startup system that creates basic cloud layers
+/// Actual cloud rendering parameters are updated dynamically
 pub fn spawn_cloud_layers(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CloudMaterial>>,
-    cloud_system: Res<CloudSystem>,
 ) {
     // Create a large plane mesh for cloud rendering
     let cloud_mesh = meshes.add(Mesh::try_from(bevy::prelude::Plane3d {
@@ -389,32 +390,23 @@ pub fn spawn_cloud_layers(
         ..default()
     }).unwrap());
 
-    // Create cloud material
-    let mut cloud_uniform = CloudUniform::default();
-    
-    // Set up cloud layers in the uniform
-    for (i, layer) in cloud_system.layers.iter().enumerate() {
-        if i < 4 {
-            cloud_uniform.layer_altitudes[i] = layer.altitude;
-            cloud_uniform.layer_scales[i] = layer.scale;
-            cloud_uniform.layer_densities[i] = layer.density;
-            cloud_uniform.layer_speeds[i] = layer.speed;
-            cloud_uniform.layer_directions[i] = layer.direction;
-        }
-    }
-    
+    // Create cloud material with default parameters
+    let cloud_uniform = CloudUniform::default();
     let cloud_material = materials.add(CloudMaterial {
         cloud_uniform,
     });
     
-    // Spawn cloud layers
-    for (i, layer) in cloud_system.layers.iter().enumerate() {
+    // Spawn cloud layers at default altitudes
+    // These will be updated dynamically by the cloud rendering system
+    let default_altitudes = [150.0, 250.0, 400.0];
+    
+    for altitude in default_altitudes.iter() {
         commands.spawn((
             Mesh3d(cloud_mesh.clone()),
             MeshMaterial3d(cloud_material.clone()),
             CloudEntity,
             TransformBundle::from_transform(
-                Transform::from_translation(Vec3::new(0.0, layer.altitude, 0.0))
+                Transform::from_translation(Vec3::new(0.0, *altitude, 0.0))
                     .with_rotation(Quat::from_rotation_x(-PI / 2.0)), // Make plane horizontal
             ),
         ));
@@ -631,13 +623,14 @@ pub fn update_cloud_rendering(
     time: Res<Time>,
     game_time: Res<crate::time::GameTime>,
     weather_system: Res<WeatherSystem>,
-    mut cloud_system: ResMut<CloudSystem>,
+    cloud_system: Res<CloudSystem>,
     cameras: Query<&Transform, With<Camera>>,
     mut materials: ResMut<Assets<CloudMaterial>>,
     cloud_query: Query<&CloudEntity>,
 ) {
     // Update cloud animation time
-    cloud_system.animation_time += time.delta_secs() * cloud_system.animation_speed;
+    let mut updated_cloud_system = cloud_system.clone();
+    updated_cloud_system.animation_time += time.delta_secs() * updated_cloud_system.animation_speed;
     
     // Get camera position
     let camera_position = cameras.single().translation;
@@ -646,15 +639,39 @@ pub fn update_cloud_rendering(
     let sun_angle = game_time.sun_angle_radians();
     let sun_direction = Vec3::new(sun_angle.sin(), sun_angle.cos(), 0.0);
     
-    // Update all cloud materials
-    for _entity in &cloud_query {
-        // This would normally iterate through materials, but we'll update the uniform directly
-        // In a real implementation, we'd have a way to access the cloud materials
+    // Update cloud uniform with current weather and system data
+    let mut cloud_uniform = CloudUniform::default();
+    
+    // Set up cloud layers from the cloud system
+    for (i, layer) in updated_cloud_system.layers.iter().enumerate() {
+        if i < 4 {
+            cloud_uniform.layer_altitudes[i] = layer.altitude;
+            cloud_uniform.layer_scales[i] = layer.scale;
+            cloud_uniform.layer_densities[i] = layer.density;
+            cloud_uniform.layer_speeds[i] = layer.speed;
+            cloud_uniform.layer_directions[i] = layer.direction;
+        }
     }
     
-    // For now, we'll just update the cloud system parameters
-    cloud_system.coverage_multiplier = weather_system.cloud_coverage;
-    cloud_system.density_multiplier = weather_system.cloud_density;
+    // Apply global weather effects
+    cloud_uniform.global_coverage = weather_system.cloud_coverage;
+    cloud_uniform.global_density = weather_system.cloud_density;
+    cloud_uniform.animation_time = updated_cloud_system.animation_time;
+    cloud_uniform.animation_speed = updated_cloud_system.animation_speed;
+    cloud_uniform.camera_position = camera_position;
+    cloud_uniform.sun_direction = sun_direction;
+    cloud_uniform.weather_type = weather_system.target_weather as u32;
+    cloud_uniform.precipitation_intensity = weather_system.precipitation_intensity;
+    cloud_uniform.wind_direction = weather_system.wind_direction;
+    cloud_uniform.wind_speed = weather_system.wind_speed;
+    
+    // Update all cloud materials
+    for (_, material) in materials.iter_mut() {
+        material.cloud_uniform = cloud_uniform.clone();
+    }
+    
+    // Update the cloud system with new parameters
+    // This would normally be done through a different mechanism in a real implementation
 }
 
 /// System to spawn weather particles (rain, snow, etc.)
