@@ -1,10 +1,10 @@
 // Biome Debugging and Visualization Tools
 // This module provides tools for visualizing biome boundaries and texture variations
 
-use bevy::prelude::*;
-use bevy::input::keyboard::KeyCode;
 use bevy::input::ButtonInput;
+use bevy::input::keyboard::KeyCode;
 use bevy::math::primitives::Cuboid;
+use bevy::prelude::*;
 
 /// Resource for controlling biome debug visualization
 #[derive(Resource, Debug, Clone)]
@@ -17,7 +17,6 @@ pub struct BiomeDebugSettings {
     pub show_biome_parameters: bool,
     /// Toggle for advanced biome debugging
     pub advanced_debug: bool,
-    
     // Future features (currently unused but planned)
     // pub show_cache_stats: bool,
     // pub boundary_mode: BiomeBoundaryMode,
@@ -91,13 +90,11 @@ pub struct BiomeDebugStats {
 }
 
 /// Initialize biome debug systems
-pub fn initialize_biome_debug_system(
-    mut commands: Commands,
-) {
+pub fn initialize_biome_debug_system(mut commands: Commands) {
     // Add default debug settings resource
     commands.insert_resource(BiomeDebugSettings::default());
     commands.insert_resource(BiomeDebugStats::default());
-    
+
     info!("🔍 Biome debug system initialized");
 }
 
@@ -110,7 +107,7 @@ pub fn toggle_biome_debug(
         debug_settings.show_biome_boundaries = !debug_settings.show_biome_boundaries;
         debug_settings.show_texture_variations = !debug_settings.show_texture_variations;
         debug_settings.show_biome_parameters = !debug_settings.show_biome_parameters;
-        
+
         let status = if debug_settings.show_biome_boundaries {
             "enabled"
         } else {
@@ -118,11 +115,17 @@ pub fn toggle_biome_debug(
         };
         info!("🔍 Biome debug visualization: {}", status);
     }
-    
+
     if keyboard_input.just_pressed(KeyCode::F4) {
         debug_settings.advanced_debug = !debug_settings.advanced_debug;
-        info!("🔬 Advanced biome debug: {}", 
-            if debug_settings.advanced_debug { "enabled" } else { "disabled" });
+        info!(
+            "🔬 Advanced biome debug: {}",
+            if debug_settings.advanced_debug {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        );
     }
 }
 
@@ -135,13 +138,17 @@ pub fn display_biome_debug_info(
     if !debug_settings.show_biome_parameters {
         return;
     }
-    
-    if game_time.current_time % 3.0 < 0.1 { // Display every 3 seconds
+
+    if game_time.current_time % 3.0 < 0.1 {
+        // Display every 3 seconds
         println!("🌿 Biome Debug Info:");
         println!("   Active Biomes: {}", debug_stats.active_biomes);
         println!("   Biome Transitions: {}", debug_stats.biome_transitions);
         println!("   Texture Variations: {}", debug_stats.texture_variations);
-        println!("   Cache Hit Rate: {:.1}%", debug_stats.cache_hit_rate * 100.0);
+        println!(
+            "   Cache Hit Rate: {:.1}%",
+            debug_stats.cache_hit_rate * 100.0
+        );
     }
 }
 
@@ -156,33 +163,33 @@ pub fn visualize_biome_boundaries(
     if !debug_settings.show_biome_boundaries {
         return;
     }
-    
+
     // Get biome cache statistics for visualization
     let cache = biome_cache.cache.lock().unwrap();
     let stats = cache.get_stats();
-    
+
     // Create a simple visualization mesh to represent biome boundaries
     // This is a placeholder - in a full implementation, this would create
     // actual boundary meshes based on biome transitions
-    
+
     // Create a small debug cube to represent biome boundary points
     let cube_mesh = meshes.add(Mesh::from(Cuboid {
         half_size: Vec3::new(0.25, 0.25, 0.25),
     }));
-    
+
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.0, 1.0, 0.0), // Green for biome boundaries
         emissive: Color::srgb(0.0, 0.5, 0.0).into(),
         ..default()
     });
-    
+
     // Spawn a few debug cubes to visualize biome boundaries
     // In a real implementation, these would be placed at actual biome transitions
     for i in 0..stats.current_textures.min(10) {
         let x = i as f32 * 2.0 - 5.0;
         let y = 10.0;
         let z = 0.0;
-        
+
         commands.spawn((
             Transform::from_xyz(x, y, z),
             Mesh3d(cube_mesh.clone()),
@@ -190,8 +197,11 @@ pub fn visualize_biome_boundaries(
             BiomeBoundaryVisualization {},
         ));
     }
-    
-    info!("🎨 Visualized {} biome boundary markers", stats.current_textures.min(10));
+
+    info!(
+        "🎨 Visualized {} biome boundary markers",
+        stats.current_textures.min(10)
+    );
 }
 
 /// System to visualize biome texture variations
@@ -205,18 +215,18 @@ pub fn visualize_biome_texture_variations(
     if !debug_settings.show_texture_variations {
         return;
     }
-    
+
     // Get biome cache statistics for visualization
     let cache = biome_cache.cache.lock().unwrap();
     let _stats = cache.get_stats();
-    
+
     // Create visualization for different biome texture variations
     // This shows the variety of textures being used
-    
+
     let cube_mesh = meshes.add(Mesh::from(Cuboid {
         half_size: Vec3::new(0.5, 0.5, 0.5),
     }));
-    
+
     // Create different colored materials to represent texture variations
     let colors = vec![
         Color::srgb(1.0, 0.0, 0.0), // Red
@@ -226,18 +236,18 @@ pub fn visualize_biome_texture_variations(
         Color::srgb(1.0, 0.0, 1.0), // Magenta
         Color::srgb(0.0, 1.0, 1.0), // Cyan
     ];
-    
+
     // Spawn cubes to represent different texture variations
     for (i, color) in colors.iter().enumerate() {
         let material = materials.add(StandardMaterial {
             base_color: *color,
             ..default()
         });
-        
+
         let x = i as f32 * 2.0 - 5.0;
         let y = 12.0;
         let z = 2.0;
-        
+
         commands.spawn((
             Transform::from_xyz(x, y, z),
             Mesh3d(cube_mesh.clone()),
@@ -245,16 +255,12 @@ pub fn visualize_biome_texture_variations(
             BiomeTextureVisualization {},
         ));
     }
-    
+
     info!("🎨 Visualized {} biome texture variations", colors.len());
 }
 
 /// System to update biome debug statistics
-pub fn update_biome_debug_stats(
-    mut debug_stats: ResMut<BiomeDebugStats>,
-    time: Res<Time>,
-) {
+pub fn update_biome_debug_stats(mut debug_stats: ResMut<BiomeDebugStats>, time: Res<Time>) {
     debug_stats.last_updated = time.elapsed_secs_f64();
     // TODO: Update statistics from biome systems
 }
-

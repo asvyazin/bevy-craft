@@ -2,7 +2,7 @@
 // This module handles player inventory management, item storage, and hotbar functionality
 
 use bevy::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::block::BlockType;
 
@@ -76,7 +76,10 @@ pub struct ItemStack {
 
 impl ItemStack {
     pub fn new(item_type: ItemType, quantity: u32) -> Self {
-        Self { item_type, quantity }
+        Self {
+            item_type,
+            quantity,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -117,7 +120,7 @@ impl Default for Inventory {
         let inventory_size = 27; // 3 rows of 9 slots
         let hotbar_size = 9;
         let max_stack_size = 64;
-        
+
         Self {
             slots: vec![ItemStack::new(ItemType::Block(BlockType::Air), 0); inventory_size],
             hotbar_slots: vec![ItemStack::new(ItemType::Block(BlockType::Air), 0); hotbar_size],
@@ -300,7 +303,11 @@ impl Inventory {
                 (&mut right[0], &mut left[slot2])
             };
             std::mem::swap(left, right);
-        } else if !is_hotbar1 && !is_hotbar2 && slot1 < self.inventory_size && slot2 < self.inventory_size {
+        } else if !is_hotbar1
+            && !is_hotbar2
+            && slot1 < self.inventory_size
+            && slot2 < self.inventory_size
+        {
             // Both slots are in main inventory - use split_at_mut to avoid double borrow
             let (left, right) = self.slots.split_at_mut(slot2.max(slot1));
             let (left, right) = if slot1 < slot2 {
@@ -309,16 +316,28 @@ impl Inventory {
                 (&mut right[0], &mut left[slot2])
             };
             std::mem::swap(left, right);
-        } else if is_hotbar1 && !is_hotbar2 && slot1 < self.hotbar_size && slot2 < self.inventory_size {
+        } else if is_hotbar1
+            && !is_hotbar2
+            && slot1 < self.hotbar_size
+            && slot2 < self.inventory_size
+        {
             // Swap between hotbar and inventory - no double borrow issue here
-            let hotbar_item = std::mem::replace(&mut self.hotbar_slots[slot1], 
-                ItemStack::new(ItemType::Block(BlockType::Air), 0));
+            let hotbar_item = std::mem::replace(
+                &mut self.hotbar_slots[slot1],
+                ItemStack::new(ItemType::Block(BlockType::Air), 0),
+            );
             let inventory_item = std::mem::replace(&mut self.slots[slot2], hotbar_item);
             self.hotbar_slots[slot1] = inventory_item;
-        } else if !is_hotbar1 && is_hotbar2 && slot1 < self.inventory_size && slot2 < self.hotbar_size {
+        } else if !is_hotbar1
+            && is_hotbar2
+            && slot1 < self.inventory_size
+            && slot2 < self.hotbar_size
+        {
             // Swap between inventory and hotbar - no double borrow issue here
-            let inventory_item = std::mem::replace(&mut self.slots[slot1], 
-                ItemStack::new(ItemType::Block(BlockType::Air), 0));
+            let inventory_item = std::mem::replace(
+                &mut self.slots[slot1],
+                ItemStack::new(ItemType::Block(BlockType::Air), 0),
+            );
             let hotbar_item = std::mem::replace(&mut self.hotbar_slots[slot2], inventory_item);
             self.slots[slot1] = hotbar_item;
         }
@@ -382,14 +401,12 @@ pub fn inventory_update_system(
 }
 
 /// System to display inventory debug information
-pub fn display_inventory_info(
-    inventory: Res<Inventory>,
-) {
+pub fn display_inventory_info(inventory: Res<Inventory>) {
     // Display selected item information
     if let Some(selected_item) = inventory.get_selected_item() {
         if !selected_item.is_empty() {
             info!(
-                "Selected: {} x{}", 
+                "Selected: {} x{}",
                 selected_item.item_type.name(),
                 selected_item.quantity
             );
@@ -398,15 +415,13 @@ pub fn display_inventory_info(
 }
 
 /// System to initialize the inventory with some starting items
-pub fn initialize_inventory(
-    mut inventory: ResMut<Inventory>,
-) {
+pub fn initialize_inventory(mut inventory: ResMut<Inventory>) {
     // Add some starting items for testing
     inventory.add_item(ItemType::Block(BlockType::Stone), 32);
     inventory.add_item(ItemType::Block(BlockType::Dirt), 16);
     inventory.add_item(ItemType::Block(BlockType::Grass), 8);
     inventory.add_item(ItemType::Block(BlockType::Wood), 16);
     inventory.add_item(ItemType::Block(BlockType::Sand), 8);
-    
+
     info!("Inventory initialized with starting items");
 }

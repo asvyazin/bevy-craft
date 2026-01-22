@@ -1,7 +1,6 @@
 // Biome-based texture parameterization system
 // This module handles texture variations based on biome and height parameters
 
-
 use crate::block::BlockType;
 use crate::noise::NoiseSettings;
 
@@ -16,7 +15,13 @@ pub struct BiomeTextureParams {
 }
 
 impl BiomeTextureParams {
-    pub fn new(biome_type: String, temperature: f32, moisture: f32, height: f32, relative_height: f32) -> Self {
+    pub fn new(
+        biome_type: String,
+        temperature: f32,
+        moisture: f32,
+        height: f32,
+        relative_height: f32,
+    ) -> Self {
         Self {
             biome_type,
             temperature,
@@ -95,7 +100,7 @@ impl BiomeTextureConfig {
             BlockType::Stone => (0.4, 0.3, 0.5),
             BlockType::Sand => (0.9, 0.2, 0.1),
             BlockType::Wood => (0.5, 0.4, 0.2),
-            _ => (0.5, 0.5, 0.5),            // Default balanced
+            _ => (0.5, 0.5, 0.5), // Default balanced
         };
 
         Self {
@@ -114,28 +119,31 @@ pub fn apply_biome_parameters_to_config(
     biome_config: &BiomeTextureConfig,
 ) -> NoiseSettings {
     let mut modified_config = config.clone();
-    
+
     // Simple biome adjustments - just modify noise parameters for variety
     if biome_config.temperature_effect > 0.0 {
         let temp_factor = biome_params.temperature * biome_config.temperature_effect;
         modified_config.scale = (config.scale * (0.8 + temp_factor * 0.4)).max(0.01);
     }
-    
+
     if biome_config.moisture_effect > 0.0 {
         let moisture_factor = biome_params.moisture * biome_config.moisture_effect;
         modified_config.octaves = (config.octaves as f32 * (0.8 + moisture_factor * 0.4)) as usize;
     }
-    
+
     if biome_config.height_effect > 0.0 {
         let height_factor = biome_params.height * biome_config.height_effect;
         modified_config.persistence = (config.persistence * (0.8 + height_factor * 0.4)).max(0.1);
     }
-    
+
     modified_config
 }
 
 /// Generate a unique texture key for caching based on biome parameters
-pub fn generate_texture_cache_key(block_type: &BlockType, biome_params: &BiomeTextureParams) -> String {
+pub fn generate_texture_cache_key(
+    block_type: &BlockType,
+    biome_params: &BiomeTextureParams,
+) -> String {
     format!(
         "{:?}-{}-{}-{}-{}",
         block_type,

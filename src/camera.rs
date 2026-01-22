@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use bevy::input::mouse::MouseMotion;
-use bevy::window::CursorGrabMode;
 use crate::player::{Player, PlayerMovementSettings};
+use bevy::input::mouse::MouseMotion;
+use bevy::prelude::*;
+use bevy::window::CursorGrabMode;
 
 /// Camera component that marks the main game camera
 #[derive(Component)]
@@ -26,13 +26,13 @@ pub fn camera_mouse_control_system(
     settings: Res<PlayerMovementSettings>,
 ) {
     let mut camera = query.single_mut();
-    
+
     // Process mouse motion events
     for event in mouse_motion_events.read() {
         // Apply mouse sensitivity
         camera.yaw -= event.delta.x * settings.mouse_sensitivity;
         camera.pitch -= event.delta.y * settings.mouse_sensitivity;
-        
+
         // Limit pitch to avoid over-rotation
         camera.pitch = camera.pitch.clamp(-1.5, 1.5);
     }
@@ -41,7 +41,7 @@ pub fn camera_mouse_control_system(
 /// System to update camera transform based on rotation
 pub fn camera_rotation_system(
     player_query: Query<&Transform, (With<Player>, Without<GameCamera>)>,
-    mut camera_query: Query<(&mut Transform, &GameCamera), Without<Player>>, 
+    mut camera_query: Query<(&mut Transform, &GameCamera), Without<Player>>,
 ) {
     // Get player transform
     if let Ok(player_transform) = player_query.get_single() {
@@ -50,19 +50,14 @@ pub fn camera_rotation_system(
             // Calculate camera rotation from yaw and pitch
             let yaw_rad = camera_rotation.yaw;
             let pitch_rad = camera_rotation.pitch;
-            
+
             // Calculate camera position (first-person view, slightly above player)
             let camera_offset = Vec3::new(0.0, 1.7, 0.0); // Eye level offset
             let camera_position = player_transform.translation + camera_offset;
-            
+
             // Apply rotation to camera
             camera_transform.translation = camera_position;
-            camera_transform.rotation = Quat::from_euler(
-                EulerRot::ZYX, 
-                0.0, 
-                yaw_rad, 
-                pitch_rad
-            );
+            camera_transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw_rad, pitch_rad);
         }
     }
 }
@@ -77,11 +72,9 @@ pub fn spawn_game_camera(mut commands: Commands) {
 }
 
 /// System to handle cursor visibility and grabbing for automatic camera control
-pub fn cursor_control_system(
-    mut windows: Query<&mut Window>,
-) {
+pub fn cursor_control_system(mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
-    
+
     // Always grab and hide cursor for automatic camera control
     // This ensures the cursor is always locked and hidden, providing automatic camera control
     window.cursor_options.visible = false;

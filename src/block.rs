@@ -73,6 +73,9 @@ pub struct Block {
 impl Block {
     #[allow(dead_code)]
     pub fn new(block_type: BlockType, position: IVec3) -> Self {
-        Self { block_type, position }
+        Self {
+            block_type,
+            position,
+        }
     }
 }

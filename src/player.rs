@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use bevy::math::primitives::Cuboid;
 use crate::collision::CollisionState;
+use bevy::math::primitives::Cuboid;
+use bevy::prelude::*;
 
 /// Player component representing the player character
 #[derive(Component, Debug)]
@@ -59,14 +59,17 @@ pub fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Create player mesh
-    let player_mesh = meshes.add(Mesh::from(Cuboid { half_size: Vec3::new(0.3, 0.8, 0.3) }));
+    let player_mesh = meshes.add(Mesh::from(Cuboid {
+        half_size: Vec3::new(0.3, 0.8, 0.3),
+    }));
     let player_material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.1, 0.5, 0.9),
         ..default()
     });
 
     // Spawn the player
-    commands.spawn(Player::new(Vec3::new(0.0, 3.0, 0.0)))
+    commands
+        .spawn(Player::new(Vec3::new(0.0, 3.0, 0.0)))
         .insert((MeshMaterial3d(player_material), Mesh3d(player_mesh)));
 }
 
@@ -83,7 +86,7 @@ pub fn player_movement_system(
     } else {
         return; // No camera, can't determine movement direction
     };
-    
+
     for (mut transform, mut player) in &mut query {
         // Reset horizontal velocity
         player.velocity.x = 0.0;
@@ -93,10 +96,10 @@ pub fn player_movement_system(
         let mut move_direction = Vec3::ZERO;
 
         if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
-            move_direction.z += 1.0;  // Fixed: W now moves forward (positive Z)
+            move_direction.z += 1.0; // Fixed: W now moves forward (positive Z)
         }
         if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
-            move_direction.z -= 1.0;  // Fixed: S now moves backward (negative Z)
+            move_direction.z -= 1.0; // Fixed: S now moves backward (negative Z)
         }
         if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
             move_direction.x -= 1.0;
@@ -114,15 +117,15 @@ pub fn player_movement_system(
         // Normalize movement direction and apply speed
         if move_direction.length() > 0.0 {
             move_direction = move_direction.normalize();
-            
+
             // Store speed in local variable to avoid borrowing issues
             let speed = player.speed;
-            
+
             // Rotate movement direction based on camera yaw
             let yaw_rad = camera_rotation.yaw;
             let forward = Vec3::new(-yaw_rad.sin(), 0.0, -yaw_rad.cos());
             let right = Vec3::new(yaw_rad.cos(), 0.0, -yaw_rad.sin());
-            
+
             // Apply movement relative to camera direction
             player.velocity += forward * move_direction.z * speed;
             player.velocity += right * move_direction.x * speed;

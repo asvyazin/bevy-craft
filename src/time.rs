@@ -15,7 +15,7 @@ impl Default for GameTime {
     fn default() -> Self {
         Self {
             current_time: 43200.0, // Start at noon (12:00 PM)
-            time_scale: 60.0, // 60x faster than real-time for testing
+            time_scale: 60.0,      // 60x faster than real-time for testing
             time_paused: false,
         }
     }
@@ -89,21 +89,19 @@ impl GameTime {
 }
 
 /// System to update game time
-pub fn update_game_time(
-    time: Res<Time>,
-    mut game_time: ResMut<GameTime>,
-) {
+pub fn update_game_time(time: Res<Time>, mut game_time: ResMut<GameTime>) {
     game_time.update(time.delta_secs());
 }
 
 /// System to display current game time (for debugging)
-pub fn display_game_time(
-    game_time: Res<GameTime>,
-) {
-    if game_time.current_time % 10.0 < 0.1 { // Display every 10 seconds
-        println!("🕒 Game Time: {} (Hour: {:.1}, Day: {})", 
-                game_time.format_time(), 
-                game_time.current_hour(),
-                if game_time.is_day() { "Day" } else { "Night" });
+pub fn display_game_time(game_time: Res<GameTime>) {
+    if game_time.current_time % 10.0 < 0.1 {
+        // Display every 10 seconds
+        println!(
+            "🕒 Game Time: {} (Hour: {:.1}, Day: {})",
+            game_time.format_time(),
+            game_time.current_hour(),
+            if game_time.is_day() { "Day" } else { "Night" }
+        );
     }
 }

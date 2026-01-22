@@ -1,25 +1,22 @@
 // Block interaction system for Bevy Craft
 // This module handles block breaking and placement
 
-use bevy::prelude::*;
 use bevy::ecs::system::ParamSet;
 use bevy::input::mouse::MouseButton;
+use bevy::prelude::*;
 
-use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 use crate::block::BlockType;
+use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 use crate::inventory::{Inventory, ItemType};
 
 /// System to handle block breaking with left mouse button and placement with right mouse button
 pub fn block_interaction_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
+    camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunk_manager: Res<ChunkManager>,
     mut inventory: ResMut<Inventory>,
-    mut chunk_params: ParamSet<(
-        Query<&Chunk>,
-        Query<&mut Chunk>,
-    )>,
+    mut chunk_params: ParamSet<(Query<&Chunk>, Query<&mut Chunk>)>,
 ) {
     // Handle block breaking with left mouse button
     if mouse_button_input.just_pressed(MouseButton::Left) {
@@ -29,22 +26,28 @@ pub fn block_interaction_system(
         } else {
             return;
         };
-        
+
         let _player_transform = if let Ok(result) = player_query.get_single() {
             result
         } else {
             return;
         };
-        
+
         // Calculate ray origin (camera position) and direction
         let ray_origin = camera_transform.translation;
         let ray_direction: Vec3 = camera_transform.forward().into();
-        
+
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_mutable(ray_origin, ray_direction, &mut chunk_params.p1(), &chunk_manager, 5.0) {
+        if let Some((target_block_pos, _)) = raycast_for_block_mutable(
+            ray_origin,
+            ray_direction,
+            &mut chunk_params.p1(),
+            &chunk_manager,
+            5.0,
+        ) {
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
-            
+
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
@@ -52,7 +55,7 @@ pub fn block_interaction_system(
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
                         // Remove the block (set to Air)
                         chunk.set_block_world(target_block_pos, BlockType::Air);
-                        
+
                         // Add the broken block to inventory (if it's not air)
                         if current_block_type != BlockType::Air {
                             inventory.add_item(ItemType::Block(current_block_type), 1);
@@ -62,7 +65,7 @@ pub fn block_interaction_system(
             }
         }
     }
-    
+
     // Handle block placement with right mouse button
     if mouse_button_input.just_pressed(MouseButton::Right) {
         // Get camera and player transforms
@@ -71,25 +74,32 @@ pub fn block_interaction_system(
         } else {
             return;
         };
-        
+
         let _player_transform = if let Ok(result) = player_query.get_single() {
             result
         } else {
             return;
         };
-        
+
         // Calculate ray origin (camera position) and direction
         let ray_origin = camera_transform.translation;
         let ray_direction: Vec3 = camera_transform.forward().into();
-        
+
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunk_params.p0(), &chunk_manager, 5.0) {
+        if let Some((target_block_pos, _)) = raycast_for_block_immutable(
+            ray_origin,
+            ray_direction,
+            &chunk_params.p0(),
+            &chunk_manager,
+            5.0,
+        ) {
             // Calculate the adjacent block position where we want to place the new block
-            let placement_pos = find_adjacent_block_position(target_block_pos, ray_origin, ray_direction);
-            
+            let placement_pos =
+                find_adjacent_block_position(target_block_pos, ray_origin, ray_direction);
+
             // Find which chunk contains the placement position
             let chunk_pos = ChunkPosition::from_block_position(placement_pos);
-            
+
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
@@ -99,7 +109,7 @@ pub fn block_interaction_system(
                             if let ItemType::Block(block_type) = selected_item.item_type {
                                 // Place the block from inventory
                                 chunk.set_block_world(placement_pos, block_type);
-                                
+
                                 // Remove one item from inventory (clone the item type to avoid borrow issues)
                                 let item_type = selected_item.item_type;
                                 inventory.remove_item(item_type, 1);
@@ -124,21 +134,24 @@ fn raycast_for_block_immutable(
     const STEP_SIZE: f32 = 0.1;
     #[allow(dead_code)]
     const BLOCK_SIZE: f32 = 1.0;
-    
+
     let mut current_pos = ray_origin;
     let mut distance_traveled = 0.0;
-    
+
     while distance_traveled < max_distance {
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
             current_pos.x.floor() as i32,
-            current_pos.y.floor().clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
+            current_pos
+                .y
+                .floor()
+                .clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
             current_pos.z.floor() as i32,
         );
-        
+
         // Check if this block position is within any loaded chunk
         let chunk_pos = ChunkPosition::from_block_position(block_pos);
-        
+
         if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
             if let Ok(chunk) = chunks.get(*chunk_entity) {
                 // Check if this block is solid (not air)
@@ -150,12 +163,12 @@ fn raycast_for_block_immutable(
                 }
             }
         }
-        
+
         // Step forward along the ray
         current_pos += ray_direction * STEP_SIZE;
         distance_traveled += STEP_SIZE;
     }
-    
+
     None // No block found within max distance
 }
 
@@ -171,21 +184,24 @@ fn raycast_for_block_mutable(
     const STEP_SIZE: f32 = 0.1;
     #[allow(dead_code)]
     const BLOCK_SIZE: f32 = 1.0;
-    
+
     let mut current_pos = ray_origin;
     let mut distance_traveled = 0.0;
-    
+
     while distance_traveled < max_distance {
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
             current_pos.x.floor() as i32,
-            current_pos.y.floor().clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
+            current_pos
+                .y
+                .floor()
+                .clamp(0.0, crate::chunk::CHUNK_HEIGHT as f32 - 1.0) as i32,
             current_pos.z.floor() as i32,
         );
-        
+
         // Check if this block position is within any loaded chunk
         let chunk_pos = ChunkPosition::from_block_position(block_pos);
-        
+
         if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
             if let Ok(chunk) = chunks.get(*chunk_entity) {
                 // Check if this block is solid (not air)
@@ -197,25 +213,29 @@ fn raycast_for_block_mutable(
                 }
             }
         }
-        
+
         // Step forward along the ray
         current_pos += ray_direction * STEP_SIZE;
         distance_traveled += STEP_SIZE;
     }
-    
+
     None // No block found within max distance
 }
 
 /// Find the adjacent block position for placement
 /// Given a target block position and ray information, determine where to place a new block
-fn find_adjacent_block_position(target_block_pos: IVec3, _ray_origin: Vec3, ray_direction: Vec3) -> IVec3 {
+fn find_adjacent_block_position(
+    target_block_pos: IVec3,
+    _ray_origin: Vec3,
+    ray_direction: Vec3,
+) -> IVec3 {
     // Convert target block position to Vec3 for calculations
     let _target_block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
-    
+
     // Determine which face of the target block is being looked at
     // by finding the component with the largest absolute value
     let abs_direction = ray_direction.abs();
-    
+
     // Find which axis has the largest component (this is the face we're looking at)
     if abs_direction.x >= abs_direction.y && abs_direction.x >= abs_direction.z {
         // Looking at X face (either positive or negative)
@@ -249,7 +269,7 @@ fn find_adjacent_block_position(target_block_pos: IVec3, _ray_origin: Vec3, ray_
 
 /// System to provide visual feedback for targeted blocks
 pub fn block_targeting_feedback_system(
-    camera_query: Query<(&Transform, &crate::camera::GameCamera)>, 
+    camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
@@ -260,19 +280,21 @@ pub fn block_targeting_feedback_system(
     } else {
         return;
     };
-    
+
     let _player_transform = if let Ok(result) = player_query.get_single() {
         result
     } else {
         return;
     };
-    
+
     // Calculate ray origin (camera position) and direction
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
-    
+
     // Perform raycast to find the block the player is looking at
-    if let Some((_target_block_pos, _distance)) = raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0) {
+    if let Some((_target_block_pos, _distance)) =
+        raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0)
+    {
         // TODO: Add visual highlight for targeted block
     }
 }

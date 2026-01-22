@@ -3,9 +3,9 @@
 
 use bevy::prelude::*;
 
-use crate::chunk::{Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use crate::block::BlockType;
-use crate::noise::{NoiseSettings, generate_heightmap, generate_biome_info};
+use crate::chunk::{CHUNK_HEIGHT, CHUNK_SIZE, Chunk};
+use crate::noise::{NoiseSettings, generate_biome_info, generate_heightmap};
 
 /// World generation settings
 #[derive(Resource, Debug)]
@@ -22,13 +22,13 @@ pub struct WorldGenSettings {
 impl Default for WorldGenSettings {
     fn default() -> Self {
         Self {
-            base_height: 10.0,   // Lower base height for extreme variation
-            height_scale: 80.0,  // Very high height scale for dramatic terrain
-            frequency: 0.015,    // Very low frequency for large-scale features
-            octaves: 10,         // Many octaves for detailed terrain
-            persistence: 0.3,    // Low persistence for extreme variation
-            lacunarity: 2.3,     // Higher lacunarity for more detail
-            biome_scale: 0.005,  // Scale for biome generation
+            base_height: 10.0,  // Lower base height for extreme variation
+            height_scale: 80.0, // Very high height scale for dramatic terrain
+            frequency: 0.015,   // Very low frequency for large-scale features
+            octaves: 10,        // Many octaves for detailed terrain
+            persistence: 0.3,   // Low persistence for extreme variation
+            lacunarity: 2.3,    // Higher lacunarity for more detail
+            biome_scale: 0.005, // Scale for biome generation
         }
     }
 }
@@ -47,124 +47,149 @@ fn create_noise_settings(settings: &WorldGenSettings) -> NoiseSettings {
 }
 
 /// Generate heightmap for a chunk using noise algorithms
-pub fn generate_chunk_heightmap(
-    chunk: &mut Chunk,
-    settings: &WorldGenSettings,
-) {
+pub fn generate_chunk_heightmap(chunk: &mut Chunk, settings: &WorldGenSettings) {
     let chunk_x = chunk.position.x;
     let chunk_z = chunk.position.z;
-    
-    println!("🌱 Generating terrain for chunk ({}, {}) with noise algorithms", chunk_x, chunk_z);
-    
+
+    println!(
+        "🌱 Generating terrain for chunk ({}, {}) with noise algorithms",
+        chunk_x, chunk_z
+    );
+
     let mut min_height = i32::MAX;
     let mut max_height = i32::MIN;
     let mut total_height = 0;
     let mut height_count = 0;
-    
+
     // Create noise settings from world generation settings
     let noise_settings = create_noise_settings(settings);
-    
+
     // Generate heights using simple, deterministic approach with world coordinates
     let mut raw_heights = [[0.0; CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
-    
+
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
             // Use world coordinates directly - this is the most reliable approach
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
-            
+
             // Generate noise using world coordinates - should be deterministic
-            raw_heights[local_x as usize][local_z as usize] = generate_heightmap(
-                world_x as f32,
-                world_z as f32,
-                &noise_settings,
-            );
+            raw_heights[local_x as usize][local_z as usize] =
+                generate_heightmap(world_x as f32, world_z as f32, &noise_settings);
         }
     }
-    
+
     // Generate terrain with the extracted chunk heights
     for local_x in 0..CHUNK_SIZE {
         for local_z in 0..CHUNK_SIZE {
             let height = raw_heights[local_x as usize][local_z as usize] as i32;
-            
+
             // Check for big differences with neighbors (for debugging)
             if local_x > 0 {
-                let left_diff = (height - raw_heights[local_x as usize - 1][local_z as usize] as i32).abs();
+                let left_diff =
+                    (height - raw_heights[local_x as usize - 1][local_z as usize] as i32).abs();
                 if left_diff > 5 {
                     let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
                     let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
-                    println!("BIG X difference: {} at ({}, {}) vs ({}, {})", 
-                             left_diff, world_x, world_z, world_x - 1, world_z);
+                    println!(
+                        "BIG X difference: {} at ({}, {}) vs ({}, {})",
+                        left_diff,
+                        world_x,
+                        world_z,
+                        world_x - 1,
+                        world_z
+                    );
                 }
             }
             if local_z > 0 {
-                let back_diff = (height - raw_heights[local_x as usize][local_z as usize - 1] as i32).abs();
+                let back_diff =
+                    (height - raw_heights[local_x as usize][local_z as usize - 1] as i32).abs();
                 if back_diff > 5 {
                     let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
                     let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
-                    println!("BIG Z difference: {} at ({}, {}) vs ({}, {})", 
-                             back_diff, world_x, world_z, world_x, world_z - 1);
+                    println!(
+                        "BIG Z difference: {} at ({}, {}) vs ({}, {})",
+                        back_diff,
+                        world_x,
+                        world_z,
+                        world_x,
+                        world_z - 1
+                    );
                 }
             }
-            
+
             // Track height statistics
             min_height = min_height.min(height);
             max_height = max_height.max(height);
             total_height += height;
             height_count += 1;
-            
+
             // Generate terrain column with biome information
             let world_x = chunk_x * CHUNK_SIZE as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE as i32 + local_z as i32;
-            let (temperature, moisture) = generate_biome_info(world_x as f32, world_z as f32, &noise_settings);
-            
+            let (temperature, moisture) =
+                generate_biome_info(world_x as f32, world_z as f32, &noise_settings);
+
             // Determine biome type for this position
             let biome_type = determine_biome_type(temperature, moisture, height);
-            
+
             // Store biome data in chunk
-            chunk.biome_data.set_biome_data(local_x, local_z, temperature, moisture, biome_type);
-            
-            generate_terrain_column_with_biome(chunk, local_x, local_z, height, temperature, moisture);
+            chunk
+                .biome_data
+                .set_biome_data(local_x, local_z, temperature, moisture, biome_type);
+
+            generate_terrain_column_with_biome(
+                chunk,
+                local_x,
+                local_z,
+                height,
+                temperature,
+                moisture,
+            );
         }
     }
-    
+
     let average_height = total_height as f32 / height_count as f32;
     let height_range = max_height - min_height;
-    
-    println!("📊 Terrain stats for chunk ({}, {}): min={}, max={}, avg={:.1}, range={}", 
-             chunk_x, chunk_z, min_height, max_height, average_height, height_range);
-    println!("🚀 Using noise generation with {} octaves", noise_settings.octaves);
-    
+
+    println!(
+        "📊 Terrain stats for chunk ({}, {}): min={}, max={}, avg={:.1}, range={}",
+        chunk_x, chunk_z, min_height, max_height, average_height, height_range
+    );
+    println!(
+        "🚀 Using noise generation with {} octaves",
+        noise_settings.octaves
+    );
+
     chunk.is_generated = true;
     chunk.needs_mesh_update = true;
-    println!("✓ Completed Alkyd terrain generation for chunk ({}, {})", chunk_x, chunk_z);
+    println!(
+        "✓ Completed Alkyd terrain generation for chunk ({}, {})",
+        chunk_x, chunk_z
+    );
 }
 
 /// Generate fractal noise (multiple octaves) for more natural terrain
 #[allow(dead_code)]
-fn generate_fractal_noise(
-    x: f32,
-    z: f32,
-    settings: &WorldGenSettings,
-) -> f32 {
+fn generate_fractal_noise(x: f32, z: f32, settings: &WorldGenSettings) -> f32 {
     let mut total = 0.0;
     let mut frequency = settings.frequency;
     let mut amplitude = 1.0;
     let mut max_value = 0.0;
-    
+
     for _ in 0..settings.octaves {
         // Generate noise for this octave using simple CPU Perlin noise
         let noise_value = cpu_perlin_noise(x * frequency, z * frequency, 42); // Use fixed seed for now
-        
+
         // Apply amplitude and add to total
         total += noise_value * amplitude;
         max_value += amplitude;
-        
+
         // Prepare for next octave
         frequency *= settings.lacunarity;
         amplitude *= settings.persistence;
     }
-    
+
     // Normalize the result
     total / max_value
 }
@@ -184,30 +209,30 @@ fn cpu_perlin_noise(x: f32, z: f32, seed: u32) -> f32 {
         n = n.wrapping_mul(1664525).wrapping_add(1013904223);
         (n as f32) / (u32::MAX as f32)
     }
-    
+
     // Get grid coordinates
     let xi = x.floor() as i32;
     let zi = z.floor() as i32;
-    
+
     // Get fractional parts
     let xf = x - xi as f32;
     let zf = z - zi as f32;
-    
+
     // Fade curves for smooth interpolation
     let u = fade(xf);
     let v = fade(zf);
-    
+
     // Hash coordinates to get pseudo-random gradient vectors
     let a = hash(seed, xi, zi);
     let b = hash(seed, xi + 1, zi);
     let c = hash(seed, xi, zi + 1);
     let d = hash(seed, xi + 1, zi + 1);
-    
+
     // Interpolate
     let x1 = lerp(a, b, u);
     let x2 = lerp(c, d, u);
     let result = lerp(x1, x2, v);
-    
+
     // Map from [0, 1] to [-1, 1]
     result * 2.0 - 1.0
 }
@@ -229,55 +254,80 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 fn calculate_height(noise_value: f32, settings: &WorldGenSettings) -> i32 {
     // Map noise range [-1, 1] to height range
     let normalized = (noise_value + 1.0) / 2.0; // Map to [0, 1]
-    
+
     // Apply height settings with extreme variation
     let height = settings.base_height + normalized * settings.height_scale;
-    
+
     // Add significant additional variation to make terrain dramatically different
     let variation_factor = 1.0 + (noise_value.abs() * 1.2); // Add up to 120% more variation
     let final_height = height * variation_factor;
-    
+
     // Ensure height is within valid range, but allow very low terrain
     final_height.clamp(2.0, (CHUNK_HEIGHT - 1) as f32) as i32
 }
 
 /// Generate a terrain column (vertical stack of blocks) with biome information
-fn generate_terrain_column_with_biome(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32, temperature: f32, moisture: f32) {
+fn generate_terrain_column_with_biome(
+    chunk: &mut Chunk,
+    local_x: usize,
+    local_z: usize,
+    height: i32,
+    temperature: f32,
+    moisture: f32,
+) {
     // Define minimum terrain height to prevent voids
     const MIN_TERRAIN_HEIGHT: i32 = 3;
-    
+
     // Use the maximum of calculated height and minimum height to ensure solid foundation
     let effective_height = height.max(MIN_TERRAIN_HEIGHT);
-    
+
     // Generate bedrock layer at the bottom
-    chunk.data.set_block(local_x, 0, local_z, BlockType::Bedrock);
-    
+    chunk
+        .data
+        .set_block(local_x, 0, local_z, BlockType::Bedrock);
+
     // Determine biome-based terrain composition
-    let (stone_height, surface_block, sub_surface_block) = determine_biome_terrain(
-        effective_height, temperature, moisture
-    );
-    
+    let (stone_height, surface_block, sub_surface_block) =
+        determine_biome_terrain(effective_height, temperature, moisture);
+
     // Fill with stone or biome-specific sub-surface material
     for y in 1..stone_height.min(effective_height) {
-        chunk.data.set_block(local_x, y as usize, local_z, sub_surface_block);
+        chunk
+            .data
+            .set_block(local_x, y as usize, local_z, sub_surface_block);
     }
-    
+
     // Fill with dirt or biome-specific material for the remaining part up to the surface
     for y in stone_height.min(effective_height)..effective_height {
-        chunk.data.set_block(local_x, y as usize, local_z, sub_surface_block);
+        chunk
+            .data
+            .set_block(local_x, y as usize, local_z, sub_surface_block);
     }
-    
+
     // Add biome-specific surface block
     if effective_height > 0 {
-        chunk.data.set_block(local_x, effective_height as usize, local_z, surface_block);
+        chunk
+            .data
+            .set_block(local_x, effective_height as usize, local_z, surface_block);
     }
-    
+
     // Add environmental features based on height, position, and biome
-    add_environmental_features_with_biome(chunk, local_x, local_z, effective_height, temperature, moisture);
+    add_environmental_features_with_biome(
+        chunk,
+        local_x,
+        local_z,
+        effective_height,
+        temperature,
+        moisture,
+    );
 }
 
 /// Determine terrain composition based on biome information and height
-fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f32) -> (i32, BlockType, BlockType) {
+fn determine_biome_terrain(
+    effective_height: i32,
+    temperature: f32,
+    moisture: f32,
+) -> (i32, BlockType, BlockType) {
     // Determine stone height based on terrain height (same logic as before)
     let stone_height = if effective_height < 10 {
         (effective_height as f32 * 0.9) as i32
@@ -286,10 +336,10 @@ fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f3
     } else {
         (effective_height as f32 * 0.6) as i32
     };
-    
+
     // Determine biome based on temperature, moisture, and height
     let biome_type = determine_biome_type(temperature, moisture, effective_height);
-    
+
     // Return appropriate surface and sub-surface blocks based on biome and height
     match biome_type {
         "desert" => determine_desert_terrain(effective_height, stone_height),
@@ -306,7 +356,10 @@ fn determine_biome_terrain(effective_height: i32, temperature: f32, moisture: f3
 }
 
 /// Determine desert terrain with height variation
-fn determine_desert_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_desert_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 5 {
         // Low desert areas might have some grass near water sources
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -320,7 +373,10 @@ fn determine_desert_terrain(effective_height: i32, stone_height: i32) -> (i32, B
 }
 
 /// Determine forest terrain with height variation
-fn determine_forest_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_forest_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 10 {
         // Low forest areas - more dirt exposed
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -334,7 +390,10 @@ fn determine_forest_terrain(effective_height: i32, stone_height: i32) -> (i32, B
 }
 
 /// Determine mountain terrain with height variation
-fn determine_mountain_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_mountain_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 20 {
         // Lower mountain areas - some grass
         (stone_height, BlockType::Grass, BlockType::Stone)
@@ -348,7 +407,10 @@ fn determine_mountain_terrain(effective_height: i32, stone_height: i32) -> (i32,
 }
 
 /// Determine snowy mountain terrain with height variation
-fn determine_snowy_mountain_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_snowy_mountain_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 25 {
         // Lower snowy areas - some grass
         (stone_height, BlockType::Grass, BlockType::Stone)
@@ -362,7 +424,10 @@ fn determine_snowy_mountain_terrain(effective_height: i32, stone_height: i32) ->
 }
 
 /// Determine plains terrain with height variation
-fn determine_plains_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_plains_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 8 {
         // Low plains - might have some sand near water
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -376,7 +441,10 @@ fn determine_plains_terrain(effective_height: i32, stone_height: i32) -> (i32, B
 }
 
 /// Determine swamp terrain with height variation
-fn determine_swamp_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_swamp_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 6 {
         // Low swamp areas - might be waterlogged
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -390,7 +458,10 @@ fn determine_swamp_terrain(effective_height: i32, stone_height: i32) -> (i32, Bl
 }
 
 /// Determine tundra terrain with height variation
-fn determine_tundra_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_tundra_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 10 {
         // Low tundra - some grass
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -404,7 +475,10 @@ fn determine_tundra_terrain(effective_height: i32, stone_height: i32) -> (i32, B
 }
 
 /// Determine beach terrain with height variation
-fn determine_beach_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_beach_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 4 {
         // Very low beach - might be underwater
         (stone_height, BlockType::Sand, BlockType::Sand)
@@ -418,7 +492,10 @@ fn determine_beach_terrain(effective_height: i32, stone_height: i32) -> (i32, Bl
 }
 
 /// Determine hills terrain with height variation
-fn determine_hills_terrain(effective_height: i32, stone_height: i32) -> (i32, BlockType, BlockType) {
+fn determine_hills_terrain(
+    effective_height: i32,
+    stone_height: i32,
+) -> (i32, BlockType, BlockType) {
     if effective_height < 15 {
         // Low hills - mostly grass with some stone
         (stone_height, BlockType::Grass, BlockType::Dirt)
@@ -436,11 +513,7 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
     // Enhanced biome classification based on temperature, moisture, and height
     if height < 5 {
         // Low areas near water level - beaches or swamps
-        if moisture > 0.5 {
-            "swamp"
-        } else {
-            "beach"
-        }
+        if moisture > 0.5 { "swamp" } else { "beach" }
     } else if height > 50 {
         // Very high areas - snowy mountains (increased threshold)
         "snowy_mountain"
@@ -453,23 +526,11 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
     } else {
         // Normal terrain classification based on temperature and moisture
         if temperature > 0.7 {
-            if moisture < 0.3 {
-                "desert"
-            } else {
-                "plains"
-            }
+            if moisture < 0.3 { "desert" } else { "plains" }
         } else if temperature > 0.5 {
-            if moisture > 0.6 {
-                "forest"
-            } else {
-                "plains"
-            }
+            if moisture > 0.6 { "forest" } else { "plains" }
         } else if temperature > 0.3 {
-            if moisture > 0.5 {
-                "swamp"
-            } else {
-                "mountain"
-            }
+            if moisture > 0.5 { "swamp" } else { "mountain" }
         } else {
             "tundra"
         }
@@ -477,30 +538,41 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
 }
 
 /// Add environmental features with biome information
-fn add_environmental_features_with_biome(chunk: &mut Chunk, local_x: usize, local_z: usize, height: i32, temperature: f32, moisture: f32) {
+fn add_environmental_features_with_biome(
+    chunk: &mut Chunk,
+    local_x: usize,
+    local_z: usize,
+    height: i32,
+    temperature: f32,
+    moisture: f32,
+) {
     let biome_type = determine_biome_type(temperature, moisture, height);
-    
+
     // Add sand for beach-like areas (low terrain near "water level")
     if height > 5 && height < 12 {
         for y in 3..=6 {
             if y < height {
-                chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+                chunk
+                    .data
+                    .set_block(local_x, y as usize, local_z, BlockType::Sand);
             }
         }
     }
-    
+
     // Add some stone variation at higher elevations for more interesting mountains
     if height > 25 {
         // Add some exposed stone at the top of mountains
         if height > 30 {
             for y in (height - 3)..height {
                 if y > 0 && y < height {
-                    chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
+                    chunk
+                        .data
+                        .set_block(local_x, y as usize, local_z, BlockType::Stone);
                 }
             }
         }
     }
-    
+
     // Add biome-specific features
     match biome_type {
         "desert" => {
@@ -508,31 +580,37 @@ fn add_environmental_features_with_biome(chunk: &mut Chunk, local_x: usize, loca
             if height > 8 && height < 15 {
                 for y in 5..=8 {
                     if y < height {
-                        chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+                        chunk
+                            .data
+                            .set_block(local_x, y as usize, local_z, BlockType::Sand);
                     }
                 }
             }
-        },
+        }
         "hills" => {
             // Hills have some stone outcrops
             if height > 20 && height < 28 {
                 for y in (height - 3)..height {
                     if y > 0 && y < height && y % 3 == 0 {
-                        chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
+                        chunk
+                            .data
+                            .set_block(local_x, y as usize, local_z, BlockType::Stone);
                     }
                 }
             }
-        },
+        }
         "forest" => {
             // Forests might have more dirt variation
             if height > 10 {
                 for y in (height - 2)..height {
                     if y > 0 && y < height {
-                        chunk.data.set_block(local_x, y as usize, local_z, BlockType::Dirt);
+                        chunk
+                            .data
+                            .set_block(local_x, y as usize, local_z, BlockType::Dirt);
                     }
                 }
             }
-        },
+        }
         _ => {}
     }
 }
@@ -550,18 +628,22 @@ fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize,
     if height > 5 && height < 12 {
         for y in 3..=6 {
             if y < height {
-                chunk.data.set_block(local_x, y as usize, local_z, BlockType::Sand);
+                chunk
+                    .data
+                    .set_block(local_x, y as usize, local_z, BlockType::Sand);
             }
         }
     }
-    
+
     // Add some stone variation at higher elevations for more interesting mountains
     if height > 25 {
         // Add some exposed stone at the top of mountains
         if height > 30 {
             for y in (height - 3)..height {
                 if y > 0 && y < height {
-                    chunk.data.set_block(local_x, y as usize, local_z, BlockType::Stone);
+                    chunk
+                        .data
+                        .set_block(local_x, y as usize, local_z, BlockType::Stone);
                 }
             }
         }
@@ -569,19 +651,16 @@ fn add_environmental_features(chunk: &mut Chunk, local_x: usize, local_z: usize,
 }
 
 /// System to generate chunks that need generation using noise algorithms
-pub fn generate_chunks_system(
-    mut chunks: Query<&mut Chunk>,
-    settings: Res<WorldGenSettings>,
-) {
+pub fn generate_chunks_system(mut chunks: Query<&mut Chunk>, settings: Res<WorldGenSettings>) {
     // Limit the number of chunks generated per frame to prevent performance issues
     let mut chunks_generated = 0;
     const MAX_CHUNKS_PER_FRAME: usize = 2;
-    
+
     for mut chunk in &mut chunks {
         if !chunk.is_generated {
             generate_chunk_heightmap(&mut chunk, &settings);
             chunks_generated += 1;
-            
+
             // Stop if we've generated enough chunks for this frame
             if chunks_generated >= MAX_CHUNKS_PER_FRAME {
                 break;

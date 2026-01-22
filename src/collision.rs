@@ -53,11 +53,11 @@ impl Collider {
     pub fn new(size: Vec3, offset: Vec3) -> Self {
         Self { size, offset }
     }
-    
+
     /// Create a collider for the player
     pub fn player() -> Self {
         Self {
-            size: Vec3::new(0.6, 1.8, 0.6), // Player size (width, height, depth)
+            size: Vec3::new(0.6, 1.8, 0.6),   // Player size (width, height, depth)
             offset: Vec3::new(0.0, 0.9, 0.0), // Offset from center to bottom
         }
     }
@@ -65,7 +65,12 @@ impl Collider {
 
 /// System to check for collisions between entities and blocks
 pub fn collision_detection_system(
-    mut query: Query<(&mut Transform, &Collider, Option<&mut crate::player::Player>, Option<&mut CollisionState>)>,
+    mut query: Query<(
+        &mut Transform,
+        &Collider,
+        Option<&mut crate::player::Player>,
+        Option<&mut CollisionState>,
+    )>,
     blocks: Query<&Block>,
     chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
@@ -74,9 +79,11 @@ pub fn collision_detection_system(
     for (mut transform, collider, mut player, mut collision_state) in &mut query {
         let entity_position = transform.translation;
         let entity_aabb = get_entity_aabb(entity_position, collider);
-        
+
         // Check collision with chunks (for chunk-based worlds)
-        if let Some(resolved_position) = check_chunk_collisions(entity_aabb, &chunks, &chunk_manager) {
+        if let Some(resolved_position) =
+            check_chunk_collisions(entity_aabb, &chunks, &chunk_manager)
+        {
             if let Some(final_position) = handle_collision(
                 entity_position,
                 resolved_position,
@@ -86,20 +93,18 @@ pub fn collision_detection_system(
                 transform.translation = final_position;
             }
         }
-        
+
         // Ground detection for player - do this BEFORE collision resolution to get accurate state
         if let Some(ref mut player) = player.as_mut() {
             let (entity_min, entity_max) = entity_aabb;
-            let ground_check_aabb = (
-                entity_min - Vec3::new(0.0, 0.2, 0.0),
-                entity_max
-            );
-            
+            let ground_check_aabb = (entity_min - Vec3::new(0.0, 0.2, 0.0), entity_max);
+
             // Check if there's ground below the player
-            let ground_detected = check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
+            let ground_detected =
+                check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
 
             // Apply hysteresis to prevent rapid toggling of grounded state
-            if ground_detected {                
+            if ground_detected {
                 if !player.is_grounded {
                     println!("👣 Player is now grounded");
                     player.is_grounded = true;
@@ -111,49 +116,67 @@ pub fn collision_detection_system(
                 }
             }
         }
-        
+
         // Debug: Check if we're falling and should be hitting something
         if entity_position.y < 0.0 {
-            println!("⚠️  Player falling through! Position: {:?}, AABB: {:?} - {:?}", 
-                    entity_position, entity_aabb.0, entity_aabb.1);
-            
+            println!(
+                "⚠️  Player falling through! Position: {:?}, AABB: {:?} - {:?}",
+                entity_position, entity_aabb.0, entity_aabb.1
+            );
+
             // Check what blocks are around
             let chunk_pos = ChunkPosition::from_block_position(entity_position.as_ivec3());
             println!("🔍 Checking chunk at {:?}", chunk_pos);
-            
+
             if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(chunk) = chunks.get(chunk_entity) {
                     println!("🔍 Chunk found, checking blocks around player...");
-                    
+
                     // Check a few blocks below the player
                     for y in (entity_position.y as i32 - 2)..=(entity_position.y as i32 + 1) {
-                        let test_pos = IVec3::new(entity_position.x as i32, y, entity_position.z as i32);
+                        let test_pos =
+                            IVec3::new(entity_position.x as i32, y, entity_position.z as i32);
                         if let Some(block_type) = chunk.data.get_block(
                             (test_pos.x.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize,
                             test_pos.y as usize,
-                            (test_pos.z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize
+                            (test_pos.z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize,
                         ) {
                             if block_type.is_solid() {
-                                println!("🔍 Found solid block at {:?}: {:?}", test_pos, block_type);
+                                println!(
+                                    "🔍 Found solid block at {:?}: {:?}",
+                                    test_pos, block_type
+                                );
                             }
                         }
                     }
                 }
             }
         }
-        
+
         // Additional debug: Check if player is at very low Y position but should be on ground
         if entity_position.y < 1.0 && entity_position.y > -1.0 {
-            println!("🔍 Player at low Y position: {:?}, checking for ground support", entity_position);
-            
+            println!(
+                "🔍 Player at low Y position: {:?}, checking for ground support",
+                entity_position
+            );
+
             // Check if there should be ground below
             let ground_check_position = entity_position - Vec3::new(0.0, 1.0, 0.0);
             let ground_check_aabb = (
-                Vec3::new(ground_check_position.x - 0.5, ground_check_position.y - 0.1, ground_check_position.z - 0.5),
-                Vec3::new(ground_check_position.x + 0.5, ground_check_position.y + 0.1, ground_check_position.z + 0.5)
+                Vec3::new(
+                    ground_check_position.x - 0.5,
+                    ground_check_position.y - 0.1,
+                    ground_check_position.z - 0.5,
+                ),
+                Vec3::new(
+                    ground_check_position.x + 0.5,
+                    ground_check_position.y + 0.1,
+                    ground_check_position.z + 0.5,
+                ),
             );
-            
-            let ground_detected = check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
+
+            let ground_detected =
+                check_ground_collision(ground_check_aabb, &blocks, &chunks, &chunk_manager);
             if ground_detected {
                 println!("🔍 Ground detected below player, but collision resolution failed!");
             } else {
@@ -173,16 +196,16 @@ fn get_entity_aabb(position: Vec3, collider: &Collider) -> (Vec3, Vec3) {
 
 /// Check for collisions with chunk-based world
 fn check_chunk_collisions(
-    entity_aabb: (Vec3, Vec3), 
+    entity_aabb: (Vec3, Vec3),
     chunks: &Query<&Chunk>,
     chunk_manager: &ChunkManager,
 ) -> Option<Vec3> {
     let (entity_min, entity_max) = entity_aabb;
-    
+
     // Convert entity position to chunk coordinates
     let entity_center = (entity_min + entity_max) / 2.0;
     let chunk_pos = ChunkPosition::from_block_position(entity_center.as_ivec3());
-    
+
     // Check the chunk where the entity is located
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
         if let Ok(chunk) = chunks.get(chunk_entity) {
@@ -191,7 +214,7 @@ fn check_chunk_collisions(
             }
         }
     }
-    
+
     // Also check neighboring chunks
     for neighbor_pos in chunk_pos.all_neighbors() {
         if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&neighbor_pos) {
@@ -202,7 +225,7 @@ fn check_chunk_collisions(
             }
         }
     }
-    
+
     None
 }
 
@@ -214,13 +237,13 @@ fn check_ground_collision(
     chunk_manager: &ChunkManager,
 ) -> bool {
     let (ground_min, ground_max) = ground_aabb;
-    
+
     // Check individual blocks first
     for block in blocks.iter() {
         if block.block_type.is_solid() {
             let block_min = block.position.as_vec3();
             let block_max = block.position.as_vec3() + Vec3::ONE;
-            
+
             if check_aabb_collision(ground_min, ground_max, block_min, block_max) {
                 // Check if the collision is significant enough (not just a micro-collision)
                 let penetration_y = block_max.y - ground_min.y;
@@ -230,11 +253,11 @@ fn check_ground_collision(
             }
         }
     }
-    
+
     // Check chunks
     let ground_center = (ground_min + ground_max) / 2.0;
     let chunk_pos = ChunkPosition::from_block_position(ground_center.as_ivec3());
-    
+
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
         if let Ok(chunk) = chunks.get(chunk_entity) {
             if check_chunk_ground_collision(ground_aabb, chunk) {
@@ -242,7 +265,7 @@ fn check_ground_collision(
             }
         }
     }
-    
+
     // Check neighboring chunks
     for neighbor_pos in chunk_pos.all_neighbors() {
         if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&neighbor_pos) {
@@ -253,27 +276,33 @@ fn check_ground_collision(
             }
         }
     }
-    
+
     false
 }
 
 /// Check for ground collision within a specific chunk
 fn check_chunk_ground_collision(ground_aabb: (Vec3, Vec3), chunk: &Chunk) -> bool {
     let (ground_min, ground_max) = ground_aabb;
-    
+
     // Convert AABB to chunk-local coordinates
     let chunk_min_pos = chunk.position.min_block_position();
     let local_min = (ground_min - chunk_min_pos.as_vec3()).as_ivec3();
     let local_max = (ground_max - chunk_min_pos.as_vec3()).as_ivec3();
-    
+
     // Clamp to chunk boundaries
     let start_x = local_min.x.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
     let end_x = local_max.x.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
-    let start_y = local_min.y.max(0).min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
-    let end_y = local_max.y.max(0).min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
+    let start_y = local_min
+        .y
+        .max(0)
+        .min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
+    let end_y = local_max
+        .y
+        .max(0)
+        .min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
     let start_z = local_min.z.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
     let end_z = local_max.z.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
-    
+
     // Check all blocks in the overlapping region
     for x in start_x..=end_x {
         for y in start_y..=end_y {
@@ -283,7 +312,7 @@ fn check_chunk_ground_collision(ground_aabb: (Vec3, Vec3), chunk: &Chunk) -> boo
                         let block_world_pos = chunk_min_pos + IVec3::new(x, y, z);
                         let block_min = block_world_pos.as_vec3();
                         let block_max = block_world_pos.as_vec3() + Vec3::ONE;
-                        
+
                         if check_aabb_collision(ground_min, ground_max, block_min, block_max) {
                             // Check if the collision is significant enough
                             let penetration_y = block_max.y - ground_min.y;
@@ -296,27 +325,33 @@ fn check_chunk_ground_collision(ground_aabb: (Vec3, Vec3), chunk: &Chunk) -> boo
             }
         }
     }
-    
+
     false
 }
 
 /// Check collisions within a specific chunk
 fn check_chunk_block_collisions(entity_aabb: (Vec3, Vec3), chunk: &Chunk) -> Option<Vec3> {
     let (entity_min, entity_max) = entity_aabb;
-    
+
     // Convert AABB to chunk-local coordinates
     let chunk_min_pos = chunk.position.min_block_position();
     let local_min = (entity_min - chunk_min_pos.as_vec3()).as_ivec3();
     let local_max = (entity_max - chunk_min_pos.as_vec3()).as_ivec3();
-    
+
     // Clamp to chunk boundaries
     let start_x = local_min.x.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
     let end_x = local_max.x.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
-    let start_y = local_min.y.max(0).min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
-    let end_y = local_max.y.max(0).min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
+    let start_y = local_min
+        .y
+        .max(0)
+        .min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
+    let end_y = local_max
+        .y
+        .max(0)
+        .min(crate::chunk::CHUNK_HEIGHT as i32 - 1);
     let start_z = local_min.z.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
     let end_z = local_max.z.max(0).min(crate::chunk::CHUNK_SIZE as i32 - 1);
-    
+
     // Check all blocks in the overlapping region
     for x in start_x..=end_x {
         for y in start_y..=end_y {
@@ -326,9 +361,11 @@ fn check_chunk_block_collisions(entity_aabb: (Vec3, Vec3), chunk: &Chunk) -> Opt
                         let block_world_pos = chunk_min_pos + IVec3::new(x, y, z);
                         let block_min = block_world_pos.as_vec3();
                         let block_max = block_world_pos.as_vec3() + Vec3::ONE;
-                        
+
                         if check_aabb_collision(entity_min, entity_max, block_min, block_max) {
-                            if let Some(resolved_pos) = resolve_aabb_collision(entity_min, entity_max, block_min, block_max) {
+                            if let Some(resolved_pos) =
+                                resolve_aabb_collision(entity_min, entity_max, block_min, block_max)
+                            {
                                 return Some(resolved_pos);
                             }
                         }
@@ -337,7 +374,7 @@ fn check_chunk_block_collisions(entity_aabb: (Vec3, Vec3), chunk: &Chunk) -> Opt
             }
         }
     }
-    
+
     None
 }
 
@@ -349,19 +386,25 @@ fn handle_collision(
     _collision_state: Option<&mut CollisionState>,
 ) -> Option<Vec3> {
     let penetration_depth = resolved_position.y - current_position.y;
-    
+
     // Always resolve downward collisions to prevent falling through
     if penetration_depth < 0.0 {
-        println!("⚡ Collision resolved (downward): {:?} -> {:?}", current_position, resolved_position);
+        println!(
+            "⚡ Collision resolved (downward): {:?} -> {:?}",
+            current_position, resolved_position
+        );
         return Some(resolved_position);
     }
-    
+
     // For upward collisions, be more conservative for grounded players
     if let Some(player) = player {
         if player.is_grounded {
             // Only resolve significant upward collisions for grounded players
             if penetration_depth > 0.1 {
-                println!("⚡ Collision resolved (upward): {:?} -> {:?}", current_position, resolved_position);
+                println!(
+                    "⚡ Collision resolved (upward): {:?} -> {:?}",
+                    current_position, resolved_position
+                );
                 return Some(resolved_position);
             } else {
                 // Small upward collisions might be jittering, ignore them
@@ -369,78 +412,121 @@ fn handle_collision(
             }
         }
     }
-    
+
     // For non-grounded players or significant collisions, resolve normally
-    println!("⚡ Collision resolved: {:?} -> {:?}", current_position, resolved_position);
+    println!(
+        "⚡ Collision resolved: {:?} -> {:?}",
+        current_position, resolved_position
+    );
     Some(resolved_position)
 }
 
 /// Check if two AABBs are colliding
 fn check_aabb_collision(a_min: Vec3, a_max: Vec3, b_min: Vec3, b_max: Vec3) -> bool {
-    a_min.x < b_max.x && a_max.x > b_min.x &&
-    a_min.y < b_max.y && a_max.y > b_min.y &&
-    a_min.z < b_max.z && a_max.z > b_min.z
+    a_min.x < b_max.x
+        && a_max.x > b_min.x
+        && a_min.y < b_max.y
+        && a_max.y > b_min.y
+        && a_min.z < b_max.z
+        && a_max.z > b_min.z
 }
 
 /// Resolve AABB collision by moving the entity out of the block
 fn resolve_aabb_collision(a_min: Vec3, a_max: Vec3, b_min: Vec3, b_max: Vec3) -> Option<Vec3> {
     let entity_center = (a_min + a_max) / 2.0;
     let block_center = (b_min + b_max) / 2.0;
-    
+
     // Calculate penetration depths for each axis
     let penetrate_x = if entity_center.x < block_center.x {
         b_min.x - a_max.x // Left penetration
     } else {
         b_max.x - a_min.x // Right penetration
     };
-    
+
     let penetrate_y = if entity_center.y < block_center.y {
         b_min.y - a_max.y // Bottom penetration
     } else {
         b_max.y - a_min.y // Top penetration
     };
-    
+
     let penetrate_z = if entity_center.z < block_center.z {
         b_min.z - a_max.z // Front penetration
     } else {
         b_max.z - a_min.z // Back penetration
     };
-    
+
     // Find the axis with the smallest penetration (most shallow collision)
     let abs_penetrate_x = penetrate_x.abs();
     let abs_penetrate_y = penetrate_y.abs();
     let abs_penetrate_z = penetrate_z.abs();
-    
+
     // Ignore micro-collisions that are smaller than our epsilon threshold
-    if abs_penetrate_x < COLLISION_EPSILON && abs_penetrate_y < COLLISION_EPSILON && abs_penetrate_z < COLLISION_EPSILON {
+    if abs_penetrate_x < COLLISION_EPSILON
+        && abs_penetrate_y < COLLISION_EPSILON
+        && abs_penetrate_z < COLLISION_EPSILON
+    {
         return None; // No significant collision to resolve
     }
-    
+
     // ALWAYS prioritize downward collisions (standing on ground) to prevent falling through
     if penetrate_y < 0.0 && abs_penetrate_y > COLLISION_EPSILON {
         // This is a downward collision - player is standing on something
         // Always resolve this to prevent falling through the ground
-        return Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z));
+        return Some(Vec3::new(
+            entity_center.x,
+            entity_center.y + penetrate_y,
+            entity_center.z,
+        ));
     }
-    
+
     // For other collisions, resolve along the axis with smallest penetration
     if abs_penetrate_x < abs_penetrate_y && abs_penetrate_x < abs_penetrate_z {
-        Some(Vec3::new(entity_center.x + penetrate_x, entity_center.y, entity_center.z))
+        Some(Vec3::new(
+            entity_center.x + penetrate_x,
+            entity_center.y,
+            entity_center.z,
+        ))
     } else if abs_penetrate_y < abs_penetrate_x && abs_penetrate_y < abs_penetrate_z {
-        Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
+        Some(Vec3::new(
+            entity_center.x,
+            entity_center.y + penetrate_y,
+            entity_center.z,
+        ))
     } else if abs_penetrate_z < abs_penetrate_x && abs_penetrate_z < abs_penetrate_y {
-        Some(Vec3::new(entity_center.x, entity_center.y, entity_center.z + penetrate_z))
+        Some(Vec3::new(
+            entity_center.x,
+            entity_center.y,
+            entity_center.z + penetrate_z,
+        ))
     } else {
         // If all penetrations are equal or no clear smallest, prioritize vertical resolution
         // This helps prevent the player from getting stuck in corners
-        if penetrate_y < 0.0 { // If we're penetrating from below (standing on ground)
-            Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
-        } else if penetrate_y > 0.0 { // If we're penetrating from above (hitting ceiling)
-            Some(Vec3::new(entity_center.x, entity_center.y + penetrate_y, entity_center.z))
+        if penetrate_y < 0.0 {
+            // If we're penetrating from below (standing on ground)
+            Some(Vec3::new(
+                entity_center.x,
+                entity_center.y + penetrate_y,
+                entity_center.z,
+            ))
+        } else if penetrate_y > 0.0 {
+            // If we're penetrating from above (hitting ceiling)
+            Some(Vec3::new(
+                entity_center.x,
+                entity_center.y + penetrate_y,
+                entity_center.z,
+            ))
         } else if abs_penetrate_x < abs_penetrate_z {
-            Some(Vec3::new(entity_center.x + penetrate_x, entity_center.y, entity_center.z))
+            Some(Vec3::new(
+                entity_center.x + penetrate_x,
+                entity_center.y,
+                entity_center.z,
+            ))
         } else {
-            Some(Vec3::new(entity_center.x, entity_center.y, entity_center.z + penetrate_z))
+            Some(Vec3::new(
+                entity_center.x,
+                entity_center.y,
+                entity_center.z + penetrate_z,
+            ))
         }
     }
 }
@@ -453,43 +539,64 @@ pub fn find_safe_spawn_position(
     desired_position: Vec3,
 ) -> Vec3 {
     // First, find the highest solid ground at the desired X,Z position
-    let ground_y = find_highest_solid_ground(desired_position.x, desired_position.z, blocks, chunks, chunk_manager);
-    
-    if ground_y > -1000.0 { // Valid ground found
+    let ground_y = find_highest_solid_ground(
+        desired_position.x,
+        desired_position.z,
+        blocks,
+        chunks,
+        chunk_manager,
+    );
+
+    if ground_y > -1000.0 {
+        // Valid ground found
         let spawn_position = Vec3::new(desired_position.x, ground_y + 1.0, desired_position.z);
-        
-        println!("✓ Found solid ground at y={}, spawning player at {:?}", ground_y, spawn_position);
+
+        println!(
+            "✓ Found solid ground at y={}, spawning player at {:?}",
+            ground_y, spawn_position
+        );
         return spawn_position;
     }
-    
+
     // If no ground found with chunks, try individual blocks
     let mut highest_block_y = -1000.0;
     for block in blocks.iter() {
-        if block.position.x as f32 == desired_position.x && block.position.z as f32 == desired_position.z {
+        if block.position.x as f32 == desired_position.x
+            && block.position.z as f32 == desired_position.z
+        {
             if block.block_type.is_solid() && block.position.y as f32 > highest_block_y {
                 highest_block_y = block.position.y as f32;
             }
         }
     }
-    
+
     if highest_block_y > -1000.0 {
-        let spawn_position = Vec3::new(desired_position.x, highest_block_y + 1.0, desired_position.z);
-        println!("✓ Found solid block at y={}, spawning player at {:?}", highest_block_y, spawn_position);
+        let spawn_position = Vec3::new(
+            desired_position.x,
+            highest_block_y + 1.0,
+            desired_position.z,
+        );
+        println!(
+            "✓ Found solid block at y={}, spawning player at {:?}",
+            highest_block_y, spawn_position
+        );
         return spawn_position;
     }
-    
+
     // If still no ground found, use a safe fallback position above potential terrain
     let fallback_position = Vec3::new(desired_position.x, 10.0, desired_position.z);
-    println!("⚠ No solid ground found at ({}, {}), using safe fallback position {:?}", 
-            desired_position.x, desired_position.z, fallback_position);
-    
+    println!(
+        "⚠ No solid ground found at ({}, {}), using safe fallback position {:?}",
+        desired_position.x, desired_position.z, fallback_position
+    );
+
     fallback_position
 }
 
 /// Find the highest solid ground at a specific X,Z position
 fn find_highest_solid_ground(
     x: f32,
-    z: f32, 
+    z: f32,
     blocks: &Query<&Block>,
     chunks: &Query<&Chunk>,
     chunk_manager: &ChunkManager,
@@ -497,13 +604,16 @@ fn find_highest_solid_ground(
     let block_x = x as i32;
     let block_z = z as i32;
     let chunk_pos = ChunkPosition::from_block_position(IVec3::new(block_x, 0, block_z));
-    
-    println!("🔍 Looking for ground at world position ({}, {}) - block ({}, {})", x, z, block_x, block_z);
-    
+
+    println!(
+        "🔍 Looking for ground at world position ({}, {}) - block ({}, {})",
+        x, z, block_x, block_z
+    );
+
     // First check individual blocks
     let mut highest_solid_y = -1000.0;
     let mut found_blocks = Vec::new();
-    
+
     for block in blocks.iter() {
         if block.position.x == block_x && block.position.z == block_z {
             found_blocks.push((block.position.y, block.block_type));
@@ -514,18 +624,24 @@ fn find_highest_solid_ground(
             }
         }
     }
-    
-    println!("🔍 Found individual blocks at ({}, {}): {:?}", block_x, block_z, found_blocks);
-    
+
+    println!(
+        "🔍 Found individual blocks at ({}, {}): {:?}",
+        block_x, block_z, found_blocks
+    );
+
     // Then check chunks
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
         println!("🔍 Found chunk at {:?}", chunk_pos);
         if let Ok(chunk) = chunks.get(chunk_entity) {
             let local_x = (block_x.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize;
             let local_z = (block_z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize;
-            
-            println!("🔍 Checking chunk blocks at local position ({}, {})", local_x, local_z);
-            
+
+            println!(
+                "🔍 Checking chunk blocks at local position ({}, {})",
+                local_x, local_z
+            );
+
             // Check from top down to find the highest solid block
             for y in (0..crate::chunk::CHUNK_HEIGHT).rev() {
                 if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
@@ -535,36 +651,38 @@ fn find_highest_solid_ground(
                     }
                 }
             }
-            println!("🔍 No solid blocks found in chunk at ({}, {})", local_x, local_z);
+            println!(
+                "🔍 No solid blocks found in chunk at ({}, {})",
+                local_x, local_z
+            );
         }
     } else {
         println!("🔍 No chunk found at {:?}", chunk_pos);
     }
-    
+
     // If we found blocks but no chunks, return the highest block found
     if highest_solid_y > -1000.0 {
-        println!("🔍 Returning highest individual block at y={}", highest_solid_y);
+        println!(
+            "🔍 Returning highest individual block at y={}",
+            highest_solid_y
+        );
         return highest_solid_y;
     }
-    
+
     println!("🔍 No solid ground found at all");
     -1000.0 // No ground found
 }
 
 /// Check if a position is safe for spawning (no collisions with blocks)
 #[allow(dead_code)]
-fn is_position_safe(
-    position: Vec3,
-    chunks: &Query<&Chunk>,
-    chunk_manager: &ChunkManager,
-) -> bool {
+fn is_position_safe(position: Vec3, chunks: &Query<&Chunk>, chunk_manager: &ChunkManager) -> bool {
     // Create a temporary collider for the player
     let collider = Collider::player();
     let entity_aabb = get_entity_aabb(position, &collider);
-    
+
     // Check if there are any collisions at this position
     let has_chunk_collision = check_chunk_collisions(entity_aabb, chunks, chunk_manager).is_some();
-    
+
     !has_chunk_collision
 }
 
@@ -572,7 +690,7 @@ fn is_position_safe(
 #[allow(dead_code)]
 fn find_ground_level(
     x: f32,
-    z: f32, 
+    z: f32,
     blocks: &Query<&Block>,
     chunks: &Query<&Chunk>,
     chunk_manager: &ChunkManager,
@@ -580,28 +698,29 @@ fn find_ground_level(
     // Start checking from a reasonable height and go down
     let mut y = 10.0;
     let mut ground_y = -1000.0; // Invalid value
-    
+
     // First try checking individual blocks
     while y >= 0.0 {
         let position = Vec3::new(x, y, z);
         let block_position = position.as_ivec3();
-        
+
         // Check if there's a solid block at this position
-        let has_solid_block = check_block_at_position(block_position, blocks, chunks, chunk_manager);
-        
+        let has_solid_block =
+            check_block_at_position(block_position, blocks, chunks, chunk_manager);
+
         if has_solid_block {
             ground_y = y;
             break;
         }
-        
+
         y -= 1.0;
     }
-    
+
     // If no ground found with blocks, try chunk-based checking
     if ground_y < 0.0 {
         ground_y = find_ground_level_in_chunks(x, z, chunks, chunk_manager);
     }
-    
+
     ground_y
 }
 
@@ -619,7 +738,7 @@ fn check_block_at_position(
             return true;
         }
     }
-    
+
     // Check chunks
     let chunk_pos = ChunkPosition::from_block_position(position);
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
@@ -627,7 +746,7 @@ fn check_block_at_position(
             if let Some(block_type) = chunk.data.get_block(
                 (position.x.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize,
                 position.y as usize,
-                (position.z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize
+                (position.z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize,
             ) {
                 if block_type.is_solid() {
                     return true;
@@ -635,7 +754,7 @@ fn check_block_at_position(
             }
         }
     }
-    
+
     false
 }
 
@@ -650,12 +769,12 @@ fn find_ground_level_in_chunks(
     let block_x = x as i32;
     let block_z = z as i32;
     let chunk_pos = ChunkPosition::from_block_position(IVec3::new(block_x, 0, block_z));
-    
+
     if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
         if let Ok(chunk) = chunks.get(chunk_entity) {
             let local_x = (block_x.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize;
             let local_z = (block_z.rem_euclid(crate::chunk::CHUNK_SIZE as i32)) as usize;
-            
+
             // Check from top down to find the highest solid block
             for y in (0..crate::chunk::CHUNK_HEIGHT).rev() {
                 if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
@@ -666,7 +785,7 @@ fn find_ground_level_in_chunks(
             }
         }
     }
-    
+
     -1000.0 // No ground found
 }
 
@@ -680,7 +799,7 @@ fn find_empty_space_near_position(
 ) -> Vec3 {
     let mut best_position = desired_position;
     let mut best_distance = f32::MAX;
-    
+
     // Try positions in a 5x5x5 area around the desired position
     for x_offset in -2..=2 {
         for y_offset in -2..=2 {
@@ -690,18 +809,20 @@ fn find_empty_space_near_position(
                     desired_position.y + y_offset as f32,
                     desired_position.z + z_offset as f32,
                 );
-                
+
                 let distance = (test_position - desired_position).length();
-                
+
                 if distance < best_distance {
                     let test_block_pos = test_position.as_ivec3();
-                    let is_empty = !check_block_at_position(test_block_pos, blocks, chunks, chunk_manager);
-                    
+                    let is_empty =
+                        !check_block_at_position(test_block_pos, blocks, chunks, chunk_manager);
+
                     if is_empty {
                         // Also check if the space above is empty (for player height)
                         let above_pos = test_block_pos + IVec3::new(0, 1, 0);
-                        let above_empty = !check_block_at_position(above_pos, blocks, chunks, chunk_manager);
-                        
+                        let above_empty =
+                            !check_block_at_position(above_pos, blocks, chunks, chunk_manager);
+
                         if above_empty {
                             best_position = test_position;
                             best_distance = distance;
@@ -711,17 +832,6 @@ fn find_empty_space_near_position(
             }
         }
     }
-    
+
     best_position
 }
-
-
-
-
-
-
-
-
-
-
-
