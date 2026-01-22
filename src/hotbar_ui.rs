@@ -203,7 +203,7 @@ pub fn update_hotbar_item_icons(
         if item_icon.slot_index < inventory.hotbar_slots.len() {
             let item_stack = &inventory.hotbar_slots[item_icon.slot_index];
 
-            info!(
+            debug!(
                 "Updating hotbar slot {}: {:?} x{}",
                 item_icon.slot_index, item_stack.item_type, item_stack.quantity
             );
@@ -211,24 +211,15 @@ pub fn update_hotbar_item_icons(
             if item_stack.is_empty() {
                 // Empty slot - use default/empty handle (will not render)
                 item_texture.texture_handle = Handle::default();
-                info!("Slot {} is empty", item_icon.slot_index);
             } else {
                 // Find the appropriate texture for this item type
                 if let Some(texture_handle) =
                     item_textures.texture_handles.get(&item_stack.item_type)
                 {
                     item_texture.texture_handle = texture_handle.clone();
-                    info!(
-                        "Slot {}: Found texture for {:?}",
-                        item_icon.slot_index, item_stack.item_type
-                    );
                 } else {
                     // Fallback to unknown texture if no specific texture found
                     item_texture.texture_handle = asset_server.load("textures/unknown_icon.png");
-                    info!(
-                        "Slot {}: Using unknown texture for {:?}",
-                        item_icon.slot_index, item_stack.item_type
-                    );
                 }
             }
         }
@@ -244,7 +235,7 @@ pub fn render_hotbar_item_images(
     mut commands: Commands,
 ) {
     for (entity, item_texture, item_icon) in &mut item_textures {
-        info!(
+        debug!(
             "Rendering hotbar item image for slot {} with texture: {:?}",
             item_icon.slot_index, item_texture.texture_handle
         );
@@ -253,10 +244,6 @@ pub fn render_hotbar_item_images(
             // Empty slot - remove ImageNode component if present
             if let Some(mut entity_commands) = commands.get_entity(entity) {
                 entity_commands.remove::<ImageNode>();
-                info!(
-                    "Slot {}: Removed ImageNode (empty slot)",
-                    item_icon.slot_index
-                );
             }
         } else {
             // Non-empty slot - add/update ImageNode component
@@ -265,10 +252,6 @@ pub fn render_hotbar_item_images(
                     image: item_texture.texture_handle.clone(),
                     ..default()
                 });
-                info!(
-                    "Slot {}: Added ImageNode with texture",
-                    item_icon.slot_index
-                );
             }
         }
     }
@@ -318,12 +301,12 @@ pub fn display_hotbar_info(inventory: Res<Inventory>) {
     }
 
     hotbar_info.push_str("]");
-    info!("{}", hotbar_info);
+    debug!("{}", hotbar_info);
 
     // Display selected item details
     if let Some(selected_item) = inventory.get_selected_item() {
         if !selected_item.is_empty() {
-            info!(
+            debug!(
                 "🔧 Selected: {} x{}",
                 selected_item.item_type.name(),
                 selected_item.quantity
