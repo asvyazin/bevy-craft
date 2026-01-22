@@ -102,44 +102,60 @@ pub fn block_breaking_system(
 
     // Handle block breaking with left mouse button
     if left_button.is_pressed {
-        debug!("Left mouse button pressed for block breaking");
+        info!("🔨 Left mouse button pressed for block breaking");
+
         // Perform raycast to find the block the player is looking at
         let raycast_result =
             raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0);
 
+        info!("🎯 Raycast result: {:?}", raycast_result.is_some());
+
         if let Some((target_block_pos, distance)) = raycast_result {
-            debug!(
-                "Raycast hit block at {:?}, distance: {}",
+            info!(
+                "🎯 Raycast hit block at {:?}, distance: {}",
                 target_block_pos, distance
             );
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
 
-            debug!(
-                "Chunk position for block {:?}: {:?}",
+            info!(
+                "📍 Chunk position for block {:?}: {:?}",
                 target_block_pos, chunk_pos
             );
-            debug!("Loaded chunks count: {}", chunk_manager.loaded_chunks.len());
+            info!(
+                "📦 Loaded chunks count: {}",
+                chunk_manager.loaded_chunks.len()
+            );
 
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                debug!("Found chunk entity: {:?}", chunk_entity);
+                info!("✅ Found chunk entity: {:?}", chunk_entity);
                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
+                    info!("📥 Got mutable chunk reference");
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
+                        info!("🧱 Current block type: {:?}", current_block_type);
                         if current_block_type != BlockType::Air {
+                            info!("🪨 Block is solid, checking hardness");
                             if let Some(hardness) = current_block_type.hardness() {
+                                info!("⚡ Block hardness: {}", hardness);
                                 // Check if this is the same block we were previously breaking
                                 if breaking_progress.target_block_pos != Some(target_block_pos) {
                                     breaking_progress.target_block_pos = Some(target_block_pos);
                                     breaking_progress.accumulated_damage = 0.0;
+                                    info!("🔄 New target block, reset progress");
                                 }
 
                                 breaking_progress.is_breaking = true;
 
                                 // Accumulate damage based on delta time and hardness
                                 let damage_per_second = 10.0 / hardness;
-                                breaking_progress.accumulated_damage +=
-                                    damage_per_second * time.delta_secs();
+                                let damage_this_frame = damage_per_second * time.delta_secs();
+                                breaking_progress.accumulated_damage += damage_this_frame;
+
+                                info!(
+                                    "⚔️ Damage this frame: {:.4}, total: {:.4} / 1.0",
+                                    damage_this_frame, breaking_progress.accumulated_damage
+                                );
 
                                 // Check if block should break
                                 if breaking_progress.accumulated_damage >= 1.0 {
@@ -154,8 +170,10 @@ pub fn block_breaking_system(
                                     breaking_progress.accumulated_damage = 0.0;
                                     breaking_progress.is_breaking = false;
 
-                                    info!("Block broken at {:?}", target_block_pos);
+                                    info!("💥 Block broken at {:?}", target_block_pos);
                                 }
+                            } else {
+                                info!("⚠️ Block has no hardness (unbreakable)");
                             }
                         }
                     }
