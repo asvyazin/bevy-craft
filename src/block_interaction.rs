@@ -44,16 +44,21 @@ pub fn block_breaking_system(
 
     // Handle block breaking with left mouse button
     if mouse_button_input.pressed(MouseButton::Left) {
+        debug!("Left mouse button pressed for block breaking");
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) =
+        if let Some((target_block_pos, distance)) =
             raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0)
         {
+            debug!(
+                "Raycast hit block at {:?}, distance: {}",
+                target_block_pos, distance
+            );
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
 
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(chunk) = chunks.get(*chunk_entity) {
+                if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
                         if current_block_type != BlockType::Air {
                             if let Some(hardness) = current_block_type.hardness() {
@@ -73,17 +78,17 @@ pub fn block_breaking_system(
                                 // Check if block should break
                                 if breaking_progress.accumulated_damage >= 1.0 {
                                     // Remove the block (set to Air)
-                                    if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
-                                        chunk.set_block_world(target_block_pos, BlockType::Air);
+                                    chunk.set_block_world(target_block_pos, BlockType::Air);
 
-                                        // Add the broken block to inventory
-                                        inventory.add_item(ItemType::Block(current_block_type), 1);
+                                    // Add the broken block to inventory
+                                    inventory.add_item(ItemType::Block(current_block_type), 1);
 
-                                        // Reset breaking progress
-                                        breaking_progress.target_block_pos = None;
-                                        breaking_progress.accumulated_damage = 0.0;
-                                        breaking_progress.is_breaking = false;
-                                    }
+                                    // Reset breaking progress
+                                    breaking_progress.target_block_pos = None;
+                                    breaking_progress.accumulated_damage = 0.0;
+                                    breaking_progress.is_breaking = false;
+
+                                    info!("Block broken at {:?}", target_block_pos);
                                 }
                             }
                         }
@@ -130,8 +135,14 @@ pub fn block_placement_system(
 
     // Handle block placement with right mouse button (on just pressed, not held)
     if mouse_button_input.just_pressed(MouseButton::Right) {
+        debug!("Right mouse button pressed for block placement");
+
         // Get the currently selected item from hotbar
         if let Some(selected_item) = inventory.get_selected_item() {
+            debug!(
+                "Selected item: {:?}, quantity: {}",
+                selected_item.item_type, selected_item.quantity
+            );
             if !selected_item.is_empty() {
                 // Check if the selected item is a block type
                 if let ItemType::Block(block_type) = selected_item.item_type {
@@ -157,20 +168,22 @@ pub fn block_placement_system(
                             // Find the chunk entity and modify it
                             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
                             {
-                                if let Ok(chunk) = chunks.get(*chunk_entity) {
+                                if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                                     // Check if the placement position is empty (Air)
                                     if let Some(current_block) =
                                         chunk.get_block_world(placement_pos)
                                     {
                                         if current_block == BlockType::Air {
                                             // Place the block
-                                            if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
-                                                chunk.set_block_world(placement_pos, block_type);
+                                            chunk.set_block_world(placement_pos, block_type);
 
-                                                // Remove one block from inventory
-                                                inventory
-                                                    .remove_item(ItemType::Block(block_type), 1);
-                                            }
+                                            // Remove one block from inventory
+                                            inventory.remove_item(ItemType::Block(block_type), 1);
+
+                                            info!(
+                                                "Block {:?} placed at {:?}",
+                                                block_type, placement_pos
+                                            );
                                         }
                                     }
                                 }
