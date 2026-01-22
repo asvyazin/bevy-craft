@@ -27,6 +27,28 @@ pub fn block_breaking_system(
     mut breaking_progress: ResMut<BlockBreakingProgress>,
     time: Res<Time>,
 ) {
+    // Log all mouse button states for debugging
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        info!("🖱️  LEFT mouse button JUST_PRESSED");
+    }
+    if mouse_button_input.pressed(MouseButton::Left) {
+        debug!("🖱️  LEFT mouse button PRESSED");
+    }
+    if mouse_button_input.just_released(MouseButton::Left) {
+        info!("🖱️  LEFT mouse button JUST_RELEASED");
+    }
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        info!("🖱️  RIGHT mouse button JUST_PRESSED");
+    }
+    if mouse_button_input.pressed(MouseButton::Right) {
+        debug!("🖱️  RIGHT mouse button PRESSED");
+    }
+    if mouse_button_input.just_released(MouseButton::Right) {
+        info!("🖱️  RIGHT mouse button JUST_RELEASED");
+    }
+
+    trace!("block_breaking_system called");
+
     let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
         result
     } else {
@@ -42,7 +64,7 @@ pub fn block_breaking_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
-    // Offset ray origin slightly to avoid detecting the block the player/camera is inside
+    // Offset ray origin slightly to avoid detecting of block the player/camera is inside
     let ray_origin = ray_origin + ray_direction * 0.5;
 
     // Handle block breaking with left mouse button
@@ -134,6 +156,8 @@ pub fn block_placement_system(
     mut inventory: ResMut<Inventory>,
     mut chunks: Query<&mut Chunk>,
 ) {
+    trace!("block_placement_system called");
+
     let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
         result
     } else {
@@ -149,7 +173,7 @@ pub fn block_placement_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
-    // Offset ray origin slightly to avoid detecting the block the player/camera is inside
+    // Offset ray origin slightly to avoid detecting of block that player/camera is inside
     let ray_origin = ray_origin + ray_direction * 0.5;
 
     // Handle block placement with right mouse button (on just pressed, not held)
