@@ -42,6 +42,9 @@ pub fn block_breaking_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
+    // Offset ray origin slightly to avoid detecting the block the player/camera is inside
+    let ray_origin = ray_origin + ray_direction * 0.5;
+
     // Handle block breaking with left mouse button
     if mouse_button_input.pressed(MouseButton::Left) {
         debug!("Left mouse button pressed for block breaking");
@@ -132,6 +135,9 @@ pub fn block_placement_system(
 
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
+
+    // Offset ray origin slightly to avoid detecting the block the player/camera is inside
+    let ray_origin = ray_origin + ray_direction * 0.5;
 
     // Handle block placement with right mouse button (on just pressed, not held)
     if mouse_button_input.just_pressed(MouseButton::Right) {
