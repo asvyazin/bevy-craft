@@ -31,6 +31,7 @@ use biome_debug::{BiomeDebugSettings, BiomeDebugStats};
 use biome_material::BiomeMaterial;
 
 mod player;
+use player::{PlayerDamageEvent, PlayerDeathEvent};
 mod world_gen;
 use crate::noise::NoiseSettings;
 use player::PlayerMovementSettings;
@@ -78,6 +79,8 @@ fn main() {
 
     // Add plugins and initialize resources
     app.add_plugins(DefaultPlugins)
+        .add_event::<player::PlayerDeathEvent>() // Register player death event
+        .add_event::<player::PlayerDamageEvent>() // Register player damage event
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .add_plugins(bevy::pbr::MaterialPlugin::<sky::AtmosphericScatteringMaterial>::default()) // Add atmospheric scattering material plugin
         .init_resource::<ChunkManager>()
