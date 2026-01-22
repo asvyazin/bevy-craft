@@ -171,8 +171,9 @@ fn main() {
         .add_systems(Update, biome_debug::visualize_biome_boundaries) // Add biome boundary visualization
         .add_systems(Update, biome_debug::visualize_biome_texture_variations) // Add biome texture variation visualization
         .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
-        .add_systems(Update, generate_chunk_meshes)
         .add_systems(Update, generate_chunks_system) // Add world generation system
+        .add_systems(Update, update_chunk_meshes.before(generate_chunk_meshes)) // Add chunk mesh update system
+        .add_systems(Update, generate_chunk_meshes)
         .add_systems(
             Update,
             render_chunk_meshes.run_if(|chunks: Query<&ChunkMesh>| !chunks.is_empty()),
@@ -325,162 +326,183 @@ fn generate_chunk_meshes(
     mut biome_materials: ResMut<Assets<BiomeMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mesh_materials: Res<ChunkMeshMaterials>,
-    chunks: Query<(Entity, &Chunk), Without<ChunkMesh>>,
+    chunks_without_mesh: Query<(Entity, &Chunk), Without<ChunkMesh>>,
     all_chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
     texture_atlas: Res<TextureAtlas>,
-
     biome_cache: Res<crate::biome_texture_cache::SharedBiomeTextureCache>,
     biome_material_cache: Res<crate::biome_material::SharedBiomeMaterialCache>,
 ) {
-    for (chunk_entity, chunk) in &chunks {
-        if chunk.is_generated && chunk.needs_mesh_update {
-            println!(
-                "🏗️  Generating mesh for chunk ({}, {})",
-                chunk.position.x, chunk.position.z
-            );
+    for (chunk_entity, chunk) in chunks_without_mesh.iter().filter(|(_, c)| c.is_generated) {
+        println!(
+            "🏗️  Generating mesh for chunk ({}, {})",
+            chunk.position.x, chunk.position.z
+        );
 
-            // Generate the mesh for this chunk using neighbor-aware algorithm
-            let mesh = chunk_mesh::generate_chunk_mesh(
-                &chunk.data,
-                &chunk.position,
-                &chunk_manager,
-                &all_chunks,
-                &texture_atlas,
-                chunk,
-                &biome_cache,
-                &mut images,
-            );
-            let mesh_handle = meshes.add(mesh);
+        // Generate the mesh for this chunk using neighbor-aware algorithm
+        let mesh = chunk_mesh::generate_chunk_mesh(
+            &chunk.data,
+            &chunk.position,
+            &chunk_manager,
+            &all_chunks,
+            &texture_atlas,
+            &chunk,
+            &biome_cache,
+            &mut images,
+        );
+        let mesh_handle = meshes.add(mesh);
 
-            // Create the chunk mesh component
-            let mut chunk_mesh = ChunkMesh::new();
-            chunk_mesh.mesh_handle = mesh_handle;
+        // Create the chunk mesh component
+        let mut chunk_mesh = ChunkMesh::new();
+        chunk_mesh.mesh_handle = mesh_handle;
 
-            // Optimized: Collect unique block types first, then get materials
-            let mut unique_block_types = std::collections::HashSet::new();
-            for local_x in 0..crate::chunk::CHUNK_SIZE {
-                for local_z in 0..crate::chunk::CHUNK_SIZE {
-                    for y in 0..crate::chunk::CHUNK_HEIGHT {
-                        if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
-                            if block_type != BlockType::Air {
-                                unique_block_types.insert(block_type);
-                            }
+        // Optimized: Collect unique block types first, then get materials
+        let mut unique_block_types = std::collections::HashSet::new();
+        for local_x in 0..crate::chunk::CHUNK_SIZE {
+            for local_z in 0..crate::chunk::CHUNK_SIZE {
+                for y in 0..crate::chunk::CHUNK_HEIGHT {
+                    if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
+                        if block_type != BlockType::Air {
+                            unique_block_types.insert(block_type);
                         }
                     }
                 }
             }
+        }
 
-            // Add materials for unique block types only
-            for block_type in unique_block_types {
-                if let Some(material_handle) = mesh_materials.get_material(block_type) {
-                    chunk_mesh
-                        .material_handles
-                        .insert(block_type, material_handle);
-                }
+        // Add materials for unique block types only
+        for block_type in unique_block_types {
+            if let Some(material_handle) = mesh_materials.get_material(block_type) {
+                chunk_mesh
+                    .material_handles
+                    .insert(block_type, material_handle);
             }
+        }
 
-            // Add biome-specific materials if available
-            if texture_atlas.has_procedural_textures() {
-                use std::collections::HashMap;
-                let mut biome_material_local_cache: HashMap<String, Handle<StandardMaterial>> =
-                    HashMap::new();
+        // Add biome-specific materials if available
+        if texture_atlas.has_procedural_textures() {
+            use std::collections::HashMap;
+            let mut biome_material_local_cache: HashMap<String, Handle<StandardMaterial>> =
+                HashMap::new();
 
-                // Track which biomes we've already processed to avoid duplicates
-                let mut processed_biomes: HashMap<String, bool> = HashMap::new();
+            // Track which biomes we've already processed to avoid duplicates
+            let mut processed_biomes: HashMap<String, bool> = HashMap::new();
 
-                for local_x in 0..crate::chunk::CHUNK_SIZE {
-                    for local_z in 0..crate::chunk::CHUNK_SIZE {
-                        if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z)
-                        {
-                            // Create a unique biome identifier to avoid processing the same biome multiple times
-                            // Use biome type only to drastically reduce unique biome variations
-                            // This ensures we only generate one set of textures per biome type
-                            let biome_identifier = format!("{}", biome_data.biome_type);
+            for local_x in 0..crate::chunk::CHUNK_SIZE {
+                for local_z in 0..crate::chunk::CHUNK_SIZE {
+                    if let Some(biome_data) = chunk.biome_data.get_biome_data(local_x, local_z) {
+                        // Create a unique biome identifier to avoid processing the same biome multiple times
+                        // Use biome type only to drastically reduce unique biome variations
+                        // This ensures we only generate one set of textures per biome type
+                        let biome_identifier = format!("{}", biome_data.biome_type);
 
-                            // Skip if we've already processed this biome in this chunk
-                            if processed_biomes.contains_key(&biome_identifier) {
+                        // Skip if we've already processed this biome in this chunk
+                        if processed_biomes.contains_key(&biome_identifier) {
+                            continue;
+                        }
+
+                        processed_biomes.insert(biome_identifier, true);
+
+                        // Generate biome parameters once per unique biome
+                        let representative_height = match biome_data.biome_type.as_str() {
+                            "desert" => 15,
+                            "forest" => 25,
+                            "mountain" | "snowy_mountain" => 45,
+                            "hills" => 20,
+                            "plains" => 12,
+                            "swamp" => 8,
+                            "tundra" => 18,
+                            "beach" => 5,
+                            _ => 15,
+                        };
+
+                        let biome_params = crate::biome_textures::BiomeTextureParams::new(
+                            biome_data.biome_type.clone(),
+                            biome_data.temperature,
+                            biome_data.moisture,
+                            representative_height as f32,
+                            representative_height as f32 / 100.0, // Use fixed max height for now
+                        );
+
+                        // Check all block types that should have biome textures
+                        let biome_block_types = [
+                            BlockType::Grass,
+                            BlockType::Dirt,
+                            BlockType::Stone,
+                            BlockType::Sand,
+                        ];
+
+                        for block_type in biome_block_types {
+                            let texture_key = crate::biome_textures::generate_texture_cache_key(
+                                &block_type,
+                                &biome_params,
+                            );
+
+                            // Check if we already have this biome material cached for this chunk
+                            if biome_material_local_cache.contains_key(&texture_key) {
                                 continue;
                             }
 
-                            processed_biomes.insert(biome_identifier, true);
-
-                            // Generate biome parameters once per unique biome
-                            let representative_height = match biome_data.biome_type.as_str() {
-                                "desert" => 15,
-                                "forest" => 25,
-                                "mountain" | "snowy_mountain" => 45,
-                                "hills" => 20,
-                                "plains" => 12,
-                                "swamp" => 8,
-                                "tundra" => 18,
-                                "beach" => 5,
-                                _ => 15,
-                            };
-
-                            let biome_params = crate::biome_textures::BiomeTextureParams::new(
-                                biome_data.biome_type.clone(),
-                                biome_data.temperature,
-                                biome_data.moisture,
-                                representative_height as f32,
-                                representative_height as f32 / 100.0, // Use fixed max height for now
-                            );
-
-                            // Check all block types that should have biome textures
-                            let biome_block_types = [
-                                BlockType::Grass,
-                                BlockType::Dirt,
-                                BlockType::Stone,
-                                BlockType::Sand,
-                            ];
-
-                            for block_type in biome_block_types {
-                                let texture_key = crate::biome_textures::generate_texture_cache_key(
-                                    &block_type,
-                                    &biome_params,
-                                );
-
-                                // Check if we already have this biome material cached for this chunk
-                                if biome_material_local_cache.contains_key(&texture_key) {
-                                    continue;
-                                }
-
-                                // Try to get biome-specific material using enhanced biome material system
-                                if let Some(biome_material) = mesh_materials.get_biome_material(
-                                    block_type,
-                                    &biome_params,
-                                    &biome_cache,
-                                    &biome_material_cache,
-                                    &mut materials,
-                                    &mut biome_materials,
-                                    &mut images,
-                                ) {
-                                    // Store biome-specific material in chunk cache
-                                    biome_material_local_cache
-                                        .insert(texture_key, biome_material.clone());
-                                    chunk_mesh
-                                        .material_handles
-                                        .insert(block_type, biome_material);
-                                    // Reduce logging spam
-                                    // println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
-                                }
+                            // Try to get biome-specific material using enhanced biome material system
+                            if let Some(biome_material) = mesh_materials.get_biome_material(
+                                block_type,
+                                &biome_params,
+                                &biome_cache,
+                                &biome_material_cache,
+                                &mut materials,
+                                &mut biome_materials,
+                                &mut images,
+                            ) {
+                                // Store biome-specific material in chunk cache
+                                biome_material_local_cache
+                                    .insert(texture_key, biome_material.clone());
+                                chunk_mesh
+                                    .material_handles
+                                    .insert(block_type, biome_material);
+                                // Reduce logging spam
+                                // println!("🎨 Added biome-specific material for {:?} at biome {}", block_type, biome_params.biome_type);
                             }
                         }
                     }
                 }
             }
+        }
 
-            // Add the chunk mesh component to the chunk entity with existence check
-            if let Some(mut entity_commands) = commands.get_entity(chunk_entity) {
-                // Double-check that the entity still exists before inserting
-                if entity_commands.id() == chunk_entity {
-                    entity_commands.insert(chunk_mesh);
-                    println!(
-                        "✓ Generated mesh for chunk ({}, {})",
-                        chunk.position.x, chunk.position.z
-                    );
-                }
+        // Add the chunk mesh component to the chunk entity with existence check
+        if let Some(mut entity_commands) = commands.get_entity(chunk_entity) {
+            // Double-check that the entity still exists before inserting
+            if entity_commands.id() == chunk_entity {
+                entity_commands.insert(chunk_mesh);
+                println!(
+                    "✓ Generated mesh for chunk ({}, {})",
+                    chunk.position.x, chunk.position.z
+                );
             }
+        }
+    }
+}
+
+/// System to update existing chunk meshes when blocks change
+fn update_chunk_meshes(
+    mut commands: Commands,
+    mut chunks_with_mesh: Query<(Entity, &mut Chunk), With<ChunkMesh>>,
+) {
+    for (chunk_entity, mut chunk) in &mut chunks_with_mesh {
+        if chunk.is_generated && chunk.needs_mesh_update {
+            println!(
+                "🔄 Regenerating mesh for chunk ({}, {})",
+                chunk.position.x, chunk.position.z
+            );
+
+            // Remove ChunkMesh and Mesh3d components so render_chunk_meshes will recreate them
+            commands
+                .entity(chunk_entity)
+                .remove::<ChunkMesh>()
+                .remove::<Mesh3d>()
+                .remove::<MeshMaterial3d<StandardMaterial>>();
+
+            // Reset the flag to prevent infinite regeneration
+            chunk.needs_mesh_update = false;
         }
     }
 }

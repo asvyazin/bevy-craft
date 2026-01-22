@@ -97,8 +97,13 @@ pub fn block_breaking_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
+    info!("📷 Camera position: {:?}", ray_origin);
+    info!("🔭 Ray direction: {:?}", ray_direction);
+
     // Offset ray origin slightly to avoid detecting of block the player/camera is inside
     let ray_origin = ray_origin + ray_direction * 0.5;
+
+    info!("📍 Ray origin after offset: {:?}", ray_origin);
 
     // Handle block breaking with left mouse button
     if left_button.is_pressed {
@@ -233,17 +238,18 @@ pub fn block_placement_system(
     // Handle block placement with right mouse button (on just pressed, not held)
     if right_button.is_pressed {
         right_button.is_pressed = false; // Reset after handling
-        debug!("Right mouse button pressed for block placement");
+        info!("🔨 Right mouse button pressed for block placement");
 
         // Get the currently selected item from hotbar
         if let Some(selected_item) = inventory.get_selected_item() {
-            debug!(
-                "Selected item: {:?}, quantity: {}",
+            info!(
+                "📦 Selected item: {:?}, quantity: {}",
                 selected_item.item_type, selected_item.quantity
             );
             if !selected_item.is_empty() {
                 // Check if the selected item is a block type
                 if let ItemType::Block(block_type) = selected_item.item_type {
+                    info!("🧱 Selected item is a block: {:?}", block_type);
                     if block_type != BlockType::Air {
                         // Perform raycast to find the block the player is looking at
                         if let Some((target_block_pos, _)) = raycast_for_block_mutable(
@@ -253,7 +259,7 @@ pub fn block_placement_system(
                             &chunk_manager,
                             5.0,
                         ) {
-                            debug!("Raycast hit target block at {:?}", target_block_pos);
+                            info!("🎯 Raycast hit target block at {:?}", target_block_pos);
 
                             // Calculate the adjacent block position for placement
                             let placement_pos = find_adjacent_block_position(
@@ -262,22 +268,24 @@ pub fn block_placement_system(
                                 ray_direction,
                             );
 
-                            debug!("Placement position: {:?}", placement_pos);
+                            info!("📍 Placement position: {:?}", placement_pos);
 
                             // Find which chunk contains this block
                             let chunk_pos = ChunkPosition::from_block_position(placement_pos);
 
-                            debug!("Chunk position for placement: {:?}", chunk_pos);
+                            info!("📥 Chunk position for placement: {:?}", chunk_pos);
 
                             // Find the chunk entity and modify it
                             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
                             {
-                                debug!("Found chunk entity for placement: {:?}", chunk_entity);
+                                info!("✅ Found chunk entity for placement: {:?}", chunk_entity);
                                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
+                                    info!("📥 Got mutable chunk reference");
                                     // Check if the placement position is empty (Air)
                                     if let Some(current_block) =
                                         chunk.get_block_world(placement_pos)
                                     {
+                                        info!("🧱 Current block at placement: {:?}", current_block);
                                         if current_block == BlockType::Air {
                                             // Place the block
                                             chunk.set_block_world(placement_pos, block_type);
@@ -286,17 +294,35 @@ pub fn block_placement_system(
                                             inventory.remove_item(ItemType::Block(block_type), 1);
 
                                             info!(
-                                                "Block {:?} placed at {:?}",
+                                                "✅ Block {:?} placed at {:?}",
                                                 block_type, placement_pos
                                             );
+                                        } else {
+                                            info!("⚠️ Cannot place - block already exists");
                                         }
+                                    } else {
+                                        info!("⚠️ Failed to get block at placement position");
                                     }
+                                } else {
+                                    info!("⚠️ Failed to get mutable chunk");
                                 }
+                            } else {
+                                info!("⚠️ Chunk entity not found for placement");
                             }
+                        } else {
+                            info!("⚠️ No block hit by raycast for placement");
                         }
+                    } else {
+                        info!("⚠️ Cannot place Air block");
                     }
+                } else {
+                    info!("⚠️ Selected item is not a block");
                 }
+            } else {
+                info!("⚠️ Selected item slot is empty");
             }
+        } else {
+            info!("⚠️ No item selected in hotbar");
         }
     }
 }
@@ -369,6 +395,11 @@ fn raycast_for_block_mutable(
     let mut current_pos = ray_origin;
     let mut distance_traveled = 0.0;
 
+    info!(
+        "🚀 Starting raycast from {:?} with direction {:?}, max_distance={}",
+        ray_origin, ray_direction, max_distance
+    );
+
     while distance_traveled < max_distance {
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
@@ -380,19 +411,31 @@ fn raycast_for_block_mutable(
             current_pos.z.floor() as i32,
         );
 
+        info!(
+            "🔍 Raycast step: pos={:?}, block={:?}, dist={:.2}",
+            current_pos, block_pos, distance_traveled
+        );
+
         // Check if this block position is within any loaded chunk
         let chunk_pos = ChunkPosition::from_block_position(block_pos);
 
+        info!("🔍 Chunk position: {:?}", chunk_pos);
+
         if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+            info!("🔍 Chunk entity found: {:?}", chunk_entity);
             if let Ok(chunk) = chunks.get(*chunk_entity) {
+                info!("🔍 Got chunk reference");
                 // Check if this block is solid (not air)
                 if let Some(block_type) = chunk.get_block_world(block_pos) {
+                    info!("🔍 Block at {:?}: {:?}", block_pos, block_type);
                     if block_type != BlockType::Air {
                         // Found a solid block!
                         return Some((block_pos, distance_traveled));
                     }
                 }
             }
+        } else {
+            info!("🔍 Chunk entity not found for {:?}", chunk_pos);
         }
 
         // Step forward along the ray
@@ -450,6 +493,7 @@ fn find_adjacent_block_position(
 
 /// System to provide visual feedback for targeted blocks
 pub fn block_targeting_feedback_system(
+    mut gizmos: Gizmos,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunks: Query<&Chunk>,
@@ -472,10 +516,26 @@ pub fn block_targeting_feedback_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
+    // Offset ray origin slightly to avoid detecting of block the player/camera is inside
+    let ray_origin = ray_origin + ray_direction * 0.5;
+
+    // Visualize the ray
+    let ray_end = ray_origin + ray_direction * 5.0;
+    gizmos.line(ray_origin, ray_end, Color::srgba(1.0, 1.0, 0.0, 0.8));
+
     // Perform raycast to find the block the player is looking at
-    if let Some((_target_block_pos, _distance)) =
+    if let Some((target_block_pos, distance)) =
         raycast_for_block_immutable(ray_origin, ray_direction, &chunks, &chunk_manager, 5.0)
     {
-        // TODO: Add visual highlight for targeted block
+        // Visualize the hit block
+        let hit_point = ray_origin + ray_direction * distance;
+        gizmos.sphere(hit_point, 0.2, Color::srgba(1.0, 0.0, 0.0, 0.8));
+
+        // Draw a box around the hit block
+        let block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
+        gizmos.cuboid(
+            Transform::from_translation(block_center),
+            Color::srgba(0.0, 1.0, 0.0, 0.3),
+        );
     }
 }
