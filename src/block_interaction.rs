@@ -1,7 +1,6 @@
 // Block interaction system for Bevy Craft
 // This module handles block breaking and placement
 
-use bevy::ecs::system::ParamSet;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 
@@ -17,14 +16,14 @@ pub struct BlockBreakingProgress {
     pub is_breaking: bool,
 }
 
-/// System to handle block breaking with left mouse button and placement with right mouse button
-pub fn block_interaction_system(
+/// System to handle block breaking with left mouse button
+pub fn block_breaking_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunk_manager: Res<ChunkManager>,
     mut inventory: ResMut<Inventory>,
-    mut chunk_params: ParamSet<(Query<&Chunk>, Query<&mut Chunk>)>,
+    mut chunks: Query<&mut Chunk>,
     mut breaking_progress: ResMut<BlockBreakingProgress>,
     time: Res<Time>,
 ) {
@@ -42,22 +41,19 @@ pub fn block_interaction_system(
 
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
+
     // Handle block breaking with left mouse button
     if mouse_button_input.pressed(MouseButton::Left) {
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_mutable(
-            ray_origin,
-            ray_direction,
-            &mut chunk_params.p1(),
-            &chunk_manager,
-            5.0,
-        ) {
+        if let Some((target_block_pos, _)) =
+            raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0)
+        {
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
 
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(chunk) = chunk_params.p1().get(*chunk_entity) {
+                if let Ok(chunk) = chunks.get(*chunk_entity) {
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
                         if current_block_type != BlockType::Air {
                             if let Some(hardness) = current_block_type.hardness() {
@@ -77,8 +73,7 @@ pub fn block_interaction_system(
                                 // Check if block should break
                                 if breaking_progress.accumulated_damage >= 1.0 {
                                     // Remove the block (set to Air)
-                                    if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity)
-                                    {
+                                    if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                                         chunk.set_block_world(target_block_pos, BlockType::Air);
 
                                         // Add the broken block to inventory
@@ -107,6 +102,31 @@ pub fn block_interaction_system(
         breaking_progress.accumulated_damage = 0.0;
         breaking_progress.is_breaking = false;
     }
+}
+
+/// System to handle block placement with right mouse button
+pub fn block_placement_system(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
+    player_query: Query<&Transform, With<crate::player::Player>>,
+    chunk_manager: Res<ChunkManager>,
+    mut inventory: ResMut<Inventory>,
+    mut chunks: Query<&mut Chunk>,
+) {
+    let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
+        result
+    } else {
+        return;
+    };
+
+    let _player_transform = if let Ok(result) = player_query.get_single() {
+        result
+    } else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation;
+    let ray_direction: Vec3 = camera_transform.forward().into();
 
     // Handle block placement with right mouse button (on just pressed, not held)
     if mouse_button_input.just_pressed(MouseButton::Right) {
@@ -117,10 +137,10 @@ pub fn block_interaction_system(
                 if let ItemType::Block(block_type) = selected_item.item_type {
                     if block_type != BlockType::Air {
                         // Perform raycast to find the block the player is looking at
-                        if let Some((target_block_pos, _)) = raycast_for_block_immutable(
+                        if let Some((target_block_pos, _)) = raycast_for_block_mutable(
                             ray_origin,
                             ray_direction,
-                            &chunk_params.p0(),
+                            &mut chunks,
                             &chunk_manager,
                             5.0,
                         ) {
@@ -137,16 +157,14 @@ pub fn block_interaction_system(
                             // Find the chunk entity and modify it
                             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
                             {
-                                if let Ok(chunk) = chunk_params.p0().get(*chunk_entity) {
+                                if let Ok(chunk) = chunks.get(*chunk_entity) {
                                     // Check if the placement position is empty (Air)
                                     if let Some(current_block) =
                                         chunk.get_block_world(placement_pos)
                                     {
                                         if current_block == BlockType::Air {
                                             // Place the block
-                                            if let Ok(mut chunk) =
-                                                chunk_params.p1().get_mut(*chunk_entity)
-                                            {
+                                            if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                                                 chunk.set_block_world(placement_pos, block_type);
 
                                                 // Remove one block from inventory

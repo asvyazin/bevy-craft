@@ -43,7 +43,10 @@ use camera::{
 };
 
 mod block_interaction;
-use block_interaction::{block_targeting_feedback_system, BlockBreakingProgress};
+use block_interaction::{
+    block_breaking_system, block_placement_system, block_targeting_feedback_system,
+    BlockBreakingProgress,
+};
 
 mod collision;
 use collision::{collision_detection_system, find_safe_spawn_position, Collider};
@@ -188,7 +191,8 @@ fn main() {
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
         .add_systems(Update, block_targeting_feedback_system) // Add block targeting feedback
-        .add_systems(Update, block_interaction::block_interaction_system) // Add block interaction system (breaking and placement)
+        .add_systems(Update, block_breaking_system) // Add block breaking system
+        .add_systems(Update, block_placement_system) // Add block placement system
         .add_systems(Update, crafting::handle_crafting_requests) // Add crafting request handling system
         .add_systems(Update, crafting::handle_crafting_success_events) // Add crafting success event handling system
         .add_systems(Update, crafting::handle_crafting_fail_events) // Add crafting fail event handling system
