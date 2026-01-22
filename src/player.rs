@@ -12,6 +12,10 @@ pub struct Player {
     pub gravity: f32,
     pub health: f32,
     pub max_health: f32,
+    pub hunger: f32,
+    pub max_hunger: f32,
+    pub thirst: f32,
+    pub max_thirst: f32,
 }
 
 impl Player {
@@ -25,6 +29,10 @@ impl Player {
                 gravity: 20.0,
                 health: 100.0,
                 max_health: 100.0,
+                hunger: 100.0,
+                max_hunger: 100.0,
+                thirst: 100.0,
+                max_thirst: 100.0,
             },
             CollisionState::default(),
             Transform::from_translation(spawn_position),
@@ -45,6 +53,30 @@ impl Player {
 
     pub fn is_alive(&self) -> bool {
         self.health > 0.0
+    }
+
+    pub fn reduce_hunger(&mut self, amount: f32) {
+        self.hunger = (self.hunger - amount).max(0.0);
+    }
+
+    pub fn restore_hunger(&mut self, amount: f32) {
+        self.hunger = (self.hunger + amount).min(self.max_hunger);
+    }
+
+    pub fn reduce_thirst(&mut self, amount: f32) {
+        self.thirst = (self.thirst - amount).max(0.0);
+    }
+
+    pub fn restore_thirst(&mut self, amount: f32) {
+        self.thirst = (self.thirst + amount).min(self.max_thirst);
+    }
+
+    pub fn is_starving(&self) -> bool {
+        self.hunger <= 0.0
+    }
+
+    pub fn is_dehydrated(&self) -> bool {
+        self.thirst <= 0.0
     }
 }
 
@@ -205,7 +237,6 @@ pub fn player_take_damage_system(
     mut query: Query<&mut Player>,
     mut damage_events: EventWriter<PlayerDamageEvent>,
     mut death_events: EventWriter<PlayerDeathEvent>,
-    mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for mut player in &mut query {
@@ -269,5 +300,128 @@ pub fn handle_damage_events(mut damage_events: EventReader<PlayerDamageEvent>) {
             "💔 Player took {:.1} damage! Health: {:.1}",
             event.amount, event.new_health
         );
+    }
+}
+
+/// System to handle hunger and thirst decay over time
+pub fn hunger_thirst_decay_system(
+    mut query: Query<&mut Player>,
+    time: Res<Time>,
+    mut damage_events: EventWriter<PlayerDamageEvent>,
+    mut death_events: EventWriter<PlayerDeathEvent>,
+) {
+    for mut player in &mut query {
+        // Decay hunger over time (0.5 hunger per second, or 30 per minute)
+        let hunger_decay = 0.5 * time.delta_secs();
+        player.reduce_hunger(hunger_decay);
+
+        // Decay thirst over time (0.7 thirst per second, or 42 per minute)
+        let thirst_decay = 0.7 * time.delta_secs();
+        player.reduce_thirst(thirst_decay);
+
+        // Take damage when starving (hunger <= 0)
+        if player.is_starving() {
+            let starvation_damage = 1.0 * time.delta_secs();
+            let actual_damage = player.take_damage(starvation_damage);
+
+            if actual_damage > 0.0 {
+                damage_events.send(PlayerDamageEvent {
+                    amount: actual_damage,
+                    new_health: player.health,
+                });
+            }
+
+            if !player.is_alive() {
+                death_events.send(PlayerDeathEvent);
+            }
+        }
+
+        // Take damage when dehydrated (thirst <= 0)
+        if player.is_dehydrated() {
+            let dehydration_damage = 2.0 * time.delta_secs();
+            let actual_damage = player.take_damage(dehydration_damage);
+
+            if actual_damage > 0.0 {
+                damage_events.send(PlayerDamageEvent {
+                    amount: actual_damage,
+                    new_health: player.health,
+                });
+            }
+
+            if !player.is_alive() {
+                death_events.send(PlayerDeathEvent);
+            }
+        }
+    }
+}
+
+/// Event sent when player consumes food
+#[derive(Event, Debug)]
+pub struct FoodConsumedEvent {
+    pub food_type: crate::inventory::FoodType,
+    pub hunger_restored: f32,
+    pub thirst_restored: f32,
+}
+
+/// System to handle food consumption
+pub fn food_consumption_system(
+    mut query: Query<&mut Player>,
+    mut inventory: ResMut<crate::inventory::Inventory>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    mut food_consumed_events: EventWriter<FoodConsumedEvent>,
+) {
+    // Check for right mouse button click (consume food)
+    if mouse_input.just_pressed(MouseButton::Right) {
+        // Get the currently selected item from the hotbar
+        if let Some(selected_item) = inventory.get_selected_item() {
+            if !selected_item.is_empty() {
+                // Check if the selected item is food
+                if let crate::inventory::ItemType::Food(food_type) = selected_item.item_type {
+                    // Apply food effects to player
+                    for mut player in &mut query {
+                        let hunger_restore = food_type.hunger_restore();
+                        let thirst_restore = food_type.thirst_restore();
+
+                        player.restore_hunger(hunger_restore);
+                        player.restore_thirst(thirst_restore);
+
+                        info!(
+                            "🍎 Consumed {}! Hunger: {:.1}, Thirst: {:.1}",
+                            food_type.name(),
+                            player.hunger,
+                            player.thirst
+                        );
+
+                        // Send event
+                        food_consumed_events.send(FoodConsumedEvent {
+                            food_type,
+                            hunger_restored: hunger_restore,
+                            thirst_restored: thirst_restore,
+                        });
+                    }
+
+                    // Remove the consumed item from inventory
+                    inventory.remove_item(crate::inventory::ItemType::Food(food_type), 1);
+                }
+            }
+        }
+    }
+}
+
+/// System to display hunger and thirst status
+pub fn display_hunger_thirst_status(player_query: Query<&Player>, time: Res<Time>) {
+    // Only display status every 5 seconds to reduce spam
+    if time.elapsed_secs_f64() % 5.0 < 0.1 {
+        if let Ok(player) = player_query.get_single() {
+            info!(
+                "📊 Status - Health: {:.1}/{:.1} | Hunger: {:.1}/{:.1} | Thirst: {:.1}/{:.1}",
+                player.health,
+                player.max_health,
+                player.hunger,
+                player.max_hunger,
+                player.thirst,
+                player.max_thirst
+            );
+        }
     }
 }

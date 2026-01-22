@@ -12,6 +12,7 @@ pub enum ItemType {
     Block(BlockType),
     Tool(ToolType),
     Resource(ResourceType),
+    Food(FoodType),
     // Add more item types as needed
 }
 
@@ -21,6 +22,7 @@ impl ItemType {
             ItemType::Block(block_type) => block_type.name(),
             ItemType::Tool(tool_type) => tool_type.name(),
             ItemType::Resource(resource_type) => resource_type.name(),
+            ItemType::Food(food_type) => food_type.name(),
         }
     }
 }
@@ -63,6 +65,56 @@ impl ResourceType {
             ResourceType::Coal => "Coal",
             ResourceType::IronIngot => "Iron Ingot",
             ResourceType::GoldIngot => "Gold Ingot",
+        }
+    }
+}
+
+/// Enum representing different types of food
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum FoodType {
+    Apple,
+    Bread,
+    MeatCooked,
+    MeatRaw,
+    Carrot,
+    Potato,
+    Mushroom,
+}
+
+impl FoodType {
+    pub fn name(&self) -> &str {
+        match self {
+            FoodType::Apple => "Apple",
+            FoodType::Bread => "Bread",
+            FoodType::MeatCooked => "Cooked Meat",
+            FoodType::MeatRaw => "Raw Meat",
+            FoodType::Carrot => "Carrot",
+            FoodType::Potato => "Potato",
+            FoodType::Mushroom => "Mushroom",
+        }
+    }
+
+    pub fn hunger_restore(&self) -> f32 {
+        match self {
+            FoodType::Apple => 10.0,
+            FoodType::Bread => 15.0,
+            FoodType::MeatCooked => 25.0,
+            FoodType::MeatRaw => 10.0,
+            FoodType::Carrot => 8.0,
+            FoodType::Potato => 10.0,
+            FoodType::Mushroom => 12.0,
+        }
+    }
+
+    pub fn thirst_restore(&self) -> f32 {
+        match self {
+            FoodType::Apple => 5.0,
+            FoodType::Bread => 0.0,
+            FoodType::MeatCooked => 5.0,
+            FoodType::MeatRaw => 3.0,
+            FoodType::Carrot => 4.0,
+            FoodType::Potato => 0.0,
+            FoodType::Mushroom => 6.0,
         }
     }
 }
@@ -423,6 +475,15 @@ pub fn initialize_inventory(mut inventory: ResMut<Inventory>) {
     inventory.add_item(ItemType::Block(BlockType::Wood), 16);
     inventory.add_item(ItemType::Block(BlockType::Sand), 8);
     inventory.add_item(ItemType::Resource(ResourceType::Stick), 32);
+
+    // Add some food items for testing
+    inventory.add_item(ItemType::Food(FoodType::Apple), 10);
+    inventory.add_item(ItemType::Food(FoodType::Bread), 5);
+    inventory.add_item(ItemType::Food(FoodType::Carrot), 8);
+    inventory.add_item(ItemType::Food(FoodType::Potato), 8);
+    inventory.add_item(ItemType::Food(FoodType::Mushroom), 12);
+    inventory.add_item(ItemType::Food(FoodType::MeatRaw), 6);
+    inventory.add_item(ItemType::Food(FoodType::MeatCooked), 4);
 
     info!("Inventory initialized with starting items");
 }

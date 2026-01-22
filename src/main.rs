@@ -15,10 +15,7 @@ mod texture_atlas;
 use texture_atlas::{initialize_texture_atlas, load_procedural_textures_into_atlas, TextureAtlas};
 
 mod texture_gen;
-use texture_gen::{
-    generate_procedural_textures, initialize_block_textures, regenerate_dynamic_textures,
-    BlockTextures, TextureGenSettings,
-};
+use texture_gen::{initialize_block_textures, BlockTextures, TextureGenSettings};
 
 mod noise;
 mod test_sophisticated_algorithms;
@@ -31,11 +28,11 @@ use biome_debug::{BiomeDebugSettings, BiomeDebugStats};
 use biome_material::BiomeMaterial;
 
 mod player;
-use player::{PlayerDamageEvent, PlayerDeathEvent};
+use player::{FoodConsumedEvent, PlayerDamageEvent, PlayerDeathEvent};
 mod world_gen;
 use crate::noise::NoiseSettings;
 use player::PlayerMovementSettings;
-use world_gen::{generate_chunks_system, WorldGenSettings};
+use world_gen::WorldGenSettings;
 
 mod camera;
 use camera::{
@@ -45,17 +42,14 @@ use camera::{
 mod block_interaction;
 use block_interaction::{
     block_breaking_system, block_placement_system, block_targeting_feedback_system,
-    mouse_button_input_system, BlockBreakingProgress, LeftMouseButtonState, RightMouseButtonState,
+    mouse_button_input_system,
 };
 
 mod collision;
 use collision::{collision_detection_system, find_safe_spawn_position, Collider};
 
 mod sky;
-use sky::{
-    spawn_skybox, spawn_sun_and_moon, update_atmospheric_scattering, update_sky_color,
-    update_sun_and_moon_positions, AtmosphericScatteringParams,
-};
+use sky::AtmosphericScatteringParams;
 
 mod weather;
 use weather::{
@@ -65,14 +59,14 @@ use weather::{
 };
 
 mod time;
-use time::{display_game_time, update_game_time, GameTime};
+use time::GameTime;
 
 mod inventory;
-use inventory::{display_inventory_info, initialize_inventory, inventory_update_system, Inventory};
+use inventory::Inventory;
 
 mod hotbar_ui;
 use hotbar_ui::{
-    display_hotbar_info, initialize_item_texture_atlas, render_hotbar_item_images, spawn_hotbar_ui,
+    initialize_item_texture_atlas, render_hotbar_item_images, spawn_hotbar_ui,
     update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
 };
 
@@ -84,9 +78,10 @@ fn main() {
     let mut app = App::new();
 
     // Add plugins and initialize resources
-    app.add_plugins(DefaultPlugins)
+    app        .add_plugins(DefaultPlugins)
         .add_event::<player::PlayerDeathEvent>() // Register player death event
         .add_event::<player::PlayerDamageEvent>() // Register player damage event
+        .add_event::<player::FoodConsumedEvent>() // Register food consumed event
         .add_event::<CraftItemEvent>() // Register crafting event
         .add_event::<CraftingSuccessEvent>() // Register crafting success event
         .add_event::<CraftingFailEvent>() // Register crafting fail event
@@ -124,60 +119,6 @@ fn main() {
             Startup,
             load_procedural_textures_into_atlas.after(initialize_block_textures),
         )
-        .add_systems(
-            Startup,
-            initialize_chunk_mesh_materials.after(load_procedural_textures_into_atlas),
-        )
-        .add_systems(
-            Startup,
-            initialize_biome_material_cache.after(initialize_chunk_mesh_materials),
-        )
-        .add_systems(Startup, initialize_weather_system) // Initialize weather system
-        .add_systems(Startup, spawn_skybox) // Add skybox spawning after materials are ready
-        .add_systems(Startup, biome_debug::initialize_biome_debug_system) // Initialize biome debug system
-        .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning
-        .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning
-        .add_systems(Startup, spawn_weather_particles) // Add weather particle spawning
-        .add_systems(Startup, initialize_inventory) // Initialize inventory with starting items
-        .add_systems(Startup, initialize_item_texture_atlas) // Initialize item texture atlas
-        .add_systems(Startup, spawn_hotbar_ui) // Spawn hotbar UI
-        .add_systems(
-            Startup,
-            test_sophisticated_algorithms::test_sophisticated_algorithms,
-        )
-        .add_systems(Update, generate_procedural_textures) // Add procedural texture generation
-        .add_systems(Update, regenerate_dynamic_textures) // Add dynamic texture regeneration
-        .add_systems(Update, update_game_time) // Add game time update system
-        .add_systems(Update, display_game_time) // Add game time display system
-        .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
-        .add_systems(Update, inventory_update_system) // Add inventory update system
-        .add_systems(Update, update_hotbar_item_icons) // Add hotbar item icons update system
-        .add_systems(Update, render_hotbar_item_images) // Add hotbar item images rendering system
-        .add_systems(Update, update_hotbar_ui) // Add hotbar UI update system
-        .add_systems(Update, display_hotbar_info) // Add hotbar info display system (fallback)
-        .add_systems(Update, display_inventory_info) // Add inventory info display system
-        .add_systems(Update, update_sky_color) // Add sky color update system (legacy)
-        .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
-        .add_systems(Update, update_weather_system) // Add weather system update
-        .add_systems(Update, update_cloud_rendering) // Add cloud rendering update
-        .add_systems(Update, spawn_weather_particles_dynamic) // Add dynamic weather particle spawning
-        .add_systems(Update, update_weather_particles) // Add weather particle update
-        .add_systems(Update, update_lightning_effects) // Add lightning effects update
-        .add_systems(Update, display_weather_info) // Add weather info display
-        .add_systems(Update, display_biome_material_stats) // Add biome material statistics display
-        .add_systems(Update, biome_debug::toggle_biome_debug) // Add biome debug toggle
-        .add_systems(Update, biome_debug::display_biome_debug_info) // Add biome debug info display
-        .add_systems(Update, biome_debug::update_biome_debug_stats) // Add biome debug stats update
-        .add_systems(Update, biome_debug::visualize_biome_boundaries) // Add biome boundary visualization
-        .add_systems(Update, biome_debug::visualize_biome_texture_variations) // Add biome texture variation visualization
-        .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
-        .add_systems(Update, generate_chunks_system) // Add world generation system
-        .add_systems(Update, update_chunk_meshes.before(generate_chunk_meshes)) // Add chunk mesh update system
-        .add_systems(Update, generate_chunk_meshes)
-        .add_systems(
-            Update,
-            render_chunk_meshes.run_if(|chunks: Query<&ChunkMesh>| !chunks.is_empty()),
-        ) // Add chunk mesh rendering system
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(
@@ -186,6 +127,9 @@ fn main() {
         ) // Add player damage system
         .add_systems(Update, player::player_death_system) // Add player death system
         .add_systems(Update, player::handle_damage_events) // Add damage event handling
+        .add_systems(Update, player::hunger_thirst_decay_system) // Add hunger/thirst decay system
+        .add_systems(Update, player::food_consumption_system) // Add food consumption system
+        .add_systems(Update, player::display_hunger_thirst_status) // Add hunger/thirst status display
         .add_systems(
             Update,
             collision_detection_system.after(player::player_movement_system),
