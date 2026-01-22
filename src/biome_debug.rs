@@ -1,8 +1,8 @@
 // Biome Debugging and Visualization Tools
 // This module provides tools for visualizing biome boundaries and texture variations
 
-use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
+use bevy::input::ButtonInput;
 use bevy::math::primitives::Cuboid;
 use bevy::prelude::*;
 

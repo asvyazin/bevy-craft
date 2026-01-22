@@ -169,7 +169,6 @@ fn main() {
         ) // Add player damage system
         .add_systems(Update, player::player_death_system) // Add player death system
         .add_systems(Update, player::handle_damage_events) // Add damage event handling
-        .add_systems(Update, player::handle_heal_events) // Add heal event handling
         .add_systems(
             Update,
             collision_detection_system.after(player::player_movement_system),

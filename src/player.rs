@@ -104,13 +104,6 @@ pub struct PlayerDamageEvent {
     pub new_health: f32,
 }
 
-/// Event sent when player heals
-#[derive(Event, Debug)]
-pub struct PlayerHealEvent {
-    pub amount: f32,
-    pub new_health: f32,
-}
-
 /// System for handling player movement with keyboard controls
 pub fn player_movement_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -274,16 +267,6 @@ pub fn handle_damage_events(mut damage_events: EventReader<PlayerDamageEvent>) {
     for event in damage_events.read() {
         info!(
             "💔 Player took {:.1} damage! Health: {:.1}",
-            event.amount, event.new_health
-        );
-    }
-}
-
-/// System to handle heal events
-pub fn handle_heal_events(mut heal_events: EventReader<PlayerHealEvent>) {
-    for event in heal_events.read() {
-        info!(
-            "💚 Player healed for {:.1}! Health: {:.1}",
             event.amount, event.new_health
         );
     }

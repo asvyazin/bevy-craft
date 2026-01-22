@@ -4,8 +4,8 @@
 use bevy::prelude::*;
 
 use crate::block::BlockType;
-use crate::chunk::{CHUNK_HEIGHT, CHUNK_SIZE, Chunk};
-use crate::noise::{NoiseSettings, generate_biome_info, generate_heightmap};
+use crate::chunk::{Chunk, CHUNK_HEIGHT, CHUNK_SIZE};
+use crate::noise::{generate_biome_info, generate_heightmap, NoiseSettings};
 
 /// World generation settings
 #[derive(Resource, Debug)]
@@ -203,7 +203,7 @@ fn cpu_perlin_noise(x: f32, z: f32, seed: u32) -> f32 {
         n = n.wrapping_mul(1664525).wrapping_add(1013904223);
         n ^= (x as u32).wrapping_mul(314159265).wrapping_add(271828183); // Different multiplier for x
         n ^= (y as u32).wrapping_mul(271828183).wrapping_add(314159265); // Different multiplier for y
-        // Mix it up more
+                                                                         // Mix it up more
         n = n.wrapping_mul(1664525).wrapping_add(1013904223);
         n ^= n >> 16;
         n = n.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -513,7 +513,11 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
     // Enhanced biome classification based on temperature, moisture, and height
     if height < 5 {
         // Low areas near water level - beaches or swamps
-        if moisture > 0.5 { "swamp" } else { "beach" }
+        if moisture > 0.5 {
+            "swamp"
+        } else {
+            "beach"
+        }
     } else if height > 50 {
         // Very high areas - snowy mountains (increased threshold)
         "snowy_mountain"
@@ -526,11 +530,23 @@ fn determine_biome_type(temperature: f32, moisture: f32, height: i32) -> &'stati
     } else {
         // Normal terrain classification based on temperature and moisture
         if temperature > 0.7 {
-            if moisture < 0.3 { "desert" } else { "plains" }
+            if moisture < 0.3 {
+                "desert"
+            } else {
+                "plains"
+            }
         } else if temperature > 0.5 {
-            if moisture > 0.6 { "forest" } else { "plains" }
+            if moisture > 0.6 {
+                "forest"
+            } else {
+                "plains"
+            }
         } else if temperature > 0.3 {
-            if moisture > 0.5 { "swamp" } else { "mountain" }
+            if moisture > 0.5 {
+                "swamp"
+            } else {
+                "mountain"
+            }
         } else {
             "tundra"
         }

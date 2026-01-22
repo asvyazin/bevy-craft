@@ -337,7 +337,7 @@ pub fn update_sun_and_moon_positions(
 fn calculate_sky_color(time_of_day: f32) -> Color {
     // Define key time points and their corresponding colors
     let dawn_start = 0.25; // 6:00 AM
-    let day_start = 0.35; // 8:00 AM  
+    let day_start = 0.35; // 8:00 AM
     let dusk_start = 0.75; // 6:00 PM
     let night_start = 0.85; // 8:00 PM
 
