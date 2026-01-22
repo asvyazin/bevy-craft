@@ -1,7 +1,7 @@
 // Block interaction system for Bevy Craft
 // This module handles block breaking and placement
 
-use bevy::input::mouse::MouseButton;
+use bevy::input::mouse::{MouseButton, MouseButtonInput};
 use bevy::prelude::*;
 
 use crate::block::BlockType;
@@ -16,9 +16,59 @@ pub struct BlockBreakingProgress {
     pub is_breaking: bool,
 }
 
+/// Resource to track left mouse button state
+#[derive(Resource, Default)]
+pub struct LeftMouseButtonState {
+    pub is_pressed: bool,
+}
+
+/// Resource to track right mouse button state
+#[derive(Resource, Default)]
+pub struct RightMouseButtonState {
+    pub is_pressed: bool,
+}
+
+/// System to handle mouse button input events
+pub fn mouse_button_input_system(
+    mut events: EventReader<MouseButtonInput>,
+    mut left_button: ResMut<LeftMouseButtonState>,
+    mut right_button: ResMut<RightMouseButtonState>,
+) {
+    for event in events.read() {
+        info!("🖱️  Mouse button event: {:?}", event);
+        match event.button {
+            MouseButton::Left => {
+                left_button.is_pressed = match event.state {
+                    bevy::input::ButtonState::Pressed => {
+                        info!("🖱️  LEFT button PRESSED");
+                        true
+                    }
+                    bevy::input::ButtonState::Released => {
+                        info!("🖱️  LEFT button RELEASED");
+                        false
+                    }
+                };
+            }
+            MouseButton::Right => {
+                right_button.is_pressed = match event.state {
+                    bevy::input::ButtonState::Pressed => {
+                        info!("🖱️  RIGHT button PRESSED");
+                        true
+                    }
+                    bevy::input::ButtonState::Released => {
+                        info!("🖱️  RIGHT button RELEASED");
+                        false
+                    }
+                };
+            }
+            _ => {}
+        }
+    }
+}
+
 /// System to handle block breaking with left mouse button
 pub fn block_breaking_system(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    left_button: Res<LeftMouseButtonState>,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunk_manager: Res<ChunkManager>,
@@ -27,27 +77,10 @@ pub fn block_breaking_system(
     mut breaking_progress: ResMut<BlockBreakingProgress>,
     time: Res<Time>,
 ) {
-    // Log all mouse button states for debugging
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        info!("🖱️  LEFT mouse button JUST_PRESSED");
-    }
-    if mouse_button_input.pressed(MouseButton::Left) {
-        debug!("🖱️  LEFT mouse button PRESSED");
-    }
-    if mouse_button_input.just_released(MouseButton::Left) {
-        info!("🖱️  LEFT mouse button JUST_RELEASED");
-    }
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        info!("🖱️  RIGHT mouse button JUST_PRESSED");
-    }
-    if mouse_button_input.pressed(MouseButton::Right) {
-        debug!("🖱️  RIGHT mouse button PRESSED");
-    }
-    if mouse_button_input.just_released(MouseButton::Right) {
-        info!("🖱️  RIGHT mouse button JUST_RELEASED");
-    }
-
-    trace!("block_breaking_system called");
+    trace!(
+        "block_breaking_system called, left button pressed: {}",
+        left_button.is_pressed
+    );
 
     let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
         result
@@ -68,7 +101,7 @@ pub fn block_breaking_system(
     let ray_origin = ray_origin + ray_direction * 0.5;
 
     // Handle block breaking with left mouse button
-    if mouse_button_input.pressed(MouseButton::Left) {
+    if left_button.is_pressed {
         debug!("Left mouse button pressed for block breaking");
         // Perform raycast to find the block the player is looking at
         let raycast_result =
@@ -149,14 +182,17 @@ pub fn block_breaking_system(
 
 /// System to handle block placement with right mouse button
 pub fn block_placement_system(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut right_button: ResMut<RightMouseButtonState>,
     camera_query: Query<(&Transform, &crate::camera::GameCamera)>,
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunk_manager: Res<ChunkManager>,
     mut inventory: ResMut<Inventory>,
     mut chunks: Query<&mut Chunk>,
 ) {
-    trace!("block_placement_system called");
+    trace!(
+        "block_placement_system called, right button pressed: {}",
+        right_button.is_pressed
+    );
 
     let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
         result
@@ -177,7 +213,8 @@ pub fn block_placement_system(
     let ray_origin = ray_origin + ray_direction * 0.5;
 
     // Handle block placement with right mouse button (on just pressed, not held)
-    if mouse_button_input.just_pressed(MouseButton::Right) {
+    if right_button.is_pressed {
+        right_button.is_pressed = false; // Reset after handling
         debug!("Right mouse button pressed for block placement");
 
         // Get the currently selected item from hotbar

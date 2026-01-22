@@ -45,7 +45,7 @@ use camera::{
 mod block_interaction;
 use block_interaction::{
     block_breaking_system, block_placement_system, block_targeting_feedback_system,
-    BlockBreakingProgress,
+    mouse_button_input_system, BlockBreakingProgress, LeftMouseButtonState, RightMouseButtonState,
 };
 
 mod collision;
@@ -109,6 +109,8 @@ fn main() {
         .init_resource::<Inventory>() // Initialize inventory system
         .init_resource::<ItemTextureAtlas>() // Initialize item texture atlas
         .init_resource::<block_interaction::BlockBreakingProgress>() // Initialize block breaking progress
+        .init_resource::<block_interaction::LeftMouseButtonState>() // Initialize left mouse button state
+        .init_resource::<block_interaction::RightMouseButtonState>() // Initialize right mouse button state
         .init_resource::<RecipeBook>() // Initialize recipe book with default recipes
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
@@ -191,6 +193,7 @@ fn main() {
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
         .add_systems(Update, block_targeting_feedback_system) // Add block targeting feedback
+        .add_systems(Update, mouse_button_input_system) // Add mouse button input system
         .add_systems(Update, block_breaking_system) // Add block breaking system
         .add_systems(Update, block_placement_system) // Add block placement system
         .add_systems(Update, crafting::handle_crafting_requests) // Add crafting request handling system
