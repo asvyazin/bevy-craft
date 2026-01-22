@@ -74,7 +74,7 @@ use hotbar_ui::{
 };
 
 mod crafting;
-use crafting::RecipeBook;
+use crafting::{CraftItemEvent, CraftingFailEvent, CraftingSuccessEvent, RecipeBook};
 
 fn main() {
     // Create the app first
@@ -84,6 +84,9 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .add_event::<player::PlayerDeathEvent>() // Register player death event
         .add_event::<player::PlayerDamageEvent>() // Register player damage event
+        .add_event::<CraftItemEvent>() // Register crafting event
+        .add_event::<CraftingSuccessEvent>() // Register crafting success event
+        .add_event::<CraftingFailEvent>() // Register crafting fail event
         .add_plugins(ComputeNoisePlugin) // Add Perlin noise plugin for world generation
         .add_plugins(bevy::pbr::MaterialPlugin::<sky::AtmosphericScatteringMaterial>::default()) // Add atmospheric scattering material plugin
         .init_resource::<ChunkManager>()
@@ -186,6 +189,10 @@ fn main() {
         .add_systems(Update, camera_rotation_system) // Add camera rotation system
         .add_systems(Update, block_targeting_feedback_system) // Add block targeting feedback
         .add_systems(Update, block_interaction::block_interaction_system) // Add block interaction system (breaking and placement)
+        .add_systems(Update, crafting::handle_crafting_requests) // Add crafting request handling system
+        .add_systems(Update, crafting::handle_crafting_success_events) // Add crafting success event handling system
+        .add_systems(Update, crafting::handle_crafting_fail_events) // Add crafting fail event handling system
+        .add_systems(Update, crafting::handle_crafting_keyboard_input) // Add crafting keyboard input system
         .run();
 }
 

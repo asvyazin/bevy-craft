@@ -422,6 +422,7 @@ pub fn initialize_inventory(mut inventory: ResMut<Inventory>) {
     inventory.add_item(ItemType::Block(BlockType::Grass), 8);
     inventory.add_item(ItemType::Block(BlockType::Wood), 16);
     inventory.add_item(ItemType::Block(BlockType::Sand), 8);
+    inventory.add_item(ItemType::Resource(ResourceType::Stick), 32);
 
     info!("Inventory initialized with starting items");
 }
