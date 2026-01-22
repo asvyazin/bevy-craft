@@ -12,12 +12,12 @@ mod chunk_mesh;
 use chunk_mesh::{ChunkMesh, ChunkMeshMaterials};
 
 mod texture_atlas;
-use texture_atlas::{TextureAtlas, initialize_texture_atlas, load_procedural_textures_into_atlas};
+use texture_atlas::{initialize_texture_atlas, load_procedural_textures_into_atlas, TextureAtlas};
 
 mod texture_gen;
 use texture_gen::{
-    BlockTextures, TextureGenSettings, generate_procedural_textures, initialize_block_textures,
-    regenerate_dynamic_textures,
+    generate_procedural_textures, initialize_block_textures, regenerate_dynamic_textures,
+    BlockTextures, TextureGenSettings,
 };
 
 mod noise;
@@ -34,7 +34,7 @@ mod player;
 mod world_gen;
 use crate::noise::NoiseSettings;
 use player::PlayerMovementSettings;
-use world_gen::{WorldGenSettings, generate_chunks_system};
+use world_gen::{generate_chunks_system, WorldGenSettings};
 
 mod camera;
 use camera::{
@@ -45,12 +45,12 @@ mod block_interaction;
 use block_interaction::block_targeting_feedback_system;
 
 mod collision;
-use collision::{Collider, collision_detection_system, find_safe_spawn_position};
+use collision::{collision_detection_system, find_safe_spawn_position, Collider};
 
 mod sky;
 use sky::{
-    AtmosphericScatteringParams, spawn_skybox, spawn_sun_and_moon, update_atmospheric_scattering,
-    update_sky_color, update_sun_and_moon_positions,
+    spawn_skybox, spawn_sun_and_moon, update_atmospheric_scattering, update_sky_color,
+    update_sun_and_moon_positions, AtmosphericScatteringParams,
 };
 
 mod weather;
@@ -61,15 +61,15 @@ use weather::{
 };
 
 mod time;
-use time::{GameTime, display_game_time, update_game_time};
+use time::{display_game_time, update_game_time, GameTime};
 
 mod inventory;
-use inventory::{Inventory, display_inventory_info, initialize_inventory, inventory_update_system};
+use inventory::{display_inventory_info, initialize_inventory, inventory_update_system, Inventory};
 
 mod hotbar_ui;
 use hotbar_ui::{
-    ItemTextureAtlas, display_hotbar_info, initialize_item_texture_atlas,
-    render_hotbar_item_images, spawn_hotbar_ui, update_hotbar_item_icons, update_hotbar_ui,
+    display_hotbar_info, initialize_item_texture_atlas, render_hotbar_item_images, spawn_hotbar_ui,
+    update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
 };
 
 fn main() {
@@ -163,6 +163,13 @@ fn main() {
         ) // Add chunk mesh rendering system
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
+        .add_systems(
+            Update,
+            player::player_take_damage_system.after(player::player_movement_system),
+        ) // Add player damage system
+        .add_systems(Update, player::player_death_system) // Add player death system
+        .add_systems(Update, player::handle_damage_events) // Add damage event handling
+        .add_systems(Update, player::handle_heal_events) // Add heal event handling
         .add_systems(
             Update,
             collision_detection_system.after(player::player_movement_system),

@@ -9,6 +9,14 @@ use crate::block::BlockType;
 use crate::chunk::{Chunk, ChunkManager, ChunkPosition};
 use crate::inventory::{Inventory, ItemType};
 
+/// Resource to track block breaking progress
+#[derive(Resource, Default)]
+pub struct BlockBreakingProgress {
+    pub target_block_pos: Option<IVec3>,
+    pub accumulated_damage: f32,
+    pub is_breaking: bool,
+}
+
 /// System to handle block breaking with left mouse button and placement with right mouse button
 pub fn block_interaction_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -17,9 +25,11 @@ pub fn block_interaction_system(
     chunk_manager: Res<ChunkManager>,
     mut inventory: ResMut<Inventory>,
     mut chunk_params: ParamSet<(Query<&Chunk>, Query<&mut Chunk>)>,
+    mut breaking_progress: ResMut<BlockBreakingProgress>,
+    time: Res<Time>,
 ) {
     // Handle block breaking with left mouse button
-    if mouse_button_input.just_pressed(MouseButton::Left) {
+    if mouse_button_input.pressed(MouseButton::Left) {
         // Get camera and player transforms
         let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
             result
@@ -50,77 +60,59 @@ pub fn block_interaction_system(
 
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
-                    // Get the current block type before removing it
+                if let Ok(chunk) = chunk_params.p1().get(*chunk_entity) {
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
-                        // Remove the block (set to Air)
-                        chunk.set_block_world(target_block_pos, BlockType::Air);
-
-                        // Add the broken block to inventory (if it's not air)
                         if current_block_type != BlockType::Air {
-                            inventory.add_item(ItemType::Block(current_block_type), 1);
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            if let Some(hardness) = current_block_type.hardness() {
+                                // Check if this is the same block we were previously breaking
+                                if breaking_progress.target_block_pos != Some(target_block_pos) {
+                                    breaking_progress.target_block_pos = Some(target_block_pos);
+                                    breaking_progress.accumulated_damage = 0.0;
+                                }
 
-    // Handle block placement with right mouse button
-    if mouse_button_input.just_pressed(MouseButton::Right) {
-        // Get camera and player transforms
-        let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
-            result
-        } else {
-            return;
-        };
+                                breaking_progress.is_breaking = true;
 
-        let _player_transform = if let Ok(result) = player_query.get_single() {
-            result
-        } else {
-            return;
-        };
+                                // Accumulate damage based on delta time and hardness
+                                let damage_per_second = 10.0 / hardness;
+                                breaking_progress.accumulated_damage +=
+                                    damage_per_second * time.delta_secs();
 
-        // Calculate ray origin (camera position) and direction
-        let ray_origin = camera_transform.translation;
-        let ray_direction: Vec3 = camera_transform.forward().into();
+                                // Check if block should break
+                                if breaking_progress.accumulated_damage >= 1.0 {
+                                    // Remove the block (set to Air)
+                                    if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity)
+                                    {
+                                        chunk.set_block_world(target_block_pos, BlockType::Air);
 
-        // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, _)) = raycast_for_block_immutable(
-            ray_origin,
-            ray_direction,
-            &chunk_params.p0(),
-            &chunk_manager,
-            5.0,
-        ) {
-            // Calculate the adjacent block position where we want to place the new block
-            let placement_pos =
-                find_adjacent_block_position(target_block_pos, ray_origin, ray_direction);
+                                        // Add the broken block to inventory
+                                        inventory.add_item(ItemType::Block(current_block_type), 1);
 
-            // Find which chunk contains the placement position
-            let chunk_pos = ChunkPosition::from_block_position(placement_pos);
-
-            // Find the chunk entity and modify it
-            if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                if let Ok(mut chunk) = chunk_params.p1().get_mut(*chunk_entity) {
-                    // Get the selected item from inventory
-                    if let Some(selected_item) = inventory.get_selected_item() {
-                        if !selected_item.is_empty() {
-                            if let ItemType::Block(block_type) = selected_item.item_type {
-                                // Place the block from inventory
-                                chunk.set_block_world(placement_pos, block_type);
-
-                                // Remove one item from inventory (clone the item type to avoid borrow issues)
-                                let item_type = selected_item.item_type;
-                                inventory.remove_item(item_type, 1);
+                                        // Reset breaking progress
+                                        breaking_progress.target_block_pos = None;
+                                        breaking_progress.accumulated_damage = 0.0;
+                                        breaking_progress.is_breaking = false;
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+        } else {
+            // Not looking at a breakable block
+            breaking_progress.target_block_pos = None;
+            breaking_progress.accumulated_damage = 0.0;
+            breaking_progress.is_breaking = false;
         }
+    } else {
+        // Left mouse button not pressed - reset breaking progress
+        breaking_progress.target_block_pos = None;
+        breaking_progress.accumulated_damage = 0.0;
+        breaking_progress.is_breaking = false;
     }
 }
+
+// Block placement is now part of the block_interaction_system above
 
 /// Perform raycasting to find the first block intersected by a ray (immutable version)
 /// Returns the position of the intersected block and the distance

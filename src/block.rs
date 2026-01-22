@@ -61,6 +61,22 @@ impl BlockType {
             _ => false,
         }
     }
+
+    /// Get the hardness of this block type (higher = harder to break)
+    /// Returns None for unbreakable blocks
+    pub fn hardness(&self) -> Option<f32> {
+        match self {
+            BlockType::Air => None,
+            BlockType::Dirt => Some(1.5),
+            BlockType::Stone => Some(3.0),
+            BlockType::Grass => Some(1.2),
+            BlockType::Wood => Some(2.0),
+            BlockType::Leaves => Some(0.5),
+            BlockType::Sand => Some(1.0),
+            BlockType::Water => None,
+            BlockType::Bedrock => None,
+        }
+    }
 }
 
 /// Component representing a block in the game world
