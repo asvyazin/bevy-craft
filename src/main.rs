@@ -73,6 +73,9 @@ use hotbar_ui::{
     update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
 };
 
+mod crafting;
+use crafting::RecipeBook;
+
 fn main() {
     // Create the app first
     let mut app = App::new();
@@ -100,6 +103,7 @@ fn main() {
         .init_resource::<Inventory>() // Initialize inventory system
         .init_resource::<ItemTextureAtlas>() // Initialize item texture atlas
         .init_resource::<block_interaction::BlockBreakingProgress>() // Initialize block breaking progress
+        .init_resource::<RecipeBook>() // Initialize recipe book with default recipes
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
