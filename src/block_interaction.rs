@@ -49,9 +49,10 @@ pub fn block_breaking_system(
     if mouse_button_input.pressed(MouseButton::Left) {
         debug!("Left mouse button pressed for block breaking");
         // Perform raycast to find the block the player is looking at
-        if let Some((target_block_pos, distance)) =
-            raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0)
-        {
+        let raycast_result =
+            raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0);
+
+        if let Some((target_block_pos, distance)) = raycast_result {
             debug!(
                 "Raycast hit block at {:?}, distance: {}",
                 target_block_pos, distance
@@ -59,8 +60,15 @@ pub fn block_breaking_system(
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
 
+            debug!(
+                "Chunk position for block {:?}: {:?}",
+                target_block_pos, chunk_pos
+            );
+            debug!("Loaded chunks count: {}", chunk_manager.loaded_chunks.len());
+
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
+                debug!("Found chunk entity: {:?}", chunk_entity);
                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
                         if current_block_type != BlockType::Air {
@@ -99,13 +107,18 @@ pub fn block_breaking_system(
                 }
             }
         } else {
+            if let Some((target_block_pos, _)) = raycast_result {
+                let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
+                warn!("Chunk entity not found for position {:?}", chunk_pos);
+            }
             // Not looking at a breakable block
             breaking_progress.target_block_pos = None;
             breaking_progress.accumulated_damage = 0.0;
             breaking_progress.is_breaking = false;
         }
     } else {
-        // Left mouse button not pressed - reset breaking progress
+        debug!("No block hit by raycast");
+        // Not looking at a breakable block
         breaking_progress.target_block_pos = None;
         breaking_progress.accumulated_damage = 0.0;
         breaking_progress.is_breaking = false;
@@ -161,6 +174,8 @@ pub fn block_placement_system(
                             &chunk_manager,
                             5.0,
                         ) {
+                            debug!("Raycast hit target block at {:?}", target_block_pos);
+
                             // Calculate the adjacent block position for placement
                             let placement_pos = find_adjacent_block_position(
                                 target_block_pos,
@@ -168,12 +183,17 @@ pub fn block_placement_system(
                                 ray_direction,
                             );
 
+                            debug!("Placement position: {:?}", placement_pos);
+
                             // Find which chunk contains this block
                             let chunk_pos = ChunkPosition::from_block_position(placement_pos);
+
+                            debug!("Chunk position for placement: {:?}", chunk_pos);
 
                             // Find the chunk entity and modify it
                             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
                             {
+                                debug!("Found chunk entity for placement: {:?}", chunk_entity);
                                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
                                     // Check if the placement position is empty (Air)
                                     if let Some(current_block) =
