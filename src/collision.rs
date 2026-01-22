@@ -119,19 +119,11 @@ pub fn collision_detection_system(
 
         // Debug: Check if we're falling and should be hitting something
         if entity_position.y < 0.0 {
-            println!(
-                "⚠️  Player falling through! Position: {:?}, AABB: {:?} - {:?}",
-                entity_position, entity_aabb.0, entity_aabb.1
-            );
-
             // Check what blocks are around
             let chunk_pos = ChunkPosition::from_block_position(entity_position.as_ivec3());
-            println!("🔍 Checking chunk at {:?}", chunk_pos);
 
             if let Some(&chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
                 if let Ok(chunk) = chunks.get(chunk_entity) {
-                    println!("🔍 Chunk found, checking blocks around player...");
-
                     // Check a few blocks below the player
                     for y in (entity_position.y as i32 - 2)..=(entity_position.y as i32 + 1) {
                         let test_pos =
@@ -646,30 +638,18 @@ fn find_highest_solid_ground(
             for y in (0..crate::chunk::CHUNK_HEIGHT).rev() {
                 if let Some(block_type) = chunk.data.get_block(local_x, y, local_z) {
                     if block_type.is_solid() {
-                        println!("🔍 Found solid chunk block at y={}: {:?}", y, block_type);
                         return y as f32; // Return immediately when we find the highest solid block
                     }
                 }
             }
-            println!(
-                "🔍 No solid blocks found in chunk at ({}, {})",
-                local_x, local_z
-            );
         }
-    } else {
-        println!("🔍 No chunk found at {:?}", chunk_pos);
     }
 
     // If we found blocks but no chunks, return the highest block found
     if highest_solid_y > -1000.0 {
-        println!(
-            "🔍 Returning highest individual block at y={}",
-            highest_solid_y
-        );
         return highest_solid_y;
     }
 
-    println!("🔍 No solid ground found at all");
     -1000.0 // No ground found
 }
 

@@ -170,9 +170,11 @@ fn spawn_thirst_bar(parent: &mut ChildBuilder) {
 /// System to update the status UI based on player stats
 pub fn update_status_ui(
     player_query: Query<&crate::player::Player>,
-    mut health_fill_query: Query<&mut Node, With<HealthBarFill>>,
-    mut hunger_fill_query: Query<&mut Node, With<HungerBarFill>>,
-    mut thirst_fill_query: Query<&mut Node, With<ThirstBarFill>>,
+    mut fill_queries: ParamSet<(
+        Query<&mut Node, With<HealthBarFill>>,
+        Query<&mut Node, With<HungerBarFill>>,
+        Query<&mut Node, With<ThirstBarFill>>,
+    )>,
     mut status_label_query: Query<(&mut Text, &StatusLabel)>,
 ) {
     if let Ok(player) = player_query.get_single() {
@@ -180,15 +182,15 @@ pub fn update_status_ui(
         let hunger_percent = player.hunger / player.max_hunger;
         let thirst_percent = player.thirst / player.max_thirst;
 
-        for mut fill in &mut health_fill_query {
+        for mut fill in fill_queries.p0().iter_mut() {
             fill.width = Val::Px(200.0 * health_percent);
         }
 
-        for mut fill in &mut hunger_fill_query {
+        for mut fill in fill_queries.p1().iter_mut() {
             fill.width = Val::Px(200.0 * hunger_percent);
         }
 
-        for mut fill in &mut thirst_fill_query {
+        for mut fill in fill_queries.p2().iter_mut() {
             fill.width = Val::Px(200.0 * thirst_percent);
         }
 

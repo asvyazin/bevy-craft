@@ -103,6 +103,24 @@ impl Default for PlayerMovementSettings {
     }
 }
 
+/// Settings for player health regeneration
+#[derive(Resource, Debug)]
+pub struct HealthRegenerationSettings {
+    pub hunger_threshold: f32,
+    pub regeneration_rate: f32,
+    pub regeneration_interval: f32,
+}
+
+impl Default for HealthRegenerationSettings {
+    fn default() -> Self {
+        Self {
+            hunger_threshold: 90.0,
+            regeneration_rate: 1.0,
+            regeneration_interval: 4.0,
+        }
+    }
+}
+
 /// System to spawn the player with proper mesh and materials
 #[allow(dead_code)]
 pub fn spawn_player(
@@ -422,6 +440,44 @@ pub fn display_hunger_thirst_status(player_query: Query<&Player>, time: Res<Time
                 player.thirst,
                 player.max_thirst
             );
+        }
+    }
+}
+
+/// System to regenerate health based on hunger level
+pub fn health_regeneration_system(
+    mut query: Query<&mut Player>,
+    time: Res<Time>,
+    settings: Res<HealthRegenerationSettings>,
+    mut damage_events: EventWriter<PlayerDamageEvent>,
+) {
+    for mut player in &mut query {
+        // Only regenerate if player is alive
+        if !player.is_alive() {
+            continue;
+        }
+
+        // Only regenerate if hunger is above threshold
+        let hunger_percent = (player.hunger / player.max_hunger) * 100.0;
+        if hunger_percent >= settings.hunger_threshold {
+            // Check if it's time to regenerate (based on interval)
+            let elapsed = time.elapsed_secs();
+            if elapsed % settings.regeneration_interval < time.delta_secs() {
+                // Regenerate health
+                let health_restored = player.heal(settings.regeneration_rate);
+
+                if health_restored > 0.0 {
+                    // Send damage event with negative amount to indicate healing
+                    damage_events.send(PlayerDamageEvent {
+                        amount: -health_restored,
+                        new_health: player.health,
+                    });
+                    info!(
+                        "💚 Health regenerated: {:.1} (Hunger: {:.1}%)",
+                        health_restored, hunger_percent
+                    );
+                }
+            }
         }
     }
 }

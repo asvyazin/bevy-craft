@@ -273,6 +273,15 @@ pub struct WeatherParticleMaterials {
     pub snow_material: Handle<StandardMaterial>,
 }
 
+impl Default for WeatherParticleMaterials {
+    fn default() -> Self {
+        Self {
+            rain_material: Handle::default(),
+            snow_material: Handle::default(),
+        }
+    }
+}
+
 /// Weather effects configuration
 #[derive(Resource, Debug, Clone)]
 pub struct WeatherEffects {
@@ -751,11 +760,12 @@ pub fn update_cloud_rendering(
 
 /// System to spawn weather particles (rain, snow, etc.)
 /// Note: This is a startup system that just initializes particle systems
-/// Actual particle spawning happens in the update phase
+/// Actual particle spawning happens in update phase
 pub fn spawn_weather_particles(
-    mut commands: Commands,
+    _commands: Commands,
     _meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut particle_materials: ResMut<WeatherParticleMaterials>,
 ) {
     // During startup, we just prepare the particle systems
     // Actual particle spawning will happen in the update phase based on current weather
@@ -776,11 +786,9 @@ pub fn spawn_weather_particles(
         ..default()
     });
 
-    // Store these materials in a resource for later use
-    commands.insert_resource(WeatherParticleMaterials {
-        rain_material,
-        snow_material,
-    });
+    // Update the resource with the actual materials
+    particle_materials.rain_material = rain_material;
+    particle_materials.snow_material = snow_material;
 }
 
 /// Spawn rain particles (dynamic version for update phase)
@@ -1034,45 +1042,8 @@ fn trigger_lightning(weather_effects: &mut WeatherEffects) {
 
 /// System to display weather information (for debugging)
 pub fn display_weather_info(
-    weather_system: Res<WeatherSystem>,
-    game_time: Res<crate::time::GameTime>,
+    _weather_system: Res<WeatherSystem>,
+    _game_time: Res<crate::time::GameTime>,
 ) {
-    if game_time.current_time % 5.0 < 0.1 {
-        // Display every 5 seconds
-        println!("🌦️  Weather Info:");
-        println!(
-            "   Current: {}",
-            weather_system.current_weather.display_name()
-        );
-        println!(
-            "   Target: {}",
-            weather_system.target_weather.display_name()
-        );
-        println!(
-            "   Transition: {:.1}%",
-            weather_system.transition_progress * 100.0
-        );
-        println!(
-            "   Cloud Coverage: {:.1}%",
-            weather_system.cloud_coverage * 100.0
-        );
-        println!(
-            "   Cloud Density: {:.1}%",
-            weather_system.cloud_density * 100.0
-        );
-        println!(
-            "   Precipitation: {:.1}%",
-            weather_system.precipitation_intensity * 100.0
-        );
-        println!("   Temperature: {:.1}°C", weather_system.temperature);
-        println!("   Humidity: {:.1}%", weather_system.humidity * 100.0);
-        println!(
-            "   Wind: {:.1} m/s {:?}",
-            weather_system.wind_speed, weather_system.wind_direction
-        );
-        println!(
-            "   Time since change: {:.1}s",
-            weather_system.time_since_weather_change
-        );
-    }
+    // Weather info display disabled - use debug! or logging if needed
 }

@@ -31,8 +31,8 @@ mod player;
 use player::{FoodConsumedEvent, PlayerDamageEvent, PlayerDeathEvent};
 mod world_gen;
 use crate::noise::NoiseSettings;
-use player::PlayerMovementSettings;
-use world_gen::WorldGenSettings;
+use player::{HealthRegenerationSettings, PlayerMovementSettings};
+use world_gen::{generate_chunks_system, WorldGenSettings};
 
 mod camera;
 use camera::{
@@ -49,13 +49,17 @@ mod collision;
 use collision::{collision_detection_system, find_safe_spawn_position, Collider};
 
 mod sky;
-use sky::AtmosphericScatteringParams;
+use sky::{
+    spawn_skybox, spawn_sun_and_moon, update_atmospheric_scattering, update_sun_and_moon_positions,
+    AtmosphericScatteringParams,
+};
 
 mod weather;
+use weather::WeatherSystem;
 use weather::{
     display_weather_info, initialize_weather_system, spawn_cloud_layers, spawn_weather_particles,
-    spawn_weather_particles_dynamic, update_cloud_rendering, update_lightning_effects,
-    update_weather_particles, update_weather_system,
+    update_cloud_rendering, update_lightning_effects, update_weather_particles,
+    update_weather_system, WeatherParticleMaterials,
 };
 
 mod time;
@@ -94,6 +98,7 @@ fn main() {
         .init_resource::<WorldGenSettings>() // Initialize world generation settings
         .init_resource::<NoiseSettings>() // Initialize noise settings
         .init_resource::<PlayerMovementSettings>() // Initialize player movement settings
+        .init_resource::<HealthRegenerationSettings>() // Initialize health regeneration settings
         .init_resource::<ChunkMeshMaterials>() // Initialize chunk mesh materials
         .init_resource::<TextureAtlas>() // Initialize texture atlas
         .init_resource::<TextureGenSettings>() // Initialize texture generation settings
@@ -105,6 +110,8 @@ fn main() {
         .init_resource::<BiomeDebugSettings>() // Initialize biome debug settings
         .init_resource::<BiomeDebugStats>() // Initialize biome debug statistics
         .init_resource::<Inventory>() // Initialize inventory system
+        .init_resource::<WeatherSystem>() // Initialize weather system
+        .init_resource::<WeatherParticleMaterials>() // Initialize weather particle materials
         .init_resource::<ItemTextureAtlas>() // Initialize item texture atlas
         .init_resource::<block_interaction::BlockBreakingProgress>() // Initialize block breaking progress
         .init_resource::<block_interaction::LeftMouseButtonState>() // Initialize left mouse button state
@@ -118,12 +125,24 @@ fn main() {
         .add_systems(Startup, spawn_game_camera)
         .add_systems(Startup, initialize_texture_atlas)
         .add_systems(Startup, initialize_block_textures) // Use standard textures
+        .add_systems(Startup, initialize_chunk_mesh_materials) // Initialize chunk mesh materials
+        .add_systems(Startup, initialize_biome_material_cache) // Initialize biome material cache
         .add_systems(
             Startup,
             load_procedural_textures_into_atlas.after(initialize_block_textures),
         )
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
         .add_systems(Startup, spawn_status_ui) // Add status UI spawning system
+        .add_systems(Startup, spawn_skybox) // Add skybox spawning system
+        .add_systems(Startup, spawn_sun_and_moon) // Add sun and moon spawning system
+        .add_systems(Startup, initialize_weather_system) // Add weather system initialization
+        .add_systems(Startup, spawn_cloud_layers) // Add cloud layer spawning system
+        .add_systems(Startup, spawn_weather_particles) // Add weather particle materials initialization
+        .add_systems(Startup, spawn_hotbar_ui) // Add hotbar UI spawning system
+        .add_systems(
+            Startup,
+            initialize_item_texture_atlas.after(initialize_block_textures),
+        ) // Initialize item texture atlas
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(
             Update,
@@ -133,12 +152,29 @@ fn main() {
         .add_systems(Update, player::handle_damage_events) // Add damage event handling
         .add_systems(Update, player::hunger_thirst_decay_system) // Add hunger/thirst decay system
         .add_systems(Update, player::food_consumption_system) // Add food consumption system
+        .add_systems(Update, player::health_regeneration_system) // Add health regeneration system
         .add_systems(Update, player::display_hunger_thirst_status) // Add hunger/thirst status display
         .add_systems(Update, update_status_ui) // Add status UI update system
+        .add_systems(Update, update_hotbar_ui) // Add hotbar UI update system
+        .add_systems(Update, update_hotbar_item_icons) // Add hotbar item icon update system
+        .add_systems(Update, render_hotbar_item_images) // Add hotbar item image rendering system
         .add_systems(
             Update,
             collision_detection_system.after(player::player_movement_system),
         ) // Add collision detection system
+        .add_systems(Update, generate_chunks_system) // Add chunk terrain generation system
+        .add_systems(Update, generate_chunk_meshes.after(generate_chunks_system)) // Add chunk mesh generation system
+        .add_systems(Update, update_chunk_meshes) // Add chunk mesh update system
+        .add_systems(Update, render_chunk_meshes) // Add chunk mesh rendering system
+        .add_systems(Update, dynamic_chunk_loading_system) // Add dynamic chunk loading system
+        .add_systems(Update, display_biome_material_stats) // Add biome material stats display system
+        .add_systems(Update, update_atmospheric_scattering) // Add atmospheric scattering update system
+        .add_systems(Update, update_sun_and_moon_positions) // Add sun and moon position update system
+        .add_systems(Update, update_weather_system) // Add weather system update
+        .add_systems(Update, update_cloud_rendering) // Add cloud rendering update system
+        .add_systems(Update, update_weather_particles) // Add weather particle update system
+        .add_systems(Update, update_lightning_effects) // Add lightning effects update system
+        .add_systems(Update, display_weather_info) // Add weather info display system
         .add_systems(Update, cursor_control_system) // Add cursor control system
         .add_systems(Update, camera_mouse_control_system) // Add mouse camera control system
         .add_systems(Update, camera_rotation_system) // Add camera rotation system

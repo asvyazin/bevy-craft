@@ -35,30 +35,17 @@ pub fn mouse_button_input_system(
     mut right_button: ResMut<RightMouseButtonState>,
 ) {
     for event in events.read() {
-        info!("🖱️  Mouse button event: {:?}", event);
         match event.button {
             MouseButton::Left => {
                 left_button.is_pressed = match event.state {
-                    bevy::input::ButtonState::Pressed => {
-                        info!("🖱️  LEFT button PRESSED");
-                        true
-                    }
-                    bevy::input::ButtonState::Released => {
-                        info!("🖱️  LEFT button RELEASED");
-                        false
-                    }
+                    bevy::input::ButtonState::Pressed => true,
+                    bevy::input::ButtonState::Released => false,
                 };
             }
             MouseButton::Right => {
                 right_button.is_pressed = match event.state {
-                    bevy::input::ButtonState::Pressed => {
-                        info!("🖱️  RIGHT button PRESSED");
-                        true
-                    }
-                    bevy::input::ButtonState::Released => {
-                        info!("🖱️  RIGHT button RELEASED");
-                        false
-                    }
+                    bevy::input::ButtonState::Pressed => true,
+                    bevy::input::ButtonState::Released => false,
                 };
             }
             _ => {}
@@ -97,57 +84,29 @@ pub fn block_breaking_system(
     let ray_origin = camera_transform.translation;
     let ray_direction: Vec3 = camera_transform.forward().into();
 
-    info!("📷 Camera position: {:?}", ray_origin);
-    info!("🔭 Ray direction: {:?}", ray_direction);
-
     // Offset ray origin slightly to avoid detecting of block the player/camera is inside
     let ray_origin = ray_origin + ray_direction * 0.5;
 
-    info!("📍 Ray origin after offset: {:?}", ray_origin);
-
     // Handle block breaking with left mouse button
     if left_button.is_pressed {
-        info!("🔨 Left mouse button pressed for block breaking");
-
         // Perform raycast to find the block the player is looking at
         let raycast_result =
             raycast_for_block_mutable(ray_origin, ray_direction, &mut chunks, &chunk_manager, 5.0);
 
-        info!("🎯 Raycast result: {:?}", raycast_result.is_some());
-
-        if let Some((target_block_pos, distance)) = raycast_result {
-            info!(
-                "🎯 Raycast hit block at {:?}, distance: {}",
-                target_block_pos, distance
-            );
+        if let Some((target_block_pos, _)) = raycast_result {
             // Find which chunk contains this block
             let chunk_pos = ChunkPosition::from_block_position(target_block_pos);
 
-            info!(
-                "📍 Chunk position for block {:?}: {:?}",
-                target_block_pos, chunk_pos
-            );
-            info!(
-                "📦 Loaded chunks count: {}",
-                chunk_manager.loaded_chunks.len()
-            );
-
             // Find the chunk entity and modify it
             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-                info!("✅ Found chunk entity: {:?}", chunk_entity);
                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
-                    info!("📥 Got mutable chunk reference");
                     if let Some(current_block_type) = chunk.get_block_world(target_block_pos) {
-                        info!("🧱 Current block type: {:?}", current_block_type);
                         if current_block_type != BlockType::Air {
-                            info!("🪨 Block is solid, checking hardness");
                             if let Some(hardness) = current_block_type.hardness() {
-                                info!("⚡ Block hardness: {}", hardness);
                                 // Check if this is the same block we were previously breaking
                                 if breaking_progress.target_block_pos != Some(target_block_pos) {
                                     breaking_progress.target_block_pos = Some(target_block_pos);
                                     breaking_progress.accumulated_damage = 0.0;
-                                    info!("🔄 New target block, reset progress");
                                 }
 
                                 breaking_progress.is_breaking = true;
@@ -156,11 +115,6 @@ pub fn block_breaking_system(
                                 let damage_per_second = 10.0 / hardness;
                                 let damage_this_frame = damage_per_second * time.delta_secs();
                                 breaking_progress.accumulated_damage += damage_this_frame;
-
-                                info!(
-                                    "⚔️ Damage this frame: {:.4}, total: {:.4} / 1.0",
-                                    damage_this_frame, breaking_progress.accumulated_damage
-                                );
 
                                 // Check if block should break
                                 if breaking_progress.accumulated_damage >= 1.0 {
@@ -174,11 +128,7 @@ pub fn block_breaking_system(
                                     breaking_progress.target_block_pos = None;
                                     breaking_progress.accumulated_damage = 0.0;
                                     breaking_progress.is_breaking = false;
-
-                                    info!("💥 Block broken at {:?}", target_block_pos);
                                 }
-                            } else {
-                                info!("⚠️ Block has no hardness (unbreakable)");
                             }
                         }
                     }
@@ -238,18 +188,12 @@ pub fn block_placement_system(
     // Handle block placement with right mouse button (on just pressed, not held)
     if right_button.is_pressed {
         right_button.is_pressed = false; // Reset after handling
-        info!("🔨 Right mouse button pressed for block placement");
 
         // Get the currently selected item from hotbar
         if let Some(selected_item) = inventory.get_selected_item() {
-            info!(
-                "📦 Selected item: {:?}, quantity: {}",
-                selected_item.item_type, selected_item.quantity
-            );
             if !selected_item.is_empty() {
                 // Check if the selected item is a block type
                 if let ItemType::Block(block_type) = selected_item.item_type {
-                    info!("🧱 Selected item is a block: {:?}", block_type);
                     if block_type != BlockType::Air {
                         // Perform raycast to find the block the player is looking at
                         if let Some((target_block_pos, _)) = raycast_for_block_mutable(
@@ -259,8 +203,6 @@ pub fn block_placement_system(
                             &chunk_manager,
                             5.0,
                         ) {
-                            info!("🎯 Raycast hit target block at {:?}", target_block_pos);
-
                             // Calculate the adjacent block position for placement
                             let placement_pos = find_adjacent_block_position(
                                 target_block_pos,
@@ -268,61 +210,31 @@ pub fn block_placement_system(
                                 ray_direction,
                             );
 
-                            info!("📍 Placement position: {:?}", placement_pos);
-
                             // Find which chunk contains this block
                             let chunk_pos = ChunkPosition::from_block_position(placement_pos);
-
-                            info!("📥 Chunk position for placement: {:?}", chunk_pos);
 
                             // Find the chunk entity and modify it
                             if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
                             {
-                                info!("✅ Found chunk entity for placement: {:?}", chunk_entity);
                                 if let Ok(mut chunk) = chunks.get_mut(*chunk_entity) {
-                                    info!("📥 Got mutable chunk reference");
                                     // Check if the placement position is empty (Air)
                                     if let Some(current_block) =
                                         chunk.get_block_world(placement_pos)
                                     {
-                                        info!("🧱 Current block at placement: {:?}", current_block);
                                         if current_block == BlockType::Air {
                                             // Place the block
                                             chunk.set_block_world(placement_pos, block_type);
 
                                             // Remove one block from inventory
                                             inventory.remove_item(ItemType::Block(block_type), 1);
-
-                                            info!(
-                                                "✅ Block {:?} placed at {:?}",
-                                                block_type, placement_pos
-                                            );
-                                        } else {
-                                            info!("⚠️ Cannot place - block already exists");
                                         }
-                                    } else {
-                                        info!("⚠️ Failed to get block at placement position");
                                     }
-                                } else {
-                                    info!("⚠️ Failed to get mutable chunk");
                                 }
-                            } else {
-                                info!("⚠️ Chunk entity not found for placement");
                             }
-                        } else {
-                            info!("⚠️ No block hit by raycast for placement");
                         }
-                    } else {
-                        info!("⚠️ Cannot place Air block");
                     }
-                } else {
-                    info!("⚠️ Selected item is not a block");
                 }
-            } else {
-                info!("⚠️ Selected item slot is empty");
             }
-        } else {
-            info!("⚠️ No item selected in hotbar");
         }
     }
 }
@@ -395,11 +307,6 @@ fn raycast_for_block_mutable(
     let mut current_pos = ray_origin;
     let mut distance_traveled = 0.0;
 
-    info!(
-        "🚀 Starting raycast from {:?} with direction {:?}, max_distance={}",
-        ray_origin, ray_direction, max_distance
-    );
-
     while distance_traveled < max_distance {
         // Convert current position to block coordinates
         let block_pos = IVec3::new(
@@ -411,31 +318,19 @@ fn raycast_for_block_mutable(
             current_pos.z.floor() as i32,
         );
 
-        info!(
-            "🔍 Raycast step: pos={:?}, block={:?}, dist={:.2}",
-            current_pos, block_pos, distance_traveled
-        );
-
         // Check if this block position is within any loaded chunk
         let chunk_pos = ChunkPosition::from_block_position(block_pos);
 
-        info!("🔍 Chunk position: {:?}", chunk_pos);
-
         if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos) {
-            info!("🔍 Chunk entity found: {:?}", chunk_entity);
             if let Ok(chunk) = chunks.get(*chunk_entity) {
-                info!("🔍 Got chunk reference");
                 // Check if this block is solid (not air)
                 if let Some(block_type) = chunk.get_block_world(block_pos) {
-                    info!("🔍 Block at {:?}: {:?}", block_pos, block_type);
                     if block_type != BlockType::Air {
                         // Found a solid block!
                         return Some((block_pos, distance_traveled));
                     }
                 }
             }
-        } else {
-            info!("🔍 Chunk entity not found for {:?}", chunk_pos);
         }
 
         // Step forward along the ray

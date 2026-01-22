@@ -262,26 +262,6 @@ pub fn update_atmospheric_scattering(
             };
 
             material.atmospheric_uniform.sun_intensity = sun_intensity;
-
-            // Log atmospheric scattering parameters for debugging (every 10 seconds)
-            if time.current_time % 10.0 < 0.1 {
-                println!("🌤️  Atmospheric Scattering Update:");
-                println!("   Sun Direction: {:?}", sun_direction);
-                println!("   Sun Intensity: {}", sun_intensity);
-                println!(
-                    "   Rayleigh Coefficient: {:?}",
-                    material.atmospheric_uniform.rayleigh_coefficient
-                );
-                println!(
-                    "   Mie Coefficient: {:?}",
-                    material.atmospheric_uniform.mie_coefficient
-                );
-                println!(
-                    "   Time of Day: {} ({})",
-                    time.format_time(),
-                    if time.is_day() { "Day" } else { "Night" }
-                );
-            }
         }
     }
 }
