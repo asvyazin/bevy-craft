@@ -706,7 +706,7 @@ fn get_block_face_uv(
                 crate::biome_textures::generate_texture_cache_key(&block_type, &biome_params);
 
             // Debug: Show biome parameters for this block
-            println!(
+            debug!(
                 "🔍 Biome texture selection for {:?} at ({}, {}, {}) - Biome: {}, Temp: {:.2}, Moist: {:.2}, Height: {}",
                 block_type,
                 local_x,
@@ -723,7 +723,7 @@ fn get_block_face_uv(
                 .get_biome_texture(block_type, &biome_params, biome_cache, images)
                 .is_some()
             {
-                println!(
+                debug!(
                     "✓ Using biome-specific texture for {:?} - Key: {}",
                     block_type, texture_key
                 );
