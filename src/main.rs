@@ -43,7 +43,7 @@ use camera::{
 };
 
 mod block_interaction;
-use block_interaction::block_targeting_feedback_system;
+use block_interaction::{block_targeting_feedback_system, BlockBreakingProgress};
 
 mod collision;
 use collision::{collision_detection_system, find_safe_spawn_position, Collider};
@@ -99,6 +99,7 @@ fn main() {
         .init_resource::<BiomeDebugStats>() // Initialize biome debug statistics
         .init_resource::<Inventory>() // Initialize inventory system
         .init_resource::<ItemTextureAtlas>() // Initialize item texture atlas
+        .init_resource::<block_interaction::BlockBreakingProgress>() // Initialize block breaking progress
         .add_plugins(bevy::pbr::MaterialPlugin::<weather::CloudMaterial>::default()) // Add cloud material plugin
         .add_plugins(bevy::pbr::MaterialPlugin::<crate::biome_material::BiomeMaterial>::default()) // Add biome material plugin
         ;
