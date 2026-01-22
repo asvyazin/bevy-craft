@@ -199,8 +199,6 @@ pub fn update_hotbar_item_icons(
     asset_server: Res<AssetServer>,
     mut item_textures_query: Query<(&HotbarItemIcon, &mut HotbarItemTexture)>,
 ) {
-    let empty_slot_texture: Handle<Image> = asset_server.load("textures/empty_slot.png");
-
     for (item_icon, mut item_texture) in &mut item_textures_query {
         if item_icon.slot_index < inventory.hotbar_slots.len() {
             let item_stack = &inventory.hotbar_slots[item_icon.slot_index];
@@ -211,8 +209,8 @@ pub fn update_hotbar_item_icons(
             );
 
             if item_stack.is_empty() {
-                // Empty slot - use empty slot texture
-                item_texture.texture_handle = empty_slot_texture.clone();
+                // Empty slot - use default/empty handle (will not render)
+                item_texture.texture_handle = Handle::default();
                 info!("Slot {} is empty", item_icon.slot_index);
             } else {
                 // Find the appropriate texture for this item type
@@ -239,19 +237,40 @@ pub fn update_hotbar_item_icons(
 
 /// System to render UI images for hotbar item icons
 pub fn render_hotbar_item_images(
-    item_textures: Query<(Entity, &HotbarItemTexture, &HotbarItemIcon), Changed<HotbarItemTexture>>,
+    mut item_textures: Query<
+        (Entity, &HotbarItemTexture, &HotbarItemIcon),
+        Changed<HotbarItemTexture>,
+    >,
     mut commands: Commands,
 ) {
-    for (entity, item_texture, item_icon) in &item_textures {
+    for (entity, item_texture, item_icon) in &mut item_textures {
         info!(
             "Rendering hotbar item image for slot {} with texture: {:?}",
             item_icon.slot_index, item_texture.texture_handle
         );
 
-        commands.entity(entity).insert(ImageNode {
-            image: item_texture.texture_handle.clone(),
-            ..default()
-        });
+        if item_texture.texture_handle.is_weak() {
+            // Empty slot - remove ImageNode component if present
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                entity_commands.remove::<ImageNode>();
+                info!(
+                    "Slot {}: Removed ImageNode (empty slot)",
+                    item_icon.slot_index
+                );
+            }
+        } else {
+            // Non-empty slot - add/update ImageNode component
+            if let Some(mut entity_commands) = commands.get_entity(entity) {
+                entity_commands.insert(ImageNode {
+                    image: item_texture.texture_handle.clone(),
+                    ..default()
+                });
+                info!(
+                    "Slot {}: Added ImageNode with texture",
+                    item_icon.slot_index
+                );
+            }
+        }
     }
 }
 
