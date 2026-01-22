@@ -70,6 +70,9 @@ use hotbar_ui::{
     update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
 };
 
+mod health_hunger_ui;
+use health_hunger_ui::{spawn_status_ui, update_status_ui};
+
 mod crafting;
 use crafting::{CraftItemEvent, CraftingFailEvent, CraftingSuccessEvent, RecipeBook};
 
@@ -120,6 +123,7 @@ fn main() {
             load_procedural_textures_into_atlas.after(initialize_block_textures),
         )
         .add_systems(Startup, spawn_player_safe.after(setup)) // Add safe player spawning system
+        .add_systems(Startup, spawn_status_ui) // Add status UI spawning system
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(
             Update,
@@ -130,6 +134,7 @@ fn main() {
         .add_systems(Update, player::hunger_thirst_decay_system) // Add hunger/thirst decay system
         .add_systems(Update, player::food_consumption_system) // Add food consumption system
         .add_systems(Update, player::display_hunger_thirst_status) // Add hunger/thirst status display
+        .add_systems(Update, update_status_ui) // Add status UI update system
         .add_systems(
             Update,
             collision_detection_system.after(player::player_movement_system),
