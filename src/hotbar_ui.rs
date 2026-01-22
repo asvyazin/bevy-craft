@@ -80,6 +80,11 @@ fn spawn_hotbar_slot(parent: &mut ChildBuilder, slot_index: usize) {
         .with_children(|slot_parent| {
             // Item icon - will be updated with actual textures
             slot_parent.spawn((
+                Node {
+                    width: Val::Px(48.0),
+                    height: Val::Px(48.0),
+                    ..default()
+                },
                 HotbarItemIcon { slot_index },
                 HotbarItemTexture {
                     texture_handle: Handle::default(),
@@ -243,22 +248,9 @@ pub fn render_hotbar_item_images(
             item_icon.slot_index, item_texture.texture_handle
         );
 
-        // Remove any existing UI image children
-        commands.entity(entity).despawn_descendants();
-
-        // Spawn new UI image with the current texture
-        commands.entity(entity).with_children(|parent| {
-            parent.spawn((
-                Node {
-                    width: Val::Px(48.0),
-                    height: Val::Px(48.0),
-                    ..default()
-                },
-                ImageNode {
-                    image: item_texture.texture_handle.clone(),
-                    ..default()
-                },
-            ));
+        commands.entity(entity).insert(ImageNode {
+            image: item_texture.texture_handle.clone(),
+            ..default()
         });
     }
 }
