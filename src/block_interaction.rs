@@ -28,25 +28,22 @@ pub fn block_interaction_system(
     mut breaking_progress: ResMut<BlockBreakingProgress>,
     time: Res<Time>,
 ) {
+    let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
+        result
+    } else {
+        return;
+    };
+
+    let _player_transform = if let Ok(result) = player_query.get_single() {
+        result
+    } else {
+        return;
+    };
+
+    let ray_origin = camera_transform.translation;
+    let ray_direction: Vec3 = camera_transform.forward().into();
     // Handle block breaking with left mouse button
     if mouse_button_input.pressed(MouseButton::Left) {
-        // Get camera and player transforms
-        let (camera_transform, _camera) = if let Ok(result) = camera_query.get_single() {
-            result
-        } else {
-            return;
-        };
-
-        let _player_transform = if let Ok(result) = player_query.get_single() {
-            result
-        } else {
-            return;
-        };
-
-        // Calculate ray origin (camera position) and direction
-        let ray_origin = camera_transform.translation;
-        let ray_direction: Vec3 = camera_transform.forward().into();
-
         // Perform raycast to find the block the player is looking at
         if let Some((target_block_pos, _)) = raycast_for_block_mutable(
             ray_origin,
@@ -109,6 +106,62 @@ pub fn block_interaction_system(
         breaking_progress.target_block_pos = None;
         breaking_progress.accumulated_damage = 0.0;
         breaking_progress.is_breaking = false;
+    }
+
+    // Handle block placement with right mouse button (on just pressed, not held)
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        // Get the currently selected item from hotbar
+        if let Some(selected_item) = inventory.get_selected_item() {
+            if !selected_item.is_empty() {
+                // Check if the selected item is a block type
+                if let ItemType::Block(block_type) = selected_item.item_type {
+                    if block_type != BlockType::Air {
+                        // Perform raycast to find the block the player is looking at
+                        if let Some((target_block_pos, _)) = raycast_for_block_immutable(
+                            ray_origin,
+                            ray_direction,
+                            &chunk_params.p0(),
+                            &chunk_manager,
+                            5.0,
+                        ) {
+                            // Calculate the adjacent block position for placement
+                            let placement_pos = find_adjacent_block_position(
+                                target_block_pos,
+                                ray_origin,
+                                ray_direction,
+                            );
+
+                            // Find which chunk contains this block
+                            let chunk_pos = ChunkPosition::from_block_position(placement_pos);
+
+                            // Find the chunk entity and modify it
+                            if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&chunk_pos)
+                            {
+                                if let Ok(chunk) = chunk_params.p0().get(*chunk_entity) {
+                                    // Check if the placement position is empty (Air)
+                                    if let Some(current_block) =
+                                        chunk.get_block_world(placement_pos)
+                                    {
+                                        if current_block == BlockType::Air {
+                                            // Place the block
+                                            if let Ok(mut chunk) =
+                                                chunk_params.p1().get_mut(*chunk_entity)
+                                            {
+                                                chunk.set_block_world(placement_pos, block_type);
+
+                                                // Remove one block from inventory
+                                                inventory
+                                                    .remove_item(ItemType::Block(block_type), 1);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
