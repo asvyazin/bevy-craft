@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
     <rect x="2" y="2" width="44" height="44" rx="4" fill="#D84315" stroke="#000" stroke-width="2"/>
+    <rect x="6" y="8" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="18" y="8" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="30" y="8" width="12" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="6" y="16" width="12" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="20" y="16" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="32" y="16" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="6" y="24" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="18" y="24" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="30" y="24" width="12" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="6" y="32" width="12" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="20" y="32" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
+    <rect x="32" y="32" width="10" height="6" fill="#BF360C" stroke="#000" stroke-width="1"/>
 </svg>

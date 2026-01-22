@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
     <rect x="2" y="2" width="44" height="44" rx="4" fill="#8D6E63" stroke="#000" stroke-width="2"/>
+    <line x1="8" y1="12" x2="40" y2="12" stroke="#6D4C41" stroke-width="2" opacity="0.5"/>
+    <line x1="8" y1="18" x2="40" y2="18" stroke="#6D4C41" stroke-width="2" opacity="0.5"/>
+    <line x1="8" y1="24" x2="40" y2="24" stroke="#6D4C41" stroke-width="2" opacity="0.5"/>
+    <line x1="8" y1="30" x2="40" y2="30" stroke="#6D4C41" stroke-width="2" opacity="0.5"/>
+    <line x1="8" y1="36" x2="40" y2="36" stroke="#6D4C41" stroke-width="2" opacity="0.5"/>
 </svg>

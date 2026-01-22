@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
     <rect x="2" y="2" width="44" height="44" rx="4" fill="#A1887F" stroke="#000" stroke-width="2"/>
+    <rect x="22" y="10" width="4" height="28" fill="#6D4C41" stroke="#4E342E" stroke-width="1"/>
+    <rect x="22" y="10" width="4" height="4" fill="#8D6E63"/>
 </svg>
