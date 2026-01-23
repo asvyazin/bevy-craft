@@ -12,6 +12,7 @@ pub enum BlockType {
     Sand,
     Water,
     Bedrock,
+    Lava,
 }
 
 impl BlockType {
@@ -28,6 +29,7 @@ impl BlockType {
             BlockType::Sand => "Sand",
             BlockType::Water => "Water",
             BlockType::Bedrock => "Bedrock",
+            BlockType::Lava => "Lava",
         }
     }
 
@@ -43,6 +45,7 @@ impl BlockType {
             BlockType::Sand => Color::srgb(0.9, 0.8, 0.5),
             BlockType::Water => Color::srgb(0.1, 0.1, 0.9),
             BlockType::Bedrock => Color::srgb(0.3, 0.3, 0.3),
+            BlockType::Lava => Color::srgb(1.0, 0.5, 0.0),
         }
     }
 
@@ -75,6 +78,7 @@ impl BlockType {
             BlockType::Sand => Some(1.0),
             BlockType::Water => None,
             BlockType::Bedrock => None,
+            BlockType::Lava => Some(100.0),
         }
     }
 }

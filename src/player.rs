@@ -22,6 +22,7 @@ pub struct Player {
     pub oxygen: f32,
     pub max_oxygen: f32,
     pub is_underwater: bool,
+    pub is_in_lava: bool,
 }
 
 impl Player {
@@ -44,6 +45,7 @@ impl Player {
                 oxygen: 100.0,
                 max_oxygen: 100.0,
                 is_underwater: false,
+                is_in_lava: false,
             },
             CollisionState::default(),
             Transform::from_translation(spawn_position),
@@ -169,6 +171,65 @@ pub fn drowning_damage_system(
         if player.is_drowning() {
             let drowning_damage = 3.0 * time.delta_secs();
             let actual_damage = player.take_damage(drowning_damage);
+
+            if actual_damage > 0.0 {
+                damage_events.send(PlayerDamageEvent {
+                    amount: actual_damage,
+                    new_health: player.health,
+                });
+            }
+
+            if !player.is_alive() {
+                death_events.send(PlayerDeathEvent);
+            }
+        }
+    }
+}
+
+/// System to detect when player is in lava
+pub fn fire_damage_detection_system(
+    mut player_query: Query<&mut Player, With<crate::camera::GameCamera>>,
+    camera_query: Query<&Transform, With<crate::camera::GameCamera>>,
+    chunks: Query<&Chunk>,
+    chunk_manager: Res<crate::chunk::ChunkManager>,
+) {
+    if let Ok(camera_transform) = camera_query.get_single() {
+        let player_position = camera_transform.translation;
+
+        let block_pos = crate::chunk::ChunkPosition::from_block_position(IVec3::new(
+            player_position.x as i32,
+            player_position.y as i32,
+            player_position.z as i32,
+        ));
+
+        if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&block_pos) {
+            if let Ok(chunk) = chunks.get(*chunk_entity) {
+                if let Some(block_type) = chunk.get_block_world(IVec3::new(
+                    player_position.x as i32,
+                    (player_position.y + 1.6) as i32,
+                    player_position.z as i32,
+                )) {
+                    for mut player in &mut player_query {
+                        player.is_in_lava = block_type == crate::block::BlockType::Lava;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// System to handle fire damage
+pub fn fire_damage_system(
+    mut query: Query<&mut Player>,
+    time: Res<Time>,
+    mut damage_events: EventWriter<PlayerDamageEvent>,
+    mut death_events: EventWriter<PlayerDeathEvent>,
+) {
+    for mut player in &mut query {
+        // Take fire damage when in lava
+        if player.is_in_lava {
+            let fire_damage = 5.0 * time.delta_secs();
+            let actual_damage = player.take_damage(fire_damage);
 
             if actual_damage > 0.0 {
                 damage_events.send(PlayerDamageEvent {
