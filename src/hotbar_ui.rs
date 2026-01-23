@@ -94,7 +94,11 @@ fn spawn_hotbar_slot(parent: &mut ChildBuilder, slot_index: usize) {
 }
 
 /// System to initialize the item texture atlas
-pub fn initialize_item_texture_atlas(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn initialize_item_texture_atlas(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+) {
     let mut texture_handles = HashMap::new();
 
     // Load textures for block items
@@ -171,8 +175,7 @@ pub fn initialize_item_texture_atlas(mut commands: Commands, asset_server: Res<A
         asset_server.load("textures/gold_ingot_icon.png"),
     );
 
-    // Add empty slot texture
-    // Load empty slot and unknown textures (unused variables kept for reference)
+    // Load and convert empty slot and unknown textures
     let _empty_slot_texture: Handle<Image> = asset_server.load("textures/empty_slot.png");
     let _unknown_texture: Handle<Image> = asset_server.load("textures/unknown_icon.png");
 
@@ -190,6 +193,166 @@ pub fn initialize_item_texture_atlas(mut commands: Commands, asset_server: Res<A
     for (item_type, handle) in &texture_handles {
         info!("Loaded texture for {:?}: {:?}", item_type, handle);
     }
+}
+/// System to fix texture formats for UI compatibility
+/// Converts any images with incompatible formats to Rgba8UnormSrgb
+pub fn fix_ui_texture_formats(mut images: ResMut<Assets<Image>>) {
+    use bevy::render::render_asset::RenderAssetUsages;
+    use bevy::render::render_resource::TextureDimension;
+    use bevy::render::render_resource::TextureFormat;
+
+    let mut converted_count = 0;
+
+    for (handle_id, image) in images.iter_mut() {
+        let size = image.size();
+        let expected_rgba8_size = (size.x * size.y * 4) as usize;
+
+        // Check if image has 16-bit format (data size suggests 2 bytes per pixel)
+        let is_16bit = image.data.len() == (size.x * size.y * 2) as usize
+            || image.data.len() == (size.x * size.y * 4) as usize
+            || image.data.len() == (size.x * size.y * 6) as usize
+            || image.data.len() == (size.x * size.y * 8) as usize;
+
+        if is_16bit && expected_rgba8_size * 2 == image.data.len() {
+            // R16 or RG16 format (2 bytes per pixel expected, but 4 bytes actual)
+            continue;
+        }
+
+        if is_16bit {
+            info!(
+                "Converting image {:?} (size: {}x{}, data: {} bytes) to Rgba8UnormSrgb for UI compatibility",
+                handle_id, size.x, size.y, image.data.len()
+            );
+
+            // Get original data
+            let original_data = image.data.clone();
+
+            // Simple heuristic: convert 16-bit to 8-bit based on data size
+            let converted_data = if image.data.len() == (size.x * size.y * 2) as usize {
+                // Likely R16 format (1 channel, 2 bytes per pixel)
+                convert_r16_to_rgba8(&original_data, size)
+            } else if image.data.len() == (size.x * size.y * 4) as usize {
+                // Could be RG16 (2 channels, 2 bytes each) or RGB565
+                convert_rg16_to_rgba8(&original_data, size)
+            } else if image.data.len() == (size.x * size.y * 6) as usize {
+                convert_rgb16_to_rgba8(&original_data, size)
+            } else if image.data.len() == (size.x * size.y * 8) as usize {
+                convert_rgba16_to_rgba8(&original_data, size)
+            } else {
+                original_data
+            };
+
+            // Create new image with correct format
+            *image = Image::new(
+                bevy::render::render_resource::Extent3d {
+                    width: size.x,
+                    height: size.y,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                converted_data,
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::default(),
+            );
+
+            converted_count += 1;
+        }
+    }
+
+    if converted_count > 0 {
+        info!(
+            "🔧 Converted {} textures to UI-compatible format",
+            converted_count
+        );
+    }
+}
+
+// Conversion functions for different 16-bit formats
+fn convert_r16_to_rgba8(data: &[u8], size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity((size.x * size.y * 4) as usize);
+    for chunk in data.chunks_exact(2) {
+        let val = u16::from_le_bytes([chunk[0], chunk[1]]);
+        let byte = (val >> 8) as u8;
+        result.extend_from_slice(&[byte, byte, byte, 255]);
+    }
+    result
+}
+
+fn convert_rg16_to_rgba8(data: &[u8], size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity((size.x * size.y * 4) as usize);
+    for chunk in data.chunks_exact(4) {
+        let r = u16::from_le_bytes([chunk[0], chunk[1]]);
+        let g = u16::from_le_bytes([chunk[2], chunk[3]]);
+        result.extend_from_slice(&[(r >> 8) as u8, (g >> 8) as u8, 0, 255]);
+    }
+    result
+}
+
+fn convert_rgba16_to_rgba8(data: &[u8], _size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity(data.len() / 2);
+    for chunk in data.chunks_exact(8) {
+        let r = u16::from_le_bytes([chunk[0], chunk[1]]);
+        let g = u16::from_le_bytes([chunk[2], chunk[3]]);
+        let b = u16::from_le_bytes([chunk[4], chunk[5]]);
+        let a = u16::from_le_bytes([chunk[6], chunk[7]]);
+        result.extend_from_slice(&[
+            (r >> 8) as u8,
+            (g >> 8) as u8,
+            (b >> 8) as u8,
+            (a >> 8) as u8,
+        ]);
+    }
+    result
+}
+
+fn convert_rgb16_to_rgba8(data: &[u8], _size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity(data.len() / 2);
+    for chunk in data.chunks_exact(6) {
+        let r = u16::from_le_bytes([chunk[0], chunk[1]]);
+        let g = u16::from_le_bytes([chunk[2], chunk[3]]);
+        let b = u16::from_le_bytes([chunk[4], chunk[5]]);
+        result.extend_from_slice(&[(r >> 8) as u8, (g >> 8) as u8, (b >> 8) as u8, 255]);
+    }
+    result
+}
+
+fn convert_r16i_to_rgba8(data: &[u8], size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity((size.x * size.y * 4) as usize);
+    for chunk in data.chunks_exact(2) {
+        let val = i16::from_le_bytes([chunk[0], chunk[1]]);
+        let byte = ((val as i32 + 32768) * 255 / 65535) as u8;
+        result.extend_from_slice(&[byte, byte, byte, 255]);
+    }
+    result
+}
+
+fn convert_rg16i_to_rgba8(data: &[u8], size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity((size.x * size.y * 4) as usize);
+    for chunk in data.chunks_exact(4) {
+        let r = i16::from_le_bytes([chunk[0], chunk[1]]);
+        let g = i16::from_le_bytes([chunk[2], chunk[3]]);
+        let rb = ((r as i32 + 32768) * 255 / 65535) as u8;
+        let gb = ((g as i32 + 32768) * 255 / 65535) as u8;
+        result.extend_from_slice(&[rb, gb, 0, 255]);
+    }
+    result
+}
+
+fn convert_rgba16i_to_rgba8(data: &[u8], _size: bevy::math::UVec2) -> Vec<u8> {
+    let mut result = Vec::with_capacity(data.len() / 2);
+    for chunk in data.chunks_exact(8) {
+        let r = i16::from_le_bytes([chunk[0], chunk[1]]);
+        let g = i16::from_le_bytes([chunk[2], chunk[3]]);
+        let b = i16::from_le_bytes([chunk[4], chunk[5]]);
+        let a = i16::from_le_bytes([chunk[6], chunk[7]]);
+        result.extend_from_slice(&[
+            ((r as i32 + 32768) * 255 / 65535) as u8,
+            ((g as i32 + 32768) * 255 / 65535) as u8,
+            ((b as i32 + 32768) * 255 / 65535) as u8,
+            ((a as i32 + 32768) * 255 / 65535) as u8,
+        ]);
+    }
+    result
 }
 
 /// System to update the hotbar item icons based on inventory contents

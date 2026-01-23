@@ -70,8 +70,8 @@ use inventory::Inventory;
 
 mod hotbar_ui;
 use hotbar_ui::{
-    initialize_item_texture_atlas, render_hotbar_item_images, spawn_hotbar_ui,
-    update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
+    fix_ui_texture_formats, initialize_item_texture_atlas, render_hotbar_item_images,
+    spawn_hotbar_ui, update_hotbar_item_icons, update_hotbar_ui, ItemTextureAtlas,
 };
 
 mod health_hunger_ui;
@@ -143,6 +143,10 @@ fn main() {
             Startup,
             initialize_item_texture_atlas.after(initialize_block_textures),
         ) // Initialize item texture atlas
+        .add_systems(
+            Startup,
+            fix_ui_texture_formats.after(initialize_item_texture_atlas),
+        ) // Fix UI texture formats
         .add_systems(Update, player::player_movement_system) // Add player movement system
         .add_systems(
             Update,
