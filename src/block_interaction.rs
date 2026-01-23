@@ -393,6 +393,7 @@ pub fn block_targeting_feedback_system(
     player_query: Query<&Transform, With<crate::player::Player>>,
     chunks: Query<&Chunk>,
     chunk_manager: Res<ChunkManager>,
+    breaking_progress: Res<BlockBreakingProgress>,
 ) {
     // Get camera and player transforms
     let (camera_transform, _) = if let Ok(result) = camera_query.get_single() {
@@ -426,11 +427,56 @@ pub fn block_targeting_feedback_system(
         let hit_point = ray_origin + ray_direction * distance;
         gizmos.sphere(hit_point, 0.2, Color::srgba(1.0, 0.0, 0.0, 0.8));
 
-        // Draw a box around the hit block
+        // Check if this block is being broken
+        let (is_breaking, damage_ratio) =
+            if let Some(breaking_pos) = breaking_progress.target_block_pos {
+                if breaking_pos == target_block_pos && breaking_progress.is_breaking {
+                    (true, breaking_progress.accumulated_damage)
+                } else {
+                    (false, 0.0)
+                }
+            } else {
+                (false, 0.0)
+            };
+
+        // Draw a box around the hit block with damage feedback
         let block_center = target_block_pos.as_vec3() + Vec3::splat(0.5);
-        gizmos.cuboid(
-            Transform::from_translation(block_center),
-            Color::srgba(0.0, 1.0, 0.0, 0.3),
-        );
+
+        if is_breaking {
+            // Clamp damage ratio to 0.0-1.0
+            let damage_ratio = damage_ratio.clamp(0.0, 1.0);
+
+            // Calculate color based on damage (green -> yellow -> red)
+            let color = if damage_ratio < 0.5 {
+                Color::srgba(damage_ratio * 2.0, 1.0, 0.0, 0.3 + damage_ratio * 0.7)
+            } else {
+                Color::srgba(
+                    1.0,
+                    (1.0 - damage_ratio) * 2.0,
+                    0.0,
+                    0.3 + damage_ratio * 0.7,
+                )
+            };
+
+            // Draw main box with damage color
+            gizmos.cuboid(Transform::from_translation(block_center), color);
+
+            // Draw shrinking inner box to show progression
+            let shrink_factor = 1.0 - damage_ratio * 0.5;
+            let inner_size = shrink_factor;
+            let offset = 0.5 - (inner_size / 2.0);
+
+            gizmos.cuboid(
+                Transform::from_translation(block_center + Vec3::new(offset, offset, offset))
+                    .with_scale(Vec3::splat(inner_size)),
+                Color::srgba(1.0, 1.0, 1.0, 0.5),
+            );
+        } else {
+            // Normal targeting feedback
+            gizmos.cuboid(
+                Transform::from_translation(block_center),
+                Color::srgba(0.0, 1.0, 0.0, 0.3),
+            );
+        }
     }
 }
