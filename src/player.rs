@@ -16,6 +16,8 @@ pub struct Player {
     pub max_hunger: f32,
     pub thirst: f32,
     pub max_thirst: f32,
+    pub max_fall_velocity: f32,
+    pub was_grounded: bool,
 }
 
 impl Player {
@@ -33,6 +35,8 @@ impl Player {
                 max_hunger: 100.0,
                 thirst: 100.0,
                 max_thirst: 100.0,
+                max_fall_velocity: 0.0,
+                was_grounded: false,
             },
             CollisionState::default(),
             Transform::from_translation(spawn_position),
@@ -258,26 +262,41 @@ pub fn player_take_damage_system(
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for mut player in &mut query {
-        // Check for fall damage (simple implementation)
-        if player.velocity.y < -15.0 && player.is_grounded {
-            let fall_damage = (player.velocity.y.abs() - 15.0) * 2.0;
-            let actual_damage = player.take_damage(fall_damage);
+        // Check for fall damage when player lands
+        if player.was_grounded == false && player.is_grounded == true {
+            // Player just landed
+            if player.max_fall_velocity < -10.0 {
+                let fall_damage = (player.max_fall_velocity.abs() - 10.0) * 2.0;
+                let actual_damage = player.take_damage(fall_damage);
 
-            if actual_damage > 0.0 {
-                damage_events.send(PlayerDamageEvent {
-                    amount: actual_damage,
-                    new_health: player.health,
-                });
-                info!(
-                    "🩸 Player took {:.1} fall damage! Health: {:.1}",
-                    actual_damage, player.health
-                );
-            }
+                if actual_damage > 0.0 {
+                    damage_events.send(PlayerDamageEvent {
+                        amount: actual_damage,
+                        new_health: player.health,
+                    });
+                    info!(
+                        "🩸 Player fell at {:.1} m/s and took {:.1} damage! Health: {:.1}",
+                        player.max_fall_velocity.abs(),
+                        actual_damage,
+                        player.health
+                    );
+                }
 
-            if !player.is_alive() {
-                death_events.send(PlayerDeathEvent);
+                if !player.is_alive() {
+                    death_events.send(PlayerDeathEvent);
+                }
             }
+            // Reset max fall velocity after landing
+            player.max_fall_velocity = 0.0;
         }
+
+        // Track max fall velocity while in air
+        if !player.is_grounded && player.velocity.y < player.max_fall_velocity {
+            player.max_fall_velocity = player.velocity.y;
+        }
+
+        // Update was_grounded for next frame
+        player.was_grounded = player.is_grounded;
 
         // Test damage with H key
         if keyboard.just_pressed(KeyCode::KeyH) {
