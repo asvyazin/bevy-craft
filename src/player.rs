@@ -391,13 +391,15 @@ pub fn player_movement_system(
 
 /// System to handle player death
 pub fn player_death_system(
-    mut query: Query<&mut Transform, With<Player>>,
+    mut query: Query<(&mut Transform, &mut Player)>,
     mut death_events: EventReader<PlayerDeathEvent>,
 ) {
     for _ in death_events.read() {
-        for mut transform in &mut query {
+        for (mut transform, mut player) in &mut query {
             // Move player to spawn position (temporary solution)
             transform.translation = Vec3::new(0.0, 20.0, 0.0);
+            // Restore player health on respawn
+            player.health = player.max_health;
             info!("💀 Player died! Respawning...");
         }
     }
