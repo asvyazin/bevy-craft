@@ -519,12 +519,22 @@ fn render_chunk_meshes(
             if let Some(mut entity_commands) = commands.get_entity(entity) {
                 // Third check: verify the entity hasn't been despawned
                 if entity_commands.id() == entity {
-                    // Use a default material (grass) if no specific materials are available
-                    // This ensures all chunks are rendered even if material assignment is incomplete
+                    // Use a deterministic material selection to prevent random material changes
+                    // Prefer Grass material, then Dirt, then first available
                     let material_handle = chunk_mesh
                         .material_handles
-                        .values()
-                        .next()
+                        .get(&BlockType::Grass)
+                        .or_else(|| chunk_mesh.material_handles.get(&BlockType::Dirt))
+                        .or_else(|| chunk_mesh.material_handles.get(&BlockType::Stone))
+                        .or_else(|| {
+                            // Sort keys deterministically and pick first
+                            let mut sorted_keys: Vec<_> =
+                                chunk_mesh.material_handles.keys().cloned().collect();
+                            sorted_keys.sort_by_key(|bt| format!("{:?}", bt));
+                            sorted_keys
+                                .first()
+                                .and_then(|bt| chunk_mesh.material_handles.get(bt))
+                        })
                         .cloned()
                         .unwrap_or_else(|| Handle::default());
 
