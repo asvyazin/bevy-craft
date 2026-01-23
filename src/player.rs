@@ -1,3 +1,4 @@
+use crate::chunk::Chunk;
 use crate::collision::CollisionState;
 use bevy::math::primitives::Cuboid;
 use bevy::prelude::*;
@@ -18,6 +19,9 @@ pub struct Player {
     pub max_thirst: f32,
     pub max_fall_velocity: f32,
     pub was_grounded: bool,
+    pub oxygen: f32,
+    pub max_oxygen: f32,
+    pub is_underwater: bool,
 }
 
 impl Player {
@@ -37,6 +41,9 @@ impl Player {
                 max_thirst: 100.0,
                 max_fall_velocity: 0.0,
                 was_grounded: false,
+                oxygen: 100.0,
+                max_oxygen: 100.0,
+                is_underwater: false,
             },
             CollisionState::default(),
             Transform::from_translation(spawn_position),
@@ -82,6 +89,18 @@ impl Player {
     pub fn is_dehydrated(&self) -> bool {
         self.thirst <= 0.0
     }
+
+    pub fn reduce_oxygen(&mut self, amount: f32) {
+        self.oxygen = (self.oxygen - amount).max(0.0);
+    }
+
+    pub fn restore_oxygen(&mut self, amount: f32) {
+        self.oxygen = (self.oxygen + amount).min(self.max_oxygen);
+    }
+
+    pub fn is_drowning(&self) -> bool {
+        self.oxygen <= 0.0
+    }
 }
 
 /// Settings for player movement
@@ -94,6 +113,75 @@ pub struct PlayerMovementSettings {
     #[allow(dead_code)]
     pub gravity: f32,
     pub mouse_sensitivity: f32,
+}
+
+/// System to detect when player is underwater
+pub fn drowning_detection_system(
+    mut player_query: Query<&mut Player, (With<crate::camera::GameCamera>)>,
+    camera_query: Query<&Transform, With<crate::camera::GameCamera>>,
+    chunks: Query<&Chunk>,
+    chunk_manager: Res<crate::chunk::ChunkManager>,
+) {
+    if let Ok(camera_transform) = camera_query.get_single() {
+        let player_position = camera_transform.translation;
+
+        let block_pos = crate::chunk::ChunkPosition::from_block_position(IVec3::new(
+            player_position.x as i32,
+            player_position.y as i32,
+            player_position.z as i32,
+        ));
+
+        if let Some(chunk_entity) = chunk_manager.loaded_chunks.get(&block_pos) {
+            if let Ok(chunk) = chunks.get(*chunk_entity) {
+                if let Some(block_type) = chunk.get_block_world(IVec3::new(
+                    player_position.x as i32,
+                    (player_position.y + 1.6) as i32,
+                    player_position.z as i32,
+                )) {
+                    for mut player in &mut player_query {
+                        player.is_underwater = block_type == crate::block::BlockType::Water;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// System to handle oxygen consumption and drowning damage
+pub fn drowning_damage_system(
+    mut query: Query<&mut Player>,
+    time: Res<Time>,
+    mut damage_events: EventWriter<PlayerDamageEvent>,
+    mut death_events: EventWriter<PlayerDeathEvent>,
+) {
+    for mut player in &mut query {
+        if player.is_underwater {
+            // Consume oxygen over time (2.0 oxygen per second)
+            let oxygen_decay = 2.0 * time.delta_secs();
+            player.reduce_oxygen(oxygen_decay);
+        } else if player.oxygen < player.max_oxygen {
+            // Restore oxygen gradually when above water
+            let oxygen_restore = 10.0 * time.delta_secs();
+            player.restore_oxygen(oxygen_restore);
+        }
+
+        // Take damage when drowning (oxygen <= 0)
+        if player.is_drowning() {
+            let drowning_damage = 3.0 * time.delta_secs();
+            let actual_damage = player.take_damage(drowning_damage);
+
+            if actual_damage > 0.0 {
+                damage_events.send(PlayerDamageEvent {
+                    amount: actual_damage,
+                    new_health: player.health,
+                });
+            }
+
+            if !player.is_alive() {
+                death_events.send(PlayerDeathEvent);
+            }
+        }
+    }
 }
 
 impl Default for PlayerMovementSettings {
@@ -451,13 +539,15 @@ pub fn display_hunger_thirst_status(player_query: Query<&Player>, time: Res<Time
     if time.elapsed_secs_f64() % 5.0 < 0.1 {
         if let Ok(player) = player_query.get_single() {
             info!(
-                "📊 Status - Health: {:.1}/{:.1} | Hunger: {:.1}/{:.1} | Thirst: {:.1}/{:.1}",
+                "📊 Status - Health: {:.1}/{:.1} | Hunger: {:.1}/{:.1} | Thirst: {:.1}/{:.1} | Oxygen: {:.1}/{:.1}",
                 player.health,
                 player.max_health,
                 player.hunger,
                 player.max_hunger,
                 player.thirst,
-                player.max_thirst
+                player.max_thirst,
+                player.oxygen,
+                player.max_oxygen
             );
         }
     }

@@ -155,6 +155,8 @@ fn main() {
         .add_systems(Update, player::player_death_system) // Add player death system
         .add_systems(Update, player::handle_damage_events) // Add damage event handling
         .add_systems(Update, player::hunger_thirst_decay_system) // Add hunger/thirst decay system
+        .add_systems(Update, player::drowning_detection_system) // Add drowning detection system
+        .add_systems(Update, player::drowning_damage_system) // Add drowning damage system
         .add_systems(Update, player::food_consumption_system) // Add food consumption system
         .add_systems(Update, player::health_regeneration_system) // Add health regeneration system
         .add_systems(Update, player::display_hunger_thirst_status) // Add hunger/thirst status display
